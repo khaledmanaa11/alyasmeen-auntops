@@ -141,17 +141,8 @@ def _make_tool_executor(phone: str, st: dict, cart: list, ran_flag: list[bool]):
 # ---------------------------------------------------------------------------
 
 @router.get("/webhook")
-async def webhook_get(
-    request: Request,
-    hub_mode: str | None = None,
-    hub_challenge: str | None = None,
-    hub_verify_token: str | None = None,
-):
-    params = {
-        "hub.mode": hub_mode,
-        "hub.challenge": hub_challenge,
-        "hub.verify_token": hub_verify_token,
-    }
+async def webhook_get(request: Request):
+    params = dict(request.query_params)
     try:
         ok, code, body = verify_get(params)
         return body if code == 200 else (body, code)
