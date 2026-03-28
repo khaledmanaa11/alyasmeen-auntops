@@ -4,6 +4,7 @@ import logging
 import re
 
 from fastapi import APIRouter, Request
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
 from app.ai.retriever import search_products
@@ -145,10 +146,10 @@ async def webhook_get(request: Request):
     params = dict(request.query_params)
     try:
         ok, code, body = verify_get(params)
-        return body if code == 200 else (body, code)
+        return PlainTextResponse(content=body) if code == 200 else (body, code)
     except TypeError:
         ok, code, body = verify_get(params, dict(request.headers), b"")
-        return body if code == 200 else (body, code)
+        return PlainTextResponse(content=body) if code == 200 else (body, code)
 
 
 class Msg(BaseModel):
