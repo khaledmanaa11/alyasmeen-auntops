@@ -1,40 +1,39 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="ar" dir="rtl" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ALYASMEEN — رسائل جماعية</title>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap');
     * { font-family: 'Cairo', sans-serif; }
-    .modal-backdrop { animation: fadeIn 0.15s ease forwards; }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     @keyframes spin { to { transform: rotate(360deg); } }
     .spinner { animation: spin 0.8s linear infinite; }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
   </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="bg-base-200 min-h-screen">
 
   <!-- Navbar -->
-  <nav class="bg-white border-b border-gray-200 sticky top-0 z-20 shadow-sm">
-    <div class="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+  <div class="navbar bg-base-100 border-b border-base-200 shadow-sm sticky top-0 z-20">
+    <div class="w-full max-w-3xl mx-auto px-4 flex items-center justify-between">
       <div class="flex items-center gap-2">
         <span class="text-2xl">🌿</span>
         <span class="font-extrabold text-gray-900 text-lg tracking-tight">ALYASMEEN</span>
       </div>
-      <div class="flex items-center gap-1">
-        <a href="/orders"    class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100">الطلبات</a>
-        <a href="/dashboard" class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100">الإحصائيات</a>
-        <a href="/products"  class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100">المنتجات</a>
+      <div class="flex items-center gap-1 flex-wrap">
+        <a href="/orders"    class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-base-200 transition-colors">الطلبات</a>
+        <a href="/dashboard" class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-base-200 transition-colors">الإحصائيات</a>
+        <a href="/products"  class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-base-200 transition-colors">المنتجات</a>
         <a href="/broadcast" class="px-3 py-1.5 rounded-lg text-sm font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">رسائل جماعية</a>
-        <a href="/logout"    class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-400 hover:text-red-500">خروج</a>
+        <a href="/logout"    class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-400 hover:text-red-500 transition-colors">خروج</a>
       </div>
     </div>
-  </nav>
+  </div>
 
-  <div class="max-w-2xl mx-auto px-4 py-5">
+  <div class="max-w-3xl mx-auto px-4 py-5">
 
     <!-- Header -->
     <div class="mb-5">
@@ -42,139 +41,155 @@
       <p class="text-sm text-gray-500 mt-0.5">أرسلي رسالة لجميع عملائك أو مجموعة محددة منهم</p>
     </div>
 
-    <!-- Broadcast Card -->
-    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-      <form id="broadcast-form" class="flex flex-col gap-4">
+    <!-- Main Card -->
+    <div class="card bg-base-100 border border-base-200 shadow-sm">
+      <div class="card-body p-5 gap-5">
 
-        <!-- Segment -->
-        <div class="flex flex-col gap-1.5">
-          <label for="segment-select" class="text-sm font-semibold text-gray-700">الفئة المستهدفة</label>
-          <select id="segment-select" name="segment"
-            class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-800 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-300">
-            <option value="all">جميع العملاء</option>
-            <option value="recent">العملاء الجدد (آخر 30 يوم)</option>
-            <option value="vip">عملاء VIP</option>
-          </select>
-        </div>
+        <form id="broadcast-form" class="flex flex-col gap-4">
 
-        <!-- Message -->
-        <div class="flex flex-col gap-1.5">
-          <label for="message-draft" class="text-sm font-semibold text-gray-700">نص الرسالة</label>
-          <textarea
-            id="message-draft"
-            name="message"
-            rows="6"
-            maxlength="2000"
-            placeholder="اكتبي رسالتك هنا..."
-            class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-800 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-300 resize-none"
-          ></textarea>
-          <div class="text-xs text-gray-400 text-left">
-            <span id="char-counter">0</span> / 2000
+          <!-- Segment -->
+          <div class="form-control">
+            <label class="label pb-1">
+              <span class="label-text font-semibold text-gray-700">الفئة المستهدفة</span>
+            </label>
+            <select id="segment-select" name="segment"
+              class="select select-bordered focus:select-success w-full text-gray-800">
+              <option value="all">🌍 جميع العملاء</option>
+              <option value="recent">🕐 العملاء الجدد (آخر 30 يوم)</option>
+              <option value="vip">⭐ عملاء VIP (الأكثر طلباً)</option>
+            </select>
           </div>
-        </div>
 
-        <!-- Actions -->
-        <div class="flex gap-3 flex-wrap">
-          <button type="button" id="improve-btn" aria-label="تحسين الرسالة بالذكاء الاصطناعي"
-            class="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm">
-            <span>✨</span>
-            تحسين بالذكاء الاصطناعي
-          </button>
-          <button type="submit" aria-label="إرسال الرسالة الجماعية"
-            class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl transition-colors shadow-sm">
-            <span>📤</span>
-            إرسال
-          </button>
-        </div>
+          <!-- Message -->
+          <div class="form-control">
+            <label class="label pb-1">
+              <span class="label-text font-semibold text-gray-700">نص الرسالة</span>
+              <span class="label-text-alt text-gray-400">
+                <span id="char-counter">0</span> / 2000
+              </span>
+            </label>
+            <textarea
+              id="message-draft"
+              name="message"
+              rows="7"
+              maxlength="2000"
+              placeholder="اكتبي رسالتك هنا..."
+              class="textarea textarea-bordered focus:textarea-success w-full text-sm resize-none text-gray-800"
+            ></textarea>
+          </div>
 
-      </form>
+          <!-- Tip -->
+          <div class="alert bg-blue-50 border-blue-100 text-blue-700 text-xs py-2.5 rounded-xl">
+            <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+            </svg>
+            <span>يمكنك استخدام الذكاء الاصطناعي لتحسين نص رسالتك قبل الإرسال</span>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex gap-3 flex-wrap pt-1">
+            <button type="button" id="improve-btn" aria-label="تحسين الرسالة بالذكاء الاصطناعي"
+              class="btn flex-1 bg-violet-600 hover:bg-violet-700 border-0 text-white text-sm font-bold gap-2 shadow-sm">
+              <span>✨</span>
+              تحسين بالذكاء الاصطناعي
+            </button>
+            <button type="submit" aria-label="إرسال الرسالة الجماعية"
+              class="btn flex-1 bg-emerald-600 hover:bg-emerald-700 border-0 text-white text-sm font-bold gap-2 shadow-sm">
+              <span>📤</span>
+              إرسال
+            </button>
+          </div>
+
+        </form>
+
+      </div>
     </div>
 
   </div>
 
-  <!-- ─── Improvement Modal ─────────────────────────────────────────────── -->
+  <!-- ── AI Improvement Modal ── -->
   <div id="improve-modal"
-       class="modal-backdrop fixed inset-0 z-40 bg-black/50 p-4"
+       class="modal"
        role="dialog" aria-modal="true" aria-labelledby="modal-title" hidden>
-    <div class="flex items-center justify-center h-full">
 
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+    <div class="modal-box w-full max-w-2xl bg-white rounded-2xl shadow-2xl p-0 overflow-hidden max-h-[90vh] flex flex-col">
 
-      <!-- Modal Header -->
-      <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+      <!-- Header -->
+      <div class="flex items-center justify-between px-5 py-4 border-b border-base-200 shrink-0">
         <h2 id="modal-title" class="text-base font-extrabold text-gray-900">مقارنة النص المحسّن</h2>
-        <button type="button" id="modal-close-btn" aria-label="إغلاق نافذة المقارنة"
-          class="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors text-lg leading-none">
-          ✕
-        </button>
+        <button type="button" id="modal-close-btn" aria-label="إغلاق"
+          class="btn btn-ghost btn-sm btn-circle text-gray-400 hover:text-gray-600 text-lg">✕</button>
       </div>
 
-      <!-- Modal Body -->
+      <!-- Body -->
       <div class="flex-1 overflow-y-auto p-5">
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-          <!-- Original -->
           <div class="flex flex-col gap-2">
-            <div class="text-xs font-bold text-gray-500 uppercase tracking-wide">النص الأصلي</div>
+            <div class="badge badge-sm bg-gray-100 text-gray-600 border-gray-200 font-bold uppercase tracking-wide">النص الأصلي</div>
             <div id="original-text" dir="rtl"
-              class="min-h-[120px] bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-800 whitespace-pre-wrap"
-              role="region" aria-labelledby="label-original"></div>
+              class="min-h-28 bg-base-200 border border-base-300 rounded-xl px-4 py-3 text-sm text-gray-800 whitespace-pre-wrap"></div>
           </div>
 
-          <!-- Improved -->
           <div class="flex flex-col gap-2">
-            <div class="text-xs font-bold text-emerald-600 uppercase tracking-wide">النص المحسّن ✨</div>
+            <div class="badge badge-sm bg-emerald-100 text-emerald-700 border-emerald-200 font-bold uppercase tracking-wide">النص المحسّن ✨</div>
             <div id="improved-text" dir="rtl"
-              class="min-h-[120px] bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5 text-sm text-gray-800 whitespace-pre-wrap"
-              role="region" aria-labelledby="label-improved"></div>
+              class="min-h-28 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-sm text-gray-800 whitespace-pre-wrap"></div>
             <textarea id="improved-editor" dir="rtl" rows="6" aria-label="تعديل النص المحسّن"
-              class="min-h-[120px] bg-white border border-emerald-300 rounded-xl px-3 py-2.5 text-sm text-gray-800 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-300"
+              class="textarea textarea-bordered focus:textarea-success min-h-28 text-sm resize-none"
               hidden></textarea>
           </div>
 
         </div>
       </div>
 
-      <!-- Modal Actions -->
-      <div class="flex gap-2 px-5 py-4 border-t border-gray-100 flex-wrap">
-        <button type="button" id="accept-btn" aria-label="قبول النص المحسّن واستخدامه"
-          class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors">
+      <!-- Actions -->
+      <div class="flex gap-2 px-5 py-4 border-t border-base-200 flex-wrap shrink-0">
+        <button type="button" id="accept-btn"
+          class="btn flex-1 bg-emerald-600 hover:bg-emerald-700 border-0 text-white text-sm font-bold">
           ✓ قبول
         </button>
-        <button type="button" id="edit-btn" aria-label="تعديل النص المحسّن قبل الإرسال"
-          class="flex-1 bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors">
+        <button type="button" id="edit-btn"
+          class="btn flex-1 bg-amber-500 hover:bg-amber-600 border-0 text-white text-sm font-bold">
           ✏️ تعديل
         </button>
-        <button type="button" id="save-edit-btn" aria-label="حفظ التعديل"
-          class="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors"
+        <button type="button" id="save-edit-btn"
+          class="btn flex-1 bg-blue-600 hover:bg-blue-700 border-0 text-white text-sm font-bold"
           hidden>
           💾 حفظ التعديل
         </button>
-        <button type="button" id="reject-btn" aria-label="رفض التحسين والإبقاء على النص الأصلي"
-          class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold py-2.5 rounded-xl transition-colors">
+        <button type="button" id="reject-btn"
+          class="btn flex-1 bg-base-200 hover:bg-base-300 border-0 text-gray-700 text-sm font-bold">
           ✕ تجاهل
         </button>
       </div>
 
     </div>
-    </div><!-- /flex centering wrapper -->
+    <div class="modal-backdrop bg-black/50"></div>
   </div>
 
-  <!-- ─── Loading Spinner Overlay ──────────────────────────────────────── -->
-  <div id="spinner-overlay" class="fixed inset-0 z-50 bg-black/40" hidden aria-live="polite">
-    <div class="flex flex-col items-center justify-center h-full">
-      <div class="w-10 h-10 border-4 border-white border-t-transparent rounded-full spinner" role="status">
-        <span class="sr-only">جارٍ تحسين الرسالة...</span>
-      </div>
-      <p class="mt-3 text-white text-sm font-semibold">جارٍ التحسين بالذكاء الاصطناعي...</p>
+  <!-- ── Loading Spinner Overlay ── -->
+  <div id="spinner-overlay" class="fixed inset-0 z-50 bg-black/50 flex flex-col items-center justify-center" hidden aria-live="polite">
+    <div class="w-12 h-12 border-4 border-white border-t-transparent rounded-full spinner" role="status">
+      <span class="sr-only">جارٍ تحسين الرسالة...</span>
     </div>
+    <p class="mt-4 text-white text-sm font-semibold">جارٍ التحسين بالذكاء الاصطناعي...</p>
   </div>
 
-  <!-- ─── Toast ────────────────────────────────────────────────────────── -->
-  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 hidden pointer-events-none">
-    <div id="toast-msg" class="flex items-center gap-2 bg-gray-900 text-white text-sm px-5 py-3 rounded-2xl shadow-xl"></div>
+  <!-- ── Toast ── -->
+  <div id="toast" class="toast toast-bottom toast-center z-50 hidden pointer-events-none">
+    <div id="toast-msg" class="alert bg-gray-900 text-white text-sm shadow-xl rounded-2xl px-5 py-3 gap-2"></div>
   </div>
 
   <script src="/static/js/broadcast_improve.js"></script>
+
+  <script>
+    // Character counter
+    const draft = document.getElementById('message-draft');
+    const counter = document.getElementById('char-counter');
+    draft.addEventListener('input', () => {
+      counter.textContent = draft.value.length;
+    });
+  </script>
 </body>
 </html>
