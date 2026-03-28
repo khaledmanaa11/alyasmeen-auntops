@@ -19,7 +19,7 @@ templates = Jinja2Templates(
 )
 # Jinja2 LRUCache uses dict as cache key which is unhashable in Python 3.13.
 # Disabling the cache is the safe workaround until the runtime is on 3.11.
-templates.env.cache_size = 0
+templates.env.cache = None
 
 COOKIE_NAME = "alyasmeen_session"
 
