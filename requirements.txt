@@ -1,0 +1,15 @@
+# pyproject.toml is the source of truth for dependencies.
+# This file is kept for Railway/Render compatibility.
+fastapi>=0.115.0
+uvicorn>=0.22
+pydantic>=2.0
+python-dotenv>=1.0
+requests>=2.32
+supabase>=2.0.0
+apscheduler>=3.10.0
+anthropic>=0.25.0
+jinja2>=3.1.0
+python-multipart>=0.0.9
+aiofiles>=23.0.0
+fpdf2>=2.7.0
+python-bidi>=0.4.2

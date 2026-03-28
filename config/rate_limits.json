@@ -1,0 +1,19 @@
+{
+  "version": "1.00",
+  "services": {
+    "whatsapp": {
+      "requests_per_minute": 30,
+      "requests_per_hour": 500,
+      "concurrent_max": 5,
+      "retry_after_seconds": 30,
+      "max_retries": 3
+    },
+    "claude_ai": {
+      "requests_per_minute": 50,
+      "requests_per_hour": 1000,
+      "concurrent_max": 10,
+      "retry_after_seconds": 10,
+      "max_retries": 3
+    }
+  }
+}

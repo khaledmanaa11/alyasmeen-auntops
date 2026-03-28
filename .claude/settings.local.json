@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest tests/test_whatsapp_ai_aunt.py tests/test_whatsapp_info.py tests/test_whatsapp_order.py -v)",
+      "Bash(curl -L \"https://github.com/google/fonts/raw/main/ofl/rubik/static/Rubik-Regular.ttf\" -o \"C:/Users/Hp/OneDrive/Desktop/חנאן/ALYASMEEN_fixed/auntops_fixed/app/data/fonts/Rubik-Regular.ttf\")",
+      "Bash(python -m pytest tests/unit/test_gatekeeper.py tests/unit/test_ai_service.py -v)",
+      "Bash(python -m pytest tests/unit/test_whatsapp.py tests/integration/ -v)",
+      "Bash(python -m pytest tests/integration/test_orders_api.py -v)",
+      "Bash(python -m pytest tests/integration/test_orders_api.py::TestOrderStatusUpdate::test_update_to_ready_succeeds -v)",
+      "Bash(python -m pytest tests/ -v --tb=short)",
+      "Bash(python -m pip install pytest-cov -q)",
+      "Bash(python -m pytest --cov=app tests/ --cov-report=term-missing)",
+      "Bash(python -m pytest tests/ --cov=app --cov-report=term-missing -q)",
+      "Bash(python -m ruff check .)",
+      "Bash(python -m ruff check . --fix)",
+      "Bash(python -c \"from agents.prompts import PM_SYSTEM, DEV_SYSTEM, QA_SYSTEM, DEVOPS_SYSTEM; print\\(''prompts OK''\\)\")",
+      "Bash(python -c \"import sys; sys.path.insert\\(0,''.''\\); from app.services.config import Config; print\\(''Config.CLAUDE_API_KEY set:'', bool\\(Config.CLAUDE_API_KEY\\)\\)\")",
+      "Bash(python -m agents.pipeline \"Add AI message improvement to broadcast page: aunt types a draft message, clicks an improve button, sees her original vs AI-improved version side by side, can accept the AI version, edit it, or ignore it and send her original. AI only polishes tone and grammar, never changes meaning or adds products. Works for Arabic and English drafts.\")",
+      "Bash(python -c \"from agents.prompts import FRONTEND_DEV_SYSTEM, VISUAL_QA_SYSTEM; from agents.frontend_pipeline import run_frontend_pipeline; print\\(''frontend_pipeline imports OK''\\)\")",
+      "Bash(python -c \"from agents.pipeline import run_pipeline; from agents.prompts import TEST_DEV_SYSTEM; print\\(''OK''\\)\")",
+      "Bash(python -m agents.frontend_pipeline \"broadcast improve UI: improve button on broadcast page, side-by-side modal showing original vs AI-improved version, accept/edit/ignore buttons, Arabic RTL layout, loading spinner, error handling if AI fails\" --backend \"agents/output/2026-03-27_16-53_add-ai-message-improvement-to-broadcast-page-aunt-types-a-d.md\")",
+      "Bash(python -c \":*)",
+      "Bash(python scripts/seed_products.py)",
+      "Bash(python scripts/verify_products.py)",
+      "Bash(curl -s http://localhost:8000/)",
+      "Bash(curl -s http://localhost:8000/static/js/broadcast_improve.js)",
+      "Bash(python -c \"import aiofiles; print\\(''aiofiles ok''\\)\")",
+      "Bash(pip install:*)"
+    ]
+  }
+}

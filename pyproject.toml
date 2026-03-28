@@ -1,0 +1,38 @@
+[project]
+name = "alyasmeen-auntops"
+version = "1.0.0"
+description = "WhatsApp ordering bot for ALYASMEEN Palestinian skincare business"
+authors = [{ name = "Khaled" }]
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn>=0.22",
+    "pydantic>=2.0",
+    "python-dotenv>=1.0",
+    "requests>=2.32",
+    "supabase>=2.0.0",
+    "apscheduler>=3.10.0",
+    "anthropic>=0.25.0",
+    "jinja2>=3.1.0",
+    "python-multipart>=0.0.9",
+    "fpdf2>=2.7.0",
+    "python-bidi>=0.4.2",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM"]
+ignore = ["E501"]
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/main.py", "*/tests/*"]
+
+[tool.coverage.report]
+fail_under = 85
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

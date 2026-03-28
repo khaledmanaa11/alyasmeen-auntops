@@ -1,0 +1,5 @@
+[
+  {"name":"Latte","price":10.0,"tags":["coffee","milk"],"allergens":["lactose"],"description":"Smooth espresso with steamed milk."},
+  {"name":"Americano","price":8.0,"tags":["coffee","no_milk"],"allergens":[],"description":"Espresso diluted with hot water."},
+  {"name":"Almond Latte","price":12.0,"tags":["coffee","dairy_free"],"allergens":["nuts"],"description":"Latte with almond milk."}
+]

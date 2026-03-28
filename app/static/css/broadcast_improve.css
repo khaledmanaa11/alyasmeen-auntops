@@ -1,0 +1,536 @@
+/* ============================================================
+   ALYASMEEN — Broadcast Improve Feature Styles
+   RTL layout throughout; Arabic-first design
+   ============================================================ */
+
+/* ── Reset / base ──────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+    background-color: #f5f5f0;
+    color: #2c2c2c;
+    min-height: 100vh;
+    direction: rtl;
+}
+
+/* ── Navbar ────────────────────────────────────────────────── */
+.navbar {
+    background-color: #2d6a4f;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1.5rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.navbar-brand {
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.navbar-links {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.navbar-links a {
+    color: rgba(255, 255, 255, 0.85);
+    text-decoration: none;
+    font-size: 0.95rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.navbar-links a:hover,
+.navbar-links a.active {
+    color: #fff;
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+/* ── Main container ────────────────────────────────────────── */
+.main-container {
+    max-width: 860px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+/* ── Page header ───────────────────────────────────────────── */
+.page-header {
+    margin-bottom: 1.5rem;
+}
+
+.page-title {
+    font-size: 1.6rem;
+    color: #2d6a4f;
+    margin-bottom: 0.25rem;
+}
+
+.page-subtitle {
+    color: #666;
+    font-size: 0.95rem;
+}
+
+/* ── Broadcast card ────────────────────────────────────────── */
+.broadcast-card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 1.75rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* ── Form groups ───────────────────────────────────────────── */
+.form-group {
+    margin-bottom: 1.25rem;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.4rem;
+    font-size: 0.95rem;
+}
+
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    border: 1.5px solid #d0d0c8;
+    border-radius: 6px;
+    padding: 0.6rem 0.8rem;
+    font-size: 1rem;
+    font-family: inherit;
+    color: #2c2c2c;
+    background: #fafaf8;
+    direction: inherit;
+    transition: border-color 0.2s;
+    resize: vertical;
+}
+
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #2d6a4f;
+    background: #fff;
+}
+
+.form-group textarea {
+    min-height: 120px;
+}
+
+/* ── Character counter ─────────────────────────────────────── */
+.char-count {
+    text-align: left;
+    font-size: 0.82rem;
+    color: #888;
+    margin-top: 0.3rem;
+}
+
+.char-count--warning {
+    color: #b87d00;
+}
+
+.char-count--danger {
+    color: #c0392b;
+    font-weight: 700;
+}
+
+/* ── Form action buttons ───────────────────────────────────── */
+.form-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    margin-top: 0.5rem;
+}
+
+/* ── Base button ───────────────────────────────────────────── */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.6rem 1.2rem;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn:not(:disabled):active {
+    transform: scale(0.97);
+}
+
+.btn-icon {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.btn-improve {
+    background-color: #7b5ea7;
+    color: #fff;
+}
+
+.btn-improve:not(:disabled):hover { opacity: 0.88; }
+
+.btn-send {
+    background-color: #2d6a4f;
+    color: #fff;
+}
+
+.btn-send:not(:disabled):hover { opacity: 0.88; }
+
+/* ── Broadcast history ─────────────────────────────────────── */
+.broadcast-history {
+    margin-top: 2rem;
+}
+
+.broadcast-history h2 {
+    font-size: 1.1rem;
+    color: #2d6a4f;
+    margin-bottom: 1rem;
+    border-bottom: 2px solid #e8e8e0;
+    padding-bottom: 0.4rem;
+}
+
+.history-item {
+    background: #fff;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 0.75rem;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.history-meta {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.82rem;
+    color: #888;
+    margin-bottom: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.history-text {
+    color: #333;
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+/* ── Modal backdrop ────────────────────────────────────────── */
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+    overflow-y: auto;
+}
+
+.modal-backdrop[hidden] {
+    display: none;
+}
+
+/* ── Modal container ───────────────────────────────────────── */
+.modal-container {
+    background: #fff;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 820px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+    overflow: hidden;
+}
+
+/* ── Modal header ──────────────────────────────────────────── */
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    border-bottom: 1.5px solid #e8e8e0;
+    flex-shrink: 0;
+}
+
+.modal-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #2d6a4f;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    color: #666;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    line-height: 1;
+    transition: background-color 0.2s;
+}
+
+.modal-close:hover {
+    background-color: #f0f0ea;
+    color: #333;
+}
+
+/* ── Modal body ────────────────────────────────────────────── */
+.modal-body {
+    padding: 1.25rem;
+    overflow-y: auto;
+    flex: 1;
+}
+
+/* ── Comparison grid ───────────────────────────────────────── */
+.comparison-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+/* ── Comparison panels ─────────────────────────────────────── */
+.comparison-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.comparison-panel--original {
+    background-color: #f5f5f0;
+    border: 1.5px solid #d8d8d0;
+}
+
+.comparison-panel--improved {
+    background-color: #eef7f1;
+    border: 1.5px solid #a8d5b8;
+}
+
+/* ── Panel label ───────────────────────────────────────────── */
+.panel-label {
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.comparison-panel--original .panel-label {
+    color: #555;
+    background-color: #eceae4;
+}
+
+.comparison-panel--improved .panel-label {
+    color: #2d6a4f;
+    background-color: #d4edda;
+}
+
+/* ── Panel text (read-only display) ───────────────────────── */
+.panel-text {
+    padding: 0.75rem;
+    font-size: 0.97rem;
+    line-height: 1.7;
+    color: #2c2c2c;
+    white-space: pre-wrap;
+    word-break: break-word;
+    min-height: 120px;
+}
+
+.comparison-panel--original .panel-text { color: #555; }
+.comparison-panel--improved .panel-text { color: #1a4731; }
+
+/* ── Panel editor (editable textarea) ─────────────────────── */
+.panel-editor {
+    width: 100%;
+    min-height: 120px;
+    border: none;
+    border-top: 1.5px solid #a8d5b8;
+    background: #fff;
+    padding: 0.75rem;
+    font-size: 0.97rem;
+    font-family: inherit;
+    line-height: 1.7;
+    color: #1a4731;
+    resize: vertical;
+    direction: inherit;
+}
+
+.panel-editor:focus {
+    outline: 2px solid #2d6a4f;
+    outline-offset: -2px;
+}
+
+.panel-editor[hidden] { display: none; }
+
+/* ── LTR panel override (English messages) ─────────────────── */
+.comparison-panel[dir="ltr"] .panel-text,
+.comparison-panel[dir="ltr"] .panel-editor {
+    text-align: left;
+}
+
+/* ── Modal action buttons ──────────────────────────────────── */
+.modal-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    padding: 1rem 1.25rem;
+    border-top: 1.5px solid #e8e8e0;
+    background: #fafaf8;
+    flex-shrink: 0;
+}
+
+.btn-accept    { background-color: #2d6a4f; color: #fff; }
+.btn-edit      { background-color: #6c757d; color: #fff; }
+.btn-save-edit { background-color: #17a2b8; color: #fff; }
+.btn-reject    { background-color: #c0392b; color: #fff; }
+
+.btn-accept:not(:disabled):hover,
+.btn-edit:not(:disabled):hover,
+.btn-save-edit:not(:disabled):hover,
+.btn-reject:not(:disabled):hover { opacity: 0.88; }
+
+/* ── Body locked when modal open ──────────────────────────── */
+body.modal-open { overflow: hidden; }
+
+/* ── Spinner overlay ───────────────────────────────────────── */
+.spinner-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(255, 255, 255, 0.75);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    gap: 1rem;
+}
+
+.spinner-overlay[hidden] { display: none; }
+
+.spinner {
+    width: 48px;
+    height: 48px;
+    border: 5px solid #e0e0d8;
+    border-top-color: #2d6a4f;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.spinner-label {
+    font-size: 0.95rem;
+    color: #555;
+}
+
+/* ── Screen-reader only utility ────────────────────────────── */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ── Error / success toast ─────────────────────────────────── */
+.error-toast {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #c0392b;
+    color: #fff;
+    padding: 0.75rem 1.25rem;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    z-index: 3000;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    max-width: 90vw;
+    font-size: 0.95rem;
+}
+
+.error-toast[hidden] { display: none; }
+
+.error-toast--success {
+    background-color: #2d6a4f;
+}
+
+.error-toast-message {
+    flex: 1;
+}
+
+.error-toast-close {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    opacity: 0.8;
+    flex-shrink: 0;
+}
+
+.error-toast-close:hover { opacity: 1; }
+
+/* ── Mobile responsive ─────────────────────────────────────── */
+@media (max-width: 600px) {
+    .comparison-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .modal-actions {
+        justify-content: stretch;
+    }
+
+    .modal-actions .btn {
+        flex: 1;
+        justify-content: center;
+    }
+
+    .form-actions {
+        flex-direction: column;
+    }
+
+    .form-actions .btn {
+        width: 100%;
+        justify-content: center;
+    }
+}

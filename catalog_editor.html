@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ALYASMEEN — تعبئة قائمة المنتجات</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+    background: #f5f0eb;
+    color: #2c2c2c;
+    min-height: 100vh;
+  }
+
+  header {
+    background: linear-gradient(135deg, #5c3d2e, #8b5e3c);
+    color: white;
+    padding: 24px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+  }
+
+  header h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: 1px; }
+  header p  { font-size: 0.9rem; opacity: 0.8; margin-top: 4px; }
+
+  .header-actions { display: flex; gap: 10px; }
+
+  .main { max-width: 900px; margin: 0 auto; padding: 28px 20px; }
+
+  /* ── Categories ── */
+  .section-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #5c3d2e;
+    margin-bottom: 12px;
+    border-right: 4px solid #8b5e3c;
+    padding-right: 10px;
+  }
+
+  .categories-box {
+    background: white;
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-bottom: 28px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+  }
+
+  .cat-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; min-height: 36px; }
+
+  .cat-tag {
+    background: #f0e6da;
+    border: 1.5px solid #c9956a;
+    color: #5c3d2e;
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 0.88rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .cat-tag button {
+    background: none;
+    border: none;
+    color: #a0522d;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    padding: 0 2px;
+  }
+
+  .cat-input-row { display: flex; gap: 8px; }
+
+  .cat-input-row input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1.5px solid #ddd;
+    border-radius: 8px;
+    font-size: 0.92rem;
+    font-family: inherit;
+    direction: rtl;
+  }
+
+  .cat-input-row input:focus { outline: none; border-color: #8b5e3c; }
+
+  /* ── Buttons ── */
+  .btn {
+    padding: 9px 18px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    font-family: inherit;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.15s;
+  }
+
+  .btn-primary { background: #8b5e3c; color: white; }
+  .btn-primary:hover { background: #5c3d2e; }
+
+  .btn-success { background: #2e7d32; color: white; }
+  .btn-success:hover { background: #1b5e20; }
+
+  .btn-outline {
+    background: white;
+    color: #8b5e3c;
+    border: 1.5px solid #8b5e3c;
+  }
+  .btn-outline:hover { background: #f0e6da; }
+
+  .btn-danger { background: #c62828; color: white; font-size: 0.8rem; padding: 6px 12px; }
+  .btn-danger:hover { background: #8b0000; }
+
+  .btn-add-product {
+    width: 100%;
+    padding: 14px;
+    border: 2px dashed #c9956a;
+    border-radius: 12px;
+    background: white;
+    color: #8b5e3c;
+    font-size: 1rem;
+    font-family: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-top: 12px;
+  }
+  .btn-add-product:hover { background: #fdf5ef; border-color: #8b5e3c; }
+
+  /* ── Product Card ── */
+  .product-card {
+    background: white;
+    border-radius: 12px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+    overflow: hidden;
+    border: 1.5px solid #ede0d4;
+  }
+
+  .card-header {
+    background: #fdf5ef;
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1.5px solid #ede0d4;
+  }
+
+  .card-num {
+    font-weight: 700;
+    color: #8b5e3c;
+    font-size: 1rem;
+  }
+
+  .card-preview-name {
+    font-size: 0.88rem;
+    color: #888;
+    margin-right: 10px;
+    flex: 1;
+  }
+
+  .card-body { padding: 18px 20px; }
+
+  .fields-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field.full { grid-column: 1 / -1; }
+
+  .field label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #666;
+  }
+
+  .field input,
+  .field select,
+  .field textarea {
+    padding: 9px 12px;
+    border: 1.5px solid #ddd;
+    border-radius: 8px;
+    font-size: 0.92rem;
+    font-family: inherit;
+    direction: rtl;
+    background: #fafafa;
+    transition: border-color 0.15s;
+  }
+
+  .field input:focus,
+  .field select:focus,
+  .field textarea:focus {
+    outline: none;
+    border-color: #8b5e3c;
+    background: white;
+  }
+
+  .field textarea { resize: vertical; min-height: 70px; }
+
+  /* ── Image picker ── */
+  .image-picker-area {
+    border: 2px dashed #c9956a;
+    border-radius: 10px;
+    background: #fdf5ef;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.15s;
+    min-height: 90px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .image-picker-area:hover { border-color: #8b5e3c; background: #f7ece0; }
+
+  .image-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 16px;
+    color: #a0522d;
+    user-select: none;
+  }
+
+  .image-placeholder .icon { font-size: 2rem; }
+  .image-placeholder span { font-size: 0.82rem; font-weight: 600; }
+
+  .image-preview-wrap {
+    position: relative;
+    width: 100%;
+  }
+
+  .image-preview-wrap img {
+    width: 100%;
+    max-height: 180px;
+    object-fit: cover;
+    display: block;
+  }
+
+  .image-remove-btn {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    background: rgba(0,0,0,0.6);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 26px;
+    height: 26px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .image-name {
+    font-size: 0.75rem;
+    color: #888;
+    padding: 4px 8px;
+    background: #f5f0eb;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  input[type="file"] { display: none; }
+
+  /* ── Export bar ── */
+  .export-bar {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    border-top: 2px solid #ede0d4;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
+    z-index: 100;
+  }
+
+  .export-bar .count { font-size: 0.9rem; color: #666; }
+  .export-bar .count strong { color: #5c3d2e; }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: #2e7d32;
+    color: white;
+    padding: 10px 24px;
+    border-radius: 24px;
+    font-size: 0.9rem;
+    opacity: 0;
+    transition: all 0.3s;
+    pointer-events: none;
+    z-index: 200;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── Responsive ── */
+  @media (max-width: 600px) {
+    .fields-grid { grid-template-columns: 1fr; }
+    header { flex-direction: column; gap: 14px; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🌿 ALYASMEEN</h1>
+    <p>تعبئة قائمة المنتجات — اضغط "تصدير JSON" عند الانتهاء</p>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-outline" onclick="loadFromStorage()">↺ استعادة</button>
+    <button class="btn btn-success" onclick="exportJSON()">⬇ تصدير JSON</button>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- Categories -->
+  <div class="section-title">الفئات</div>
+  <div class="categories-box">
+    <div class="cat-tags" id="catTags"></div>
+    <div class="cat-input-row">
+      <input type="text" id="catInput" placeholder="مثال: كريمات، شموع، لوشن..." onkeydown="if(event.key==='Enter') addCategory()">
+      <button class="btn btn-primary" onclick="addCategory()">+ إضافة فئة</button>
+    </div>
+  </div>
+
+  <!-- Products -->
+  <div class="section-title">المنتجات</div>
+  <div id="productsList"></div>
+  <button class="btn-add-product" onclick="addProduct()">+ إضافة منتج جديد</button>
+
+</div>
+
+<!-- Sticky export bar -->
+<div class="export-bar">
+  <span class="count">المنتجات: <strong id="productCount">0</strong></span>
+  <div style="display:flex;gap:10px">
+    <button class="btn btn-outline" onclick="saveToStorage()">💾 حفظ مؤقت</button>
+    <button class="btn btn-success" onclick="exportJSON()">⬇ تصدير catalog.json</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let categories = [];
+let products = [];
+let nextId = 1;
+
+// ── Categories ──────────────────────────────────────────
+
+function addCategory() {
+  const input = document.getElementById('catInput');
+  const val = input.value.trim();
+  if (!val || categories.includes(val)) { input.value = ''; return; }
+  categories.push(val);
+  input.value = '';
+  renderCategories();
+  updateAllCategoryDropdowns();
+  autoSave();
+}
+
+function removeCategory(cat) {
+  categories = categories.filter(c => c !== cat);
+  renderCategories();
+  updateAllCategoryDropdowns();
+  autoSave();
+}
+
+function renderCategories() {
+  const el = document.getElementById('catTags');
+  el.innerHTML = categories.map(c => `
+    <span class="cat-tag">
+      ${c}
+      <button onclick="removeCategory('${c.replace(/'/g,"\\'")}')">×</button>
+    </span>`).join('');
+}
+
+function updateAllCategoryDropdowns() {
+  document.querySelectorAll('.cat-select').forEach(sel => {
+    const current = sel.value;
+    sel.innerHTML = '<option value="">— اختر فئة —</option>' +
+      categories.map(c => `<option value="${c}" ${c===current?'selected':''}>${c}</option>`).join('');
+  });
+}
+
+// ── Products ─────────────────────────────────────────────
+
+function addProduct() {
+  const id = nextId++;
+  products.push({ id, name:'', category:'', size:'', price:'', description:'', imageData:null, imageName:'' });
+  renderProducts();
+  autoSave();
+  // scroll to new card
+  setTimeout(() => {
+    const card = document.getElementById('card-'+id);
+    if (card) card.scrollIntoView({ behavior:'smooth', block:'center' });
+  }, 80);
+}
+
+function removeProduct(id) {
+  products = products.filter(p => p.id !== id);
+  renderProducts();
+  autoSave();
+}
+
+function getProduct(id) { return products.find(p => p.id === id); }
+
+function updateField(id, field, value) {
+  const p = getProduct(id);
+  if (p) { p[field] = value; }
+  if (field === 'name') {
+    const el = document.getElementById('preview-'+id);
+    if (el) el.textContent = value || '';
+  }
+  autoSave();
+}
+
+function renderProducts() {
+  const list = document.getElementById('productsList');
+  list.innerHTML = products.map((p, i) => buildCard(p, i+1)).join('');
+  document.getElementById('productCount').textContent = products.length;
+}
+
+function buildCard(p, num) {
+  const catOptions = '<option value="">— اختر فئة —</option>' +
+    categories.map(c => `<option value="${c}" ${c===p.category?'selected':''}>${c}</option>`).join('');
+
+  const imageHTML = p.imageData
+    ? `<div class="image-preview-wrap">
+         <img src="${p.imageData}" alt="صورة المنتج">
+         <button class="image-remove-btn" onclick="removeImage(${p.id})" title="إزالة الصورة">×</button>
+         <div class="image-name">${p.imageName}</div>
+       </div>`
+    : `<div class="image-placeholder">
+         <span class="icon">🖼️</span>
+         <span>اضغط لاختيار صورة</span>
+       </div>`;
+
+  return `
+  <div class="product-card" id="card-${p.id}">
+    <div class="card-header">
+      <span class="card-num">المنتج ${num}</span>
+      <span class="card-preview-name" id="preview-${p.id}">${p.name}</span>
+      <button class="btn btn-danger" onclick="removeProduct(${p.id})">🗑 حذف</button>
+    </div>
+    <div class="card-body">
+      <div class="fields-grid">
+
+        <div class="field full">
+          <label>الاسم بالعربي *</label>
+          <input type="text" value="${esc(p.name)}" placeholder="مثال: كريم اليدين - صغير"
+            oninput="updateField(${p.id},'name',this.value)">
+        </div>
+
+        <div class="field">
+          <label>الفئة</label>
+          <select class="cat-select" onchange="updateField(${p.id},'category',this.value)">
+            ${catOptions}
+          </select>
+        </div>
+
+        <div class="field">
+          <label>الحجم / المقاس (اختياري)</label>
+          <input type="text" value="${esc(p.size)}" placeholder="مثال: 50ml / صغير / كبير"
+            oninput="updateField(${p.id},'size',this.value)">
+        </div>
+
+        <div class="field">
+          <label>السعر (₪) *</label>
+          <input type="number" value="${esc(p.price)}" placeholder="0"
+            oninput="updateField(${p.id},'price',this.value)">
+        </div>
+
+        <div class="field full">
+          <label>وصف قصير (جملة واحدة للبوت)</label>
+          <textarea placeholder="مثال: كريم طبيعي مرطب لليدين بزيت الزيتون والعسل."
+            oninput="updateField(${p.id},'description',this.value)">${esc(p.description)}</textarea>
+        </div>
+
+        <div class="field full">
+          <label>الصورة</label>
+          <input type="file" id="file-${p.id}" accept="image/*" onchange="handleImage(event,${p.id})">
+          <div class="image-picker-area" onclick="document.getElementById('file-${p.id}').click()">
+            ${imageHTML}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── Image handling ────────────────────────────────────────
+
+function handleImage(event, id) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const p = getProduct(id);
+    if (p) {
+      p.imageData = e.target.result;
+      p.imageName = file.name;
+    }
+    renderProducts();
+    autoSave();
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeImage(id) {
+  const p = getProduct(id);
+  if (p) { p.imageData = null; p.imageName = ''; }
+  renderProducts();
+  autoSave();
+}
+
+// ── Export JSON ───────────────────────────────────────────
+
+function exportJSON() {
+  const data = products
+    .filter(p => p.name.trim())
+    .map(p => {
+      const entry = {};
+      // Build name: if size is filled, append it
+      entry.name = p.size.trim()
+        ? `${p.name.trim()} - ${p.size.trim()}`
+        : p.name.trim();
+      if (p.category)    entry.category    = p.category;
+      if (p.price !== '') entry.price       = parseFloat(p.price) || 0;
+      if (p.description) entry.description = p.description.trim();
+      if (p.imageName)   entry.image        = p.imageName;
+      return entry;
+    });
+
+  if (!data.length) { toast('لا توجد منتجات لتصديرها!', false); return; }
+
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'catalog.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast(`✅ تم تصدير ${data.length} منتج إلى catalog.json`);
+}
+
+// ── LocalStorage ──────────────────────────────────────────
+
+function autoSave() { saveToStorage(true); }
+
+function saveToStorage(silent) {
+  try {
+    localStorage.setItem('alyasmeen_catalog', JSON.stringify({ categories, products, nextId }));
+    if (!silent) toast('💾 تم الحفظ المؤقت');
+  } catch(e) {
+    if (!silent) toast('فشل الحفظ — الصور كبيرة جداً للتخزين المؤقت', false);
+  }
+}
+
+function loadFromStorage() {
+  const raw = localStorage.getItem('alyasmeen_catalog');
+  if (!raw) { toast('لا يوجد حفظ سابق', false); return; }
+  try {
+    const d = JSON.parse(raw);
+    categories = d.categories || [];
+    products   = d.products   || [];
+    nextId     = d.nextId     || (products.length + 1);
+    renderCategories();
+    renderProducts();
+    toast('✅ تم استعادة البيانات المحفوظة');
+  } catch(e) {
+    toast('فشل تحميل البيانات', false);
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function toast(msg, success=true) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = success ? '#2e7d32' : '#c62828';
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ── Init ──────────────────────────────────────────────────
+
+const saved = localStorage.getItem('alyasmeen_catalog');
+if (saved) {
+  try {
+    const d = JSON.parse(saved);
+    categories = d.categories || [];
+    products   = d.products   || [];
+    nextId     = d.nextId     || 1;
+  } catch(e) {}
+}
+
+renderCategories();
+renderProducts();
+
+// start with one empty product if nothing loaded
+if (products.length === 0) addProduct();
+</script>
+</body>
+</html>

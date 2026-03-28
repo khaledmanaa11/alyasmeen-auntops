@@ -1,0 +1,16 @@
+{
+  "version": "1.00",
+  "app": {
+    "name": "ALYASMEEN AuntOps",
+    "default_language": "ar",
+    "supported_languages": ["ar", "en"],
+    "max_cart_items": 20,
+    "session_timeout_hours": 24
+  },
+  "scheduler": {
+    "followup_interval_hours": 6,
+    "retry_interval_minutes": 15,
+    "monthly_report_day": 1,
+    "monthly_report_hour": 8
+  }
+}
