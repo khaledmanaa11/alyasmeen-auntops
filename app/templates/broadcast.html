@@ -109,8 +109,9 @@
 
   <!-- ── AI Improvement Modal (plain fixed overlay — compatible with broadcast_improve.js) ── -->
   <div id="improve-modal"
-       class="fixed inset-0 z-40 bg-black/50 p-4 flex items-center justify-center"
+       class="fixed inset-0 z-40 bg-black/50 p-4"
        role="dialog" aria-modal="true" aria-labelledby="modal-title" hidden>
+    <div class="flex items-center justify-center h-full">
 
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
 
@@ -168,11 +169,13 @@
   </div>
 
   <!-- ── Loading Spinner Overlay (plain fixed — compatible with broadcast_improve.js) ── -->
-  <div id="spinner-overlay" class="fixed inset-0 z-50 bg-black/50 flex flex-col items-center justify-center" hidden aria-live="polite">
-    <div class="w-12 h-12 border-4 border-white border-t-transparent rounded-full spinner" role="status">
-      <span class="sr-only">جارٍ تحسين الرسالة...</span>
+  <div id="spinner-overlay" class="fixed inset-0 z-50 bg-black/50" hidden aria-live="polite">
+    <div class="flex flex-col items-center justify-center h-full">
+      <div class="w-12 h-12 border-4 border-white border-t-transparent rounded-full spinner" role="status">
+        <span class="sr-only">جارٍ تحسين الرسالة...</span>
+      </div>
+      <p class="mt-4 text-white text-sm font-semibold">جارٍ التحسين بالذكاء الاصطناعي...</p>
     </div>
-    <p class="mt-4 text-white text-sm font-semibold">جارٍ التحسين بالذكاء الاصطناعي...</p>
   </div>
 
   <!-- ── Toast ── -->
