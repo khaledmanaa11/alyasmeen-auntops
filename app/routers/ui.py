@@ -17,9 +17,25 @@ router = APIRouter(tags=["ui"])
 templates = Jinja2Templates(
     directory=str(Path(__file__).parent.parent / "templates")
 )
-# Jinja2 LRUCache uses dict as cache key which is unhashable in Python 3.13.
-# Disabling the cache is the safe workaround until the runtime is on 3.11.
-templates.env.cache = None
+
+
+class _NoCache:
+    """Drop-in replacement for Jinja2's LRUCache.
+
+    Jinja2 <= 3.1.3 builds a cache key that includes the globals dict,
+    making the key unhashable (TypeError: unhashable type: 'dict').
+    This stub accepts any key and always returns a cache miss so the
+    template is re-parsed each request — safe at this request volume.
+    """
+
+    def get(self, key: object) -> None:  # noqa: ARG002
+        return None
+
+    def __setitem__(self, key: object, value: object) -> None:  # noqa: ARG002
+        pass
+
+
+templates.env.cache = _NoCache()
 
 COOKIE_NAME = "alyasmeen_session"
 
