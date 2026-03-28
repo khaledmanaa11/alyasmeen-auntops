@@ -57,7 +57,7 @@ def _is_authenticated(request: Request) -> bool:
 async def login_page(request: Request):
     if _is_authenticated(request):
         return RedirectResponse(url="/orders", status_code=303)
-    return templates.TemplateResponse("login.html", {"request": request, "error": None})
+    return templates.TemplateResponse(request, "login.html", {"error": None})
 
 
 @router.post("/login")
@@ -67,9 +67,7 @@ async def login_submit(request: Request, password: str = Form(...)):
         resp.set_cookie(COOKIE_NAME, _session_token(), httponly=True, samesite="lax")
         return resp
     return templates.TemplateResponse(
-        "login.html",
-        {"request": request, "error": "كلمة المرور غير صحيحة"},
-        status_code=401,
+        request, "login.html", {"error": "كلمة المرور غير صحيحة"}, status_code=401
     )
 
 
@@ -88,25 +86,25 @@ async def logout():
 async def orders_page(request: Request):
     if not _is_authenticated(request):
         return RedirectResponse(url="/login", status_code=303)
-    return templates.TemplateResponse("orders.html", {"request": request})
+    return templates.TemplateResponse(request, "orders.html")
 
 
 @router.get("/dashboard", response_class=HTMLResponse)
 async def dashboard_page(request: Request):
     if not _is_authenticated(request):
         return RedirectResponse(url="/login", status_code=303)
-    return templates.TemplateResponse("dashboard.html", {"request": request})
+    return templates.TemplateResponse(request, "dashboard.html")
 
 
 @router.get("/products", response_class=HTMLResponse)
 async def products_page(request: Request):
     if not _is_authenticated(request):
         return RedirectResponse(url="/login", status_code=303)
-    return templates.TemplateResponse("products.html", {"request": request})
+    return templates.TemplateResponse(request, "products.html")
 
 
 @router.get("/broadcast", response_class=HTMLResponse)
 async def broadcast_page(request: Request):
     if not _is_authenticated(request):
         return RedirectResponse(url="/login", status_code=303)
-    return templates.TemplateResponse("broadcast.html", {"request": request})
+    return templates.TemplateResponse(request, "broadcast.html")
