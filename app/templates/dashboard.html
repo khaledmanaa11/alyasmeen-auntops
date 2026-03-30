@@ -4,35 +4,65 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ALYASMEEN — الإحصائيات</title>
-  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap');
     * { font-family: 'Cairo', sans-serif; }
-    body { background: #f1f5f9; }
+    body { background: #f0f7f4; }
+    .material-symbols-outlined {
+      font-family: 'Material Symbols Outlined';
+      font-weight: normal; font-style: normal; font-size: 24px;
+      line-height: 1; letter-spacing: normal; text-transform: none;
+      display: inline-block; white-space: nowrap; direction: ltr;
+      -webkit-font-smoothing: antialiased;
+    }
+    .nav-glass {
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(0,105,72,0.08);
+      box-shadow: 0 1px 16px rgba(0,105,72,0.06);
+    }
+    .nav-active { background: #006948; color: white; }
+    .nav-link   { color: #6b7280; transition: all 0.15s; }
+    .nav-link:hover { background: #f0f7f4; color: #006948; }
+    .stat-card {
+      background: white;
+      border-radius: 20px;
+      border: 1px solid #e8f3ee;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+    .stat-card:hover { box-shadow: 0 6px 24px rgba(0,105,72,0.1); transform: translateY(-2px); }
+    .chart-card {
+      background: white;
+      border-radius: 20px;
+      border: 1px solid #e8f3ee;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    }
   </style>
 </head>
 <body class="min-h-screen">
 
   <!-- Navbar -->
-  <nav class="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-30">
+  <nav class="nav-glass sticky top-0 z-30">
     <div class="max-w-5xl mx-auto px-5 h-16 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <div class="w-9 h-9 bg-emerald-600 rounded-xl flex items-center justify-center shadow-sm shrink-0">
+      <a href="/orders" class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl flex items-center justify-center shadow-sm shrink-0"
+             style="background: linear-gradient(135deg, #006948, #00a36c)">
           <span class="text-white text-base leading-none">🌿</span>
         </div>
         <div class="leading-tight">
           <span class="font-black text-gray-900 text-base tracking-tight block">ALYASMEEN</span>
           <span class="text-xs text-gray-400 block">لوحة الإدارة</span>
         </div>
-      </div>
+      </a>
       <div class="flex items-center gap-1">
-        <a href="/orders"    class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 transition-colors">الطلبات</a>
-        <a href="/dashboard" class="px-3 py-1.5 rounded-lg text-sm font-bold bg-emerald-600 text-white shadow-sm">الإحصائيات</a>
-        <a href="/products"  class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 transition-colors">المنتجات</a>
-        <a href="/broadcast" class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 transition-colors">رسائل جماعية</a>
-        <a href="/logout"    class="mr-1 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">خروج</a>
+        <a href="/orders"    class="nav-link px-3 py-1.5 rounded-xl text-sm font-medium">الطلبات</a>
+        <a href="/dashboard" class="nav-active px-3 py-1.5 rounded-xl text-sm font-bold shadow-sm">الإحصائيات</a>
+        <a href="/products"  class="nav-link px-3 py-1.5 rounded-xl text-sm font-medium">المنتجات</a>
+        <a href="/broadcast" class="nav-link px-3 py-1.5 rounded-xl text-sm font-medium">رسائل</a>
+        <a href="/logout"    class="px-3 py-1.5 rounded-xl text-sm font-medium text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors mr-1">خروج</a>
       </div>
     </div>
   </nav>
@@ -46,12 +76,14 @@
       </div>
       <div class="flex items-center gap-2">
         <select id="month-picker" onchange="onMonthChange()"
-          class="select select-bordered select-sm text-gray-700 focus:select-success min-w-36 rounded-xl">
+          class="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:border-[#006948] min-w-36">
           <option value="">هذا الشهر</option>
         </select>
         <button onclick="loadStats(document.getElementById('month-picker').value)"
-          class="flex items-center gap-2 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-sm font-bold transition-colors">
-          ↻ تحديث
+          class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-colors border"
+          style="background:#f0f7f4; border-color:#b3d9cc; color:#006948">
+          <span class="material-symbols-outlined" style="font-size:18px">refresh</span>
+          تحديث
         </button>
       </div>
     </div>
@@ -62,44 +94,36 @@
     <!-- Stat Cards -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
 
-      <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-        <div class="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center mb-3">
-          <svg class="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-          </svg>
+      <div class="stat-card p-5">
+        <div class="w-11 h-11 rounded-2xl flex items-center justify-center mb-3" style="background:#e8f0fe">
+          <span class="material-symbols-outlined" style="font-size:22px;color:#3b82f6">receipt_long</span>
         </div>
         <div class="text-xs text-gray-500 font-semibold mb-1">طلبات الشهر</div>
         <div id="stat-orders" class="text-3xl font-black text-gray-900">—</div>
         <div id="stat-orders-diff" class="text-xs mt-1"></div>
       </div>
 
-      <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-        <div class="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center mb-3">
-          <svg class="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
+      <div class="stat-card p-5">
+        <div class="w-11 h-11 rounded-2xl flex items-center justify-center mb-3" style="background:#e6f3ee">
+          <span class="material-symbols-outlined" style="font-size:22px;color:#006948">payments</span>
         </div>
         <div class="text-xs text-gray-500 font-semibold mb-1">الإيرادات (₪)</div>
         <div id="stat-revenue" class="text-3xl font-black text-gray-900">—</div>
         <div id="stat-revenue-diff" class="text-xs mt-1"></div>
       </div>
 
-      <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-        <div class="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center mb-3">
-          <svg class="w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
-          </svg>
+      <div class="stat-card p-5">
+        <div class="w-11 h-11 rounded-2xl flex items-center justify-center mb-3" style="background:#f3e8ff">
+          <span class="material-symbols-outlined" style="font-size:22px;color:#9333ea">group</span>
         </div>
         <div class="text-xs text-gray-500 font-semibold mb-1">إجمالي العملاء</div>
         <div id="stat-customers" class="text-3xl font-black text-gray-900">—</div>
         <div class="text-xs text-gray-400 mt-1">مسجّلون في قاعدة البيانات</div>
       </div>
 
-      <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-        <div class="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center mb-3">
-          <svg class="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-          </svg>
+      <div class="stat-card p-5">
+        <div class="w-11 h-11 rounded-2xl flex items-center justify-center mb-3" style="background:#fef3c7">
+          <span class="material-symbols-outlined" style="font-size:22px;color:#f59e0b">bar_chart</span>
         </div>
         <div class="text-xs text-gray-500 font-semibold mb-1">متوسط الطلب (₪)</div>
         <div id="stat-avg" class="text-3xl font-black text-gray-900">—</div>
@@ -111,13 +135,19 @@
     <!-- Charts Row -->
     <div class="grid grid-cols-1 gap-5 mb-5 sm:grid-cols-3">
 
-      <div class="sm:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-        <h3 class="font-bold text-gray-800 text-sm mb-4">الطلبات اليومية — آخر 30 يوم</h3>
+      <div class="chart-card sm:col-span-2 p-5">
+        <h3 class="font-bold text-gray-800 text-sm mb-4 flex items-center gap-2">
+          <span class="material-symbols-outlined" style="font-size:18px;color:#006948">timeline</span>
+          الطلبات اليومية — آخر 30 يوم
+        </h3>
         <div id="chart-daily" style="height:220px"></div>
       </div>
 
-      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-        <h3 class="font-bold text-gray-800 text-sm mb-4">حالة الطلبات</h3>
+      <div class="chart-card p-5">
+        <h3 class="font-bold text-gray-800 text-sm mb-4 flex items-center gap-2">
+          <span class="material-symbols-outlined" style="font-size:18px;color:#006948">donut_large</span>
+          حالة الطلبات
+        </h3>
         <div id="chart-status" style="height:160px"></div>
         <div id="status-legend" class="mt-4 space-y-2"></div>
       </div>
@@ -125,11 +155,14 @@
     </div>
 
     <!-- Top Products -->
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-      <h3 class="font-bold text-gray-800 text-sm mb-5">🏆 أفضل 5 منتجات — هذا الشهر</h3>
+    <div class="chart-card p-5">
+      <h3 class="font-bold text-gray-800 text-sm mb-5 flex items-center gap-2">
+        <span class="material-symbols-outlined" style="font-size:18px;color:#f59e0b">emoji_events</span>
+        أفضل 5 منتجات — هذا الشهر
+      </h3>
       <div id="top-products">
         <div class="flex items-center justify-center py-10 gap-2 text-gray-400">
-          <span class="loading loading-spinner loading-sm"></span>
+          <div class="w-5 h-5 border-2 border-gray-300 border-t-[#006948] rounded-full animate-spin"></div>
           <span class="text-sm">جاري التحميل...</span>
         </div>
       </div>
@@ -139,7 +172,7 @@
 
 <script>
   const STATUS_LABEL     = { to_do: 'يجب التجهيز', ready: 'جاهز', delivered: 'في الطريق', done: 'مكتمل' };
-  const STATUS_COLOR_HEX = { to_do: '#3b82f6', ready: '#f59e0b', delivered: '#f97316', done: '#10b981' };
+  const STATUS_COLOR_HEX = { to_do: '#3b82f6', ready: '#f59e0b', delivered: '#f97316', done: '#006948' };
   const AR_MONTHS = ['','يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
 
   let dailyChart  = null;
@@ -197,8 +230,8 @@
     }
 
     if (!isArchive) {
-      renderDiff('stat-orders-diff',  m.orders,  p.orders,  'طلب');
-      renderDiff('stat-revenue-diff', m.revenue, p.revenue, '₪');
+      renderDiff('stat-orders-diff',  m.orders,  p.orders);
+      renderDiff('stat-revenue-diff', m.revenue, p.revenue);
     } else {
       document.getElementById('stat-orders-diff').textContent  = '';
       document.getElementById('stat-revenue-diff').textContent = '';
@@ -209,7 +242,7 @@
     const el = document.getElementById(elId);
     if (!prev || prev === 0) { el.textContent = ''; return; }
     const pct = Math.round(((current - prev) / prev) * 100);
-    if (pct > 0)      { el.innerHTML = `<span class="text-emerald-600 font-semibold">▲ ${pct}% عن الشهر الماضي</span>`; }
+    if (pct > 0)      { el.innerHTML = `<span style="color:#006948" class="font-semibold">▲ ${pct}% عن الشهر الماضي</span>`; }
     else if (pct < 0) { el.innerHTML = `<span class="text-red-500 font-semibold">▼ ${Math.abs(pct)}% عن الشهر الماضي</span>`; }
     else              { el.innerHTML = `<span class="text-gray-400">نفس الشهر الماضي</span>`; }
   }
@@ -253,12 +286,12 @@
         barMaxWidth: 36,
         itemStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: '#059669' },
+            { offset: 0, color: '#006948' },
             { offset: 1, color: '#6ee7b7' }
           ]),
           borderRadius: [6, 6, 0, 0]
         },
-        emphasis: { itemStyle: { color: '#047857' } }
+        emphasis: { itemStyle: { color: '#004d33' } }
       }]
     });
   }
@@ -311,25 +344,25 @@
       return;
     }
     const maxQty = Math.max(...products.map(p => p.qty), 1);
+    const rankBg = ['#fef3c7','#f3f4f6','#fff7ed','#f0f7f4','#f0f7f4'];
+    const rankColor = ['#d97706','#6b7280','#ea580c','#006948','#006948'];
     el.innerHTML = `<div class="space-y-4">
       ${products.map((p, i) => `
         <div>
           <div class="flex items-center justify-between text-sm mb-2">
             <div class="flex items-center gap-2.5">
-              <span class="w-7 h-7 rounded-xl flex items-center justify-center text-xs font-black shrink-0
-                ${i === 0 ? 'bg-amber-100 text-amber-700' : i === 1 ? 'bg-gray-100 text-gray-600' : i === 2 ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-700'}">
-                ${i+1}
-              </span>
+              <span class="w-7 h-7 rounded-xl flex items-center justify-center text-xs font-black shrink-0"
+                style="background:${rankBg[i]||'#f0f7f4'}; color:${rankColor[i]||'#006948'}">${i+1}</span>
               <span class="text-gray-800 font-bold">${p.name}</span>
             </div>
             <div class="flex items-center gap-2 shrink-0">
               <span class="text-gray-900 font-black">${p.qty} قطعة</span>
-              <span class="px-2 py-0.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700">₪${p.revenue.toFixed(0)}</span>
+              <span class="px-2 py-0.5 rounded-lg text-xs font-bold text-white" style="background:#006948">₪${p.revenue.toFixed(0)}</span>
             </div>
           </div>
           <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
             <div class="h-full rounded-full transition-all duration-700"
-              style="width:${Math.round(p.qty/maxQty*100)}%; background: linear-gradient(90deg, #059669, #34d399)">
+              style="width:${Math.round(p.qty/maxQty*100)}%; background: linear-gradient(90deg, #006948, #34d399)">
             </div>
           </div>
         </div>`).join('')}
