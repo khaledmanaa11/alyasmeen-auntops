@@ -8,94 +8,102 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap');
     * { font-family: 'Cairo', sans-serif; }
+    body { background: #f1f5f9; }
   </style>
 </head>
-<body class="bg-base-200 min-h-screen">
+<body class="min-h-screen">
 
   <!-- Navbar -->
-  <div class="navbar bg-base-100 border-b border-base-200 shadow-sm sticky top-0 z-20">
-    <div class="w-full max-w-5xl mx-auto px-4 flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <span class="text-2xl">🌿</span>
-        <span class="font-extrabold text-gray-900 text-lg tracking-tight">ALYASMEEN</span>
+  <nav class="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-30">
+    <div class="max-w-5xl mx-auto px-5 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 bg-emerald-600 rounded-xl flex items-center justify-center shadow-sm shrink-0">
+          <span class="text-white text-base leading-none">🌿</span>
+        </div>
+        <div class="leading-tight">
+          <span class="font-black text-gray-900 text-base tracking-tight block">ALYASMEEN</span>
+          <span class="text-xs text-gray-400 block">لوحة الإدارة</span>
+        </div>
       </div>
-      <div class="flex items-center gap-1 flex-wrap">
-        <a href="/orders"    class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-base-200 transition-colors">الطلبات</a>
-        <a href="/dashboard" class="px-3 py-1.5 rounded-lg text-sm font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">الإحصائيات</a>
-        <a href="/products"  class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-base-200 transition-colors">المنتجات</a>
-        <a href="/broadcast" class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-base-200 transition-colors">رسائل جماعية</a>
-        <a href="/logout"    class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-400 hover:text-red-500 transition-colors">خروج</a>
+      <div class="flex items-center gap-1">
+        <a href="/orders"    class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 transition-colors">الطلبات</a>
+        <a href="/dashboard" class="px-3 py-1.5 rounded-lg text-sm font-bold bg-emerald-600 text-white shadow-sm">الإحصائيات</a>
+        <a href="/products"  class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 transition-colors">المنتجات</a>
+        <a href="/broadcast" class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 transition-colors">رسائل جماعية</a>
+        <a href="/logout"    class="mr-1 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">خروج</a>
       </div>
     </div>
-  </div>
+  </nav>
 
-  <div class="max-w-5xl mx-auto px-4 py-6">
-
-    <!-- Header -->
-    <div class="flex items-center justify-between mb-6">
+  <!-- Page Header -->
+  <div class="bg-white border-b border-gray-100">
+    <div class="max-w-5xl mx-auto px-5 py-5 flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-extrabold text-gray-900">الإحصائيات</h1>
+        <h1 class="text-2xl font-black text-gray-900">الإحصائيات</h1>
         <p id="month-label" class="text-sm text-gray-500 mt-0.5"></p>
       </div>
       <div class="flex items-center gap-2">
         <select id="month-picker" onchange="onMonthChange()"
-          class="select select-bordered select-sm text-gray-700 focus:select-success min-w-36">
+          class="select select-bordered select-sm text-gray-700 focus:select-success min-w-36 rounded-xl">
           <option value="">هذا الشهر</option>
         </select>
         <button onclick="loadStats(document.getElementById('month-picker').value)"
-          class="btn btn-sm bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-semibold">
+          class="flex items-center gap-2 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-sm font-bold transition-colors">
           ↻ تحديث
         </button>
       </div>
     </div>
+  </div>
 
-    <!-- Stat Cards (DaisyUI stats) -->
-    <div class="stats stats-horizontal shadow bg-base-100 border border-base-200 w-full mb-6 divide-x divide-base-200">
+  <div class="max-w-5xl mx-auto px-5 py-6">
 
-      <div class="stat">
-        <div class="stat-figure text-emerald-500">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+    <!-- Stat Cards -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <div class="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center mb-3">
+          <svg class="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
           </svg>
         </div>
-        <div class="stat-title text-gray-500">طلبات هذا الشهر</div>
-        <div id="stat-orders" class="stat-value text-gray-900 text-3xl">—</div>
-        <div id="stat-orders-diff" class="stat-desc mt-1"></div>
+        <div class="text-xs text-gray-500 font-semibold mb-1">طلبات الشهر</div>
+        <div id="stat-orders" class="text-3xl font-black text-gray-900">—</div>
+        <div id="stat-orders-diff" class="text-xs mt-1"></div>
       </div>
 
-      <div class="stat">
-        <div class="stat-figure text-emerald-500">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <div class="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center mb-3">
+          <svg class="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
         </div>
-        <div class="stat-title text-gray-500">الإيرادات (₪)</div>
-        <div id="stat-revenue" class="stat-value text-gray-900 text-3xl">—</div>
-        <div id="stat-revenue-diff" class="stat-desc mt-1"></div>
+        <div class="text-xs text-gray-500 font-semibold mb-1">الإيرادات (₪)</div>
+        <div id="stat-revenue" class="text-3xl font-black text-gray-900">—</div>
+        <div id="stat-revenue-diff" class="text-xs mt-1"></div>
       </div>
 
-      <div class="stat">
-        <div class="stat-figure text-emerald-500">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <div class="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center mb-3">
+          <svg class="w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
           </svg>
         </div>
-        <div class="stat-title text-gray-500">إجمالي العملاء</div>
-        <div id="stat-customers" class="stat-value text-gray-900 text-3xl">—</div>
-        <div class="stat-desc mt-1 text-gray-400">مسجّلون في قاعدة البيانات</div>
+        <div class="text-xs text-gray-500 font-semibold mb-1">إجمالي العملاء</div>
+        <div id="stat-customers" class="text-3xl font-black text-gray-900">—</div>
+        <div class="text-xs text-gray-400 mt-1">مسجّلون في قاعدة البيانات</div>
       </div>
 
-      <div class="stat">
-        <div class="stat-figure text-emerald-500">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+      <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <div class="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center mb-3">
+          <svg class="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
           </svg>
         </div>
-        <div class="stat-title text-gray-500">متوسط الطلب (₪)</div>
-        <div id="stat-avg" class="stat-value text-gray-900 text-3xl">—</div>
-        <div class="stat-desc mt-1 text-gray-400">هذا الشهر</div>
+        <div class="text-xs text-gray-500 font-semibold mb-1">متوسط الطلب (₪)</div>
+        <div id="stat-avg" class="text-3xl font-black text-gray-900">—</div>
+        <div class="text-xs text-gray-400 mt-1">هذا الشهر</div>
       </div>
 
     </div>
@@ -103,34 +111,26 @@
     <!-- Charts Row -->
     <div class="grid grid-cols-1 gap-5 mb-5 sm:grid-cols-3">
 
-      <!-- Daily Orders Bar Chart -->
-      <div class="sm:col-span-2 card bg-base-100 border border-base-200 shadow-sm">
-        <div class="card-body p-5">
-          <h3 class="font-bold text-gray-800 text-sm mb-1">الطلبات اليومية — آخر 30 يوم</h3>
-          <div id="chart-daily" style="height:220px"></div>
-        </div>
+      <div class="sm:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <h3 class="font-bold text-gray-800 text-sm mb-4">الطلبات اليومية — آخر 30 يوم</h3>
+        <div id="chart-daily" style="height:220px"></div>
       </div>
 
-      <!-- Status Donut -->
-      <div class="card bg-base-100 border border-base-200 shadow-sm">
-        <div class="card-body p-5">
-          <h3 class="font-bold text-gray-800 text-sm mb-1">حالة الطلبات</h3>
-          <div id="chart-status" style="height:160px"></div>
-          <div id="status-legend" class="mt-3 space-y-1.5"></div>
-        </div>
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <h3 class="font-bold text-gray-800 text-sm mb-4">حالة الطلبات</h3>
+        <div id="chart-status" style="height:160px"></div>
+        <div id="status-legend" class="mt-4 space-y-2"></div>
       </div>
 
     </div>
 
     <!-- Top Products -->
-    <div class="card bg-base-100 border border-base-200 shadow-sm">
-      <div class="card-body p-5">
-        <h3 class="font-bold text-gray-800 text-sm mb-4">أفضل 5 منتجات — هذا الشهر</h3>
-        <div id="top-products">
-          <div class="flex items-center justify-center py-8 gap-2 text-gray-400">
-            <span class="loading loading-spinner loading-sm"></span>
-            <span class="text-sm">جاري التحميل...</span>
-          </div>
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      <h3 class="font-bold text-gray-800 text-sm mb-5">🏆 أفضل 5 منتجات — هذا الشهر</h3>
+      <div id="top-products">
+        <div class="flex items-center justify-center py-10 gap-2 text-gray-400">
+          <span class="loading loading-spinner loading-sm"></span>
+          <span class="text-sm">جاري التحميل...</span>
         </div>
       </div>
     </div>
@@ -144,7 +144,6 @@
 
   let dailyChart  = null;
   let statusChart = null;
-
   const ECHARTS_FONT = 'Cairo, sans-serif';
 
   async function loadStats(month = '') {
@@ -210,8 +209,8 @@
     const el = document.getElementById(elId);
     if (!prev || prev === 0) { el.textContent = ''; return; }
     const pct = Math.round(((current - prev) / prev) * 100);
-    if (pct > 0)      { el.innerHTML = `<span class="text-emerald-600">▲ ${pct}% عن الشهر الماضي</span>`; }
-    else if (pct < 0) { el.innerHTML = `<span class="text-red-500">▼ ${Math.abs(pct)}% عن الشهر الماضي</span>`; }
+    if (pct > 0)      { el.innerHTML = `<span class="text-emerald-600 font-semibold">▲ ${pct}% عن الشهر الماضي</span>`; }
+    else if (pct < 0) { el.innerHTML = `<span class="text-red-500 font-semibold">▼ ${Math.abs(pct)}% عن الشهر الماضي</span>`; }
     else              { el.innerHTML = `<span class="text-gray-400">نفس الشهر الماضي</span>`; }
   }
 
@@ -265,8 +264,6 @@
   }
 
   function renderStatusChart(breakdown) {
-    const total = breakdown.reduce((a, r) => a + r.count, 0);
-
     if (!statusChart) {
       statusChart = echarts.init(document.getElementById('chart-status'));
     }
@@ -297,44 +294,42 @@
       }]
     });
 
-    // Legend
     document.getElementById('status-legend').innerHTML = breakdown.map(r => `
       <div class="flex items-center justify-between text-xs">
-        <div class="flex items-center gap-1.5">
-          <span class="w-2.5 h-2.5 rounded-full inline-block" style="background:${STATUS_COLOR_HEX[r.status]}"></span>
-          <span class="text-gray-600">${STATUS_LABEL[r.status] || r.status}</span>
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full inline-block shrink-0" style="background:${STATUS_COLOR_HEX[r.status]}"></span>
+          <span class="text-gray-600 font-medium">${STATUS_LABEL[r.status] || r.status}</span>
         </div>
-        <span class="font-semibold text-gray-800">${r.count}</span>
+        <span class="font-bold text-gray-800">${r.count}</span>
       </div>`).join('');
   }
 
   function renderTopProducts(products) {
     const el = document.getElementById('top-products');
     if (!products.length) {
-      el.innerHTML = '<p class="text-center text-gray-400 py-6 text-sm">لا توجد بيانات هذا الشهر</p>';
+      el.innerHTML = '<p class="text-center text-gray-400 py-8 text-sm">لا توجد بيانات هذا الشهر</p>';
       return;
     }
     const maxQty = Math.max(...products.map(p => p.qty), 1);
     el.innerHTML = `<div class="space-y-4">
       ${products.map((p, i) => `
         <div>
-          <div class="flex items-center justify-between text-sm mb-1.5">
-            <div class="flex items-center gap-2">
-              <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold
-                ${i === 0 ? 'bg-amber-100 text-amber-700' : i === 1 ? 'bg-gray-100 text-gray-600' : 'bg-emerald-50 text-emerald-700'}">
+          <div class="flex items-center justify-between text-sm mb-2">
+            <div class="flex items-center gap-2.5">
+              <span class="w-7 h-7 rounded-xl flex items-center justify-center text-xs font-black shrink-0
+                ${i === 0 ? 'bg-amber-100 text-amber-700' : i === 1 ? 'bg-gray-100 text-gray-600' : i === 2 ? 'bg-orange-50 text-orange-600' : 'bg-emerald-50 text-emerald-700'}">
                 ${i+1}
               </span>
-              <span class="text-gray-800 font-semibold">${p.name}</span>
+              <span class="text-gray-800 font-bold">${p.name}</span>
             </div>
             <div class="flex items-center gap-2 shrink-0">
-              <span class="text-gray-900 font-bold">${p.qty} قطعة</span>
-              <span class="badge badge-sm bg-emerald-50 text-emerald-700 border-emerald-200">₪${p.revenue.toFixed(0)}</span>
+              <span class="text-gray-900 font-black">${p.qty} قطعة</span>
+              <span class="px-2 py-0.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700">₪${p.revenue.toFixed(0)}</span>
             </div>
           </div>
-          <div class="h-2 bg-base-200 rounded-full overflow-hidden">
+          <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
             <div class="h-full rounded-full transition-all duration-700"
-              style="width:${Math.round(p.qty/maxQty*100)}%;
-                     background: linear-gradient(90deg, #059669, #34d399)">
+              style="width:${Math.round(p.qty/maxQty*100)}%; background: linear-gradient(90deg, #059669, #34d399)">
             </div>
           </div>
         </div>`).join('')}

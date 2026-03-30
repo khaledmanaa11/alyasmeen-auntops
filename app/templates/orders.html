@@ -7,71 +7,87 @@
   <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap');
     * { font-family: 'Cairo', sans-serif; }
+    body { background: #f1f5f9; }
     .card-enter { animation: slideUp 0.22s ease forwards; }
     @keyframes slideUp {
-      from { opacity: 0; transform: translateY(10px); }
+      from { opacity: 0; transform: translateY(12px); }
       to   { opacity: 1; transform: translateY(0); }
     }
     .pulse-dot { animation: pulse 2s infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
     @keyframes spin { to { transform: rotate(360deg); } }
+    .status-bar-todo      { border-right: 4px solid #3b82f6; }
+    .status-bar-ready     { border-right: 4px solid #f59e0b; }
+    .status-bar-delivered { border-right: 4px solid #f97316; }
+    .status-bar-done      { border-right: 4px solid #10b981; }
   </style>
 </head>
-<body class="bg-base-200 min-h-screen">
+<body class="min-h-screen">
 
   <!-- Navbar -->
-  <div class="navbar bg-base-100 border-b border-base-200 shadow-sm sticky top-0 z-20">
-    <div class="w-full max-w-3xl mx-auto px-4 flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <span class="text-2xl">🌿</span>
-        <span class="font-extrabold text-gray-900 text-lg tracking-tight">ALYASMEEN</span>
+  <nav class="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-30">
+    <div class="max-w-5xl mx-auto px-5 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 bg-emerald-600 rounded-xl flex items-center justify-center shadow-sm shrink-0">
+          <span class="text-white text-base leading-none">🌿</span>
+        </div>
+        <div class="leading-tight">
+          <span class="font-black text-gray-900 text-base tracking-tight block">ALYASMEEN</span>
+          <span class="text-xs text-gray-400 block">لوحة الإدارة</span>
+        </div>
       </div>
-      <div class="flex items-center gap-1 flex-wrap">
-        <a href="/orders"    class="px-3 py-1.5 rounded-lg text-sm font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">الطلبات</a>
-        <a href="/dashboard" class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-base-200 transition-colors">الإحصائيات</a>
-        <a href="/products"  class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-base-200 transition-colors">المنتجات</a>
-        <a href="/broadcast" class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-base-200 transition-colors">رسائل جماعية</a>
-        <a href="/logout"    class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-400 hover:text-red-500 transition-colors">خروج</a>
+      <div class="flex items-center gap-1">
+        <a href="/orders"    class="px-3 py-1.5 rounded-lg text-sm font-bold bg-emerald-600 text-white shadow-sm">الطلبات</a>
+        <a href="/dashboard" class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 transition-colors">الإحصائيات</a>
+        <a href="/products"  class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 transition-colors">المنتجات</a>
+        <a href="/broadcast" class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 transition-colors">رسائل جماعية</a>
+        <a href="/logout"    class="mr-1 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">خروج</a>
       </div>
     </div>
-  </div>
+  </nav>
 
-  <div class="max-w-3xl mx-auto px-4 py-5">
-
-    <!-- Header -->
-    <div class="flex items-center justify-between mb-5">
+  <!-- Page Header -->
+  <div class="bg-white border-b border-gray-100">
+    <div class="max-w-5xl mx-auto px-5 py-5 flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-extrabold text-gray-900">الطلبات</h1>
-        <div class="flex items-center gap-1.5 mt-0.5">
+        <h1 class="text-2xl font-black text-gray-900">الطلبات</h1>
+        <div class="flex items-center gap-2 mt-1">
           <span class="w-2 h-2 rounded-full bg-emerald-500 pulse-dot inline-block"></span>
           <span id="last-refresh" class="text-xs text-gray-400">يتجدد تلقائياً كل 30 ثانية</span>
         </div>
       </div>
       <button onclick="loadAll()" id="refresh-btn"
-        class="btn btn-sm bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 gap-2 font-semibold">
-        <span id="refresh-icon" class="text-base leading-none">↻</span>
+        class="flex items-center gap-2 px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-sm font-bold transition-colors">
+        <span id="refresh-icon" class="text-base leading-none inline-block">↻</span>
         تحديث
       </button>
     </div>
+  </div>
+
+  <div class="max-w-5xl mx-auto px-5 py-6">
 
     <!-- Filter Tabs -->
-    <div class="flex gap-2 mb-5 overflow-x-auto pb-1">
-      <button onclick="setFilter('to_do')"     data-filter="to_do"
-        class="filter-btn btn btn-sm rounded-full border border-base-300 bg-base-100 text-gray-600 font-semibold shrink-0">
+    <div class="flex gap-2 mb-6 overflow-x-auto pb-1">
+      <button onclick="setFilter('to_do')" data-filter="to_do"
+        class="filter-btn flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-gray-600 text-sm font-bold shrink-0 shadow-sm hover:border-blue-300 hover:text-blue-700 transition-all">
+        <span class="w-2 h-2 rounded-full bg-blue-400 inline-block"></span>
         يجب التجهيز <span class="count-badge" data-status="to_do"></span>
       </button>
-      <button onclick="setFilter('ready')"     data-filter="ready"
-        class="filter-btn btn btn-sm rounded-full border border-base-300 bg-base-100 text-gray-600 font-semibold shrink-0">
+      <button onclick="setFilter('ready')" data-filter="ready"
+        class="filter-btn flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-gray-600 text-sm font-bold shrink-0 shadow-sm hover:border-amber-300 hover:text-amber-700 transition-all">
+        <span class="w-2 h-2 rounded-full bg-amber-400 inline-block"></span>
         جاهز <span class="count-badge" data-status="ready"></span>
       </button>
       <button onclick="setFilter('delivered')" data-filter="delivered"
-        class="filter-btn btn btn-sm rounded-full border border-base-300 bg-base-100 text-gray-600 font-semibold shrink-0">
+        class="filter-btn flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-gray-600 text-sm font-bold shrink-0 shadow-sm hover:border-orange-300 hover:text-orange-700 transition-all">
+        <span class="w-2 h-2 rounded-full bg-orange-400 inline-block"></span>
         في الطريق <span class="count-badge" data-status="delivered"></span>
       </button>
-      <button onclick="setFilter('done')"      data-filter="done"
-        class="filter-btn btn btn-sm rounded-full border border-base-300 bg-base-100 text-gray-600 font-semibold shrink-0">
+      <button onclick="setFilter('done')" data-filter="done"
+        class="filter-btn flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-gray-600 text-sm font-bold shrink-0 shadow-sm hover:border-emerald-300 hover:text-emerald-700 transition-all">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
         مكتمل <span class="count-badge" data-status="done"></span>
       </button>
     </div>
@@ -83,7 +99,7 @@
 
   <!-- Toast -->
   <div id="toast" class="toast toast-bottom toast-center z-50 hidden pointer-events-none">
-    <div id="toast-msg" class="alert bg-gray-900 text-white text-sm shadow-xl rounded-2xl px-5 py-3 gap-2"></div>
+    <div id="toast-msg" class="alert bg-gray-900 text-white text-sm shadow-2xl rounded-2xl px-5 py-3 gap-2"></div>
   </div>
 
 <script>
@@ -93,16 +109,20 @@
 
   const STATUS_LABEL = { to_do: 'يجب التجهيز', ready: 'جاهز', delivered: 'في الطريق', done: 'مكتمل' };
   const STATUS_BADGE = {
-    to_do:     'badge text-xs font-bold bg-blue-100 text-blue-700 border-blue-200',
-    ready:     'badge text-xs font-bold bg-amber-100 text-amber-700 border-amber-200',
-    delivered: 'badge text-xs font-bold bg-orange-100 text-orange-700 border-orange-200',
-    done:      'badge text-xs font-bold bg-emerald-100 text-emerald-700 border-emerald-200',
+    to_do:     'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-blue-100 text-blue-700',
+    ready:     'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-amber-100 text-amber-700',
+    delivered: 'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-orange-100 text-orange-700',
+    done:      'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-700',
+  };
+  const STATUS_BORDER = {
+    to_do: 'status-bar-todo', ready: 'status-bar-ready',
+    delivered: 'status-bar-delivered', done: 'status-bar-done'
   };
   const NEXT_ACTION = {
-    to_do:     [{ status: 'ready',     label: '✅ جاهز للتسليم',   cls: 'btn bg-amber-500 hover:bg-amber-600 border-0 text-white font-bold' }],
-    ready:     [{ status: 'delivered', label: '📦 في الطريق',     cls: 'btn bg-orange-500 hover:bg-orange-600 border-0 text-white font-bold' },
-                { status: 'done',      label: '🏁 مكتمل (استلام)', cls: 'btn bg-emerald-600 hover:bg-emerald-700 border-0 text-white font-bold' }],
-    delivered: [{ status: 'done',      label: '🏁 تأكيد الاستلام', cls: 'btn bg-emerald-600 hover:bg-emerald-700 border-0 text-white font-bold' }],
+    to_do:     [{ status: 'ready',     label: '✅ جاهز للتسليم',   cls: 'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold shadow-sm transition-colors' }],
+    ready:     [{ status: 'delivered', label: '📦 في الطريق',      cls: 'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold shadow-sm transition-colors' },
+                { status: 'done',      label: '🏁 مكتمل (استلام)', cls: 'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-sm transition-colors' }],
+    delivered: [{ status: 'done',      label: '🏁 تأكيد الاستلام', cls: 'flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold shadow-sm transition-colors' }],
     done:      [],
   };
 
@@ -118,7 +138,7 @@
         'آخر تحديث: ' + new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
     } catch {
       document.getElementById('orders-container').innerHTML =
-        '<div class="flex flex-col items-center py-16 text-red-400 gap-3"><span class="text-4xl">⚠️</span><p class="font-medium">تعذّر تحميل الطلبات</p></div>';
+        '<div class="flex flex-col items-center py-20 text-red-400 gap-3"><span class="text-5xl">⚠️</span><p class="font-semibold">تعذّر تحميل الطلبات</p></div>';
     }
     spinRefresh(false);
   }
@@ -141,11 +161,17 @@
 
   function setFilter(f) {
     currentFilter = f;
+    const colorMap = {
+      to_do:     'bg-blue-600 text-white border-blue-600 shadow-md',
+      ready:     'bg-amber-500 text-white border-amber-500 shadow-md',
+      delivered: 'bg-orange-500 text-white border-orange-500 shadow-md',
+      done:      'bg-emerald-600 text-white border-emerald-600 shadow-md',
+    };
     document.querySelectorAll('.filter-btn').forEach(btn => {
       const active = btn.dataset.filter === f;
       btn.className = active
-        ? 'filter-btn btn btn-sm rounded-full shrink-0 bg-emerald-600 hover:bg-emerald-700 border-0 text-white font-semibold shadow-sm'
-        : 'filter-btn btn btn-sm rounded-full border border-base-300 bg-base-100 text-gray-600 font-semibold shrink-0 hover:border-emerald-400 hover:text-emerald-700';
+        ? `filter-btn flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-bold shrink-0 transition-all ${colorMap[f]}`
+        : 'filter-btn flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-gray-600 text-sm font-bold shrink-0 shadow-sm hover:border-gray-300 transition-all';
     });
     renderFiltered();
     setTimeout(loadVisibleLines, 100);
@@ -155,9 +181,9 @@
     const container = document.getElementById('orders-container');
     if (!orders.length) {
       container.innerHTML = `
-        <div class="flex flex-col items-center py-20 text-gray-400 gap-3">
-          <span class="text-6xl">📭</span>
-          <p class="font-medium text-base">لا توجد طلبات في هذه الحالة</p>
+        <div class="flex flex-col items-center py-24 text-gray-400 gap-4">
+          <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center text-4xl">📭</div>
+          <p class="font-bold text-base text-gray-500">لا توجد طلبات في هذه الحالة</p>
         </div>`;
       return;
     }
@@ -165,7 +191,7 @@
   }
 
   function buildCard(o, i) {
-    const badge      = `<span class="${STATUS_BADGE[o.status] || 'badge bg-gray-100 text-gray-600'} px-2.5 py-1">${STATUS_LABEL[o.status] || o.status}</span>`;
+    const badge      = `<span class="${STATUS_BADGE[o.status] || 'inline-flex px-2.5 py-0.5 rounded-lg text-xs font-bold bg-gray-100 text-gray-600'}">${STATUS_LABEL[o.status] || o.status}</span>`;
     const isDelivery = o.fulfillment === 'delivery';
     const date       = o.created_at
       ? new Date(o.created_at).toLocaleDateString('ar-EG', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
@@ -173,60 +199,55 @@
     const waLink     = `https://wa.me/${(o.phone || '').replace(/\D/g, '')}`;
     const actions    = NEXT_ACTION[o.status] || [];
     const actionBtns = actions.map(a =>
-      `<button onclick="updateStatus(${o.id}, '${a.status}', this)"
-        class="${a.cls} flex-1 btn-sm h-11 rounded-xl text-sm shadow-sm">
-        ${a.label}
-      </button>`
+      `<button onclick="updateStatus(${o.id}, '${a.status}', this)" class="${a.cls}">${a.label}</button>`
     ).join('');
 
     const productsHtml = `
-      <div id="lines-${o.id}" class="lines-container mt-3 pt-3 border-t border-base-200">
+      <div id="lines-${o.id}" class="lines-container mt-4 pt-4 border-t border-gray-100">
         <div class="text-xs text-gray-400 italic">جاري تحميل المنتجات...</div>
       </div>`;
 
     return `
-      <div class="card bg-base-100 border border-base-200 shadow-sm mb-4 overflow-hidden card-enter"
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 mb-4 overflow-hidden card-enter ${STATUS_BORDER[o.status] || ''}"
            style="animation-delay:${i * 0.04}s" id="order-${o.id}">
-        <div class="card-body p-4 pb-0 gap-0">
+        <div class="p-5 pb-0">
 
-          <!-- Header row -->
           <div class="flex items-start justify-between gap-3">
             <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2 flex-wrap mb-1">
-                <span class="font-extrabold text-gray-900 text-base">${o.customer_name || 'عميل'}</span>
+              <div class="flex items-center gap-2 flex-wrap mb-2">
+                <span class="font-black text-gray-900 text-lg">${o.customer_name || 'عميل'}</span>
                 ${badge}
-                <span class="badge text-xs font-medium ${isDelivery ? 'bg-purple-100 text-purple-700 border-purple-200' : 'bg-gray-100 text-gray-600 border-gray-200'}">
+                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold ${isDelivery ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'}">
                   ${isDelivery ? '🚚 توصيل' : '🏪 استلام'}
                 </span>
               </div>
               <a href="${waLink}" target="_blank"
-                class="inline-flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 font-medium">
-                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                class="inline-flex items-center gap-1.5 text-xs text-emerald-600 hover:text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-1 rounded-lg transition-colors">
+                <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
                 </svg>
                 ${o.phone}
               </a>
             </div>
             <div class="text-left shrink-0">
-              <div class="text-xl font-extrabold text-gray-900">₪${parseFloat(o.total || 0).toFixed(2)}</div>
-              <div class="text-xs text-gray-400 mt-0.5">${date}</div>
+              <div class="text-2xl font-black text-gray-900">₪${parseFloat(o.total || 0).toFixed(2)}</div>
+              <div class="text-xs text-gray-400 mt-0.5 text-left">${date}</div>
             </div>
           </div>
 
           ${isDelivery && o.address ? `
-          <div class="mt-2.5 flex items-start gap-1.5 bg-purple-50 border border-purple-100 rounded-xl px-3 py-2">
-            <span class="text-sm mt-0.5">📍</span>
-            <span class="text-sm text-purple-800 font-medium">${o.address}</span>
+          <div class="mt-3 flex items-start gap-2 bg-purple-50 border border-purple-100 rounded-xl px-3 py-2.5">
+            <span class="text-sm mt-0.5 shrink-0">📍</span>
+            <span class="text-sm text-purple-800 font-semibold">${o.address}</span>
           </div>` : ''}
 
           ${productsHtml}
         </div>
 
-        <!-- Actions -->
-        <div class="px-4 py-4">
+        <div class="px-5 py-4">
           ${actionBtns
             ? `<div class="flex gap-2">${actionBtns}</div>`
-            : `<div class="text-center text-xs text-gray-400 py-2 bg-base-200 rounded-xl">✔ تم إنجاز هذا الطلب</div>`
+            : `<div class="text-center text-xs text-gray-400 py-2.5 bg-gray-50 rounded-xl font-medium">✔ تم إنجاز هذا الطلب</div>`
           }
         </div>
       </div>`;
@@ -242,12 +263,12 @@
       const lines = data.lines || [];
       if (!lines.length) { el.innerHTML = '<p class="text-xs text-gray-400">لا توجد منتجات</p>'; return; }
       el.innerHTML = lines.map(l => `
-        <div class="flex items-center justify-between py-1.5 border-b border-base-200 last:border-0">
-          <div class="flex items-center gap-2">
-            <span class="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-bold flex items-center justify-center shrink-0">${l.qty}</span>
-            <span class="text-sm text-gray-800 font-medium">${l.product_name}</span>
+        <div class="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+          <div class="flex items-center gap-2.5">
+            <span class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-black flex items-center justify-center shrink-0">${l.qty}</span>
+            <span class="text-sm text-gray-800 font-semibold">${l.product_name}</span>
           </div>
-          <span class="text-sm font-semibold text-gray-700 shrink-0">₪${parseFloat(l.line_total || 0).toFixed(2)}</span>
+          <span class="text-sm font-bold text-gray-700 shrink-0">₪${parseFloat(l.line_total || 0).toFixed(2)}</span>
         </div>`).join('');
     } catch {
       el.innerHTML = '<p class="text-xs text-red-400">تعذّر تحميل المنتجات</p>';

@@ -8,8 +8,9 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap');
     * { font-family: 'Cairo', sans-serif; }
+    body { background: #f1f5f9; }
     .card-enter { animation: slideUp 0.2s ease forwards; }
     @keyframes slideUp {
       from { opacity: 0; transform: translateY(10px); }
@@ -18,145 +19,160 @@
     [x-cloak] { display: none !important; }
   </style>
 </head>
-<body class="bg-base-200 min-h-screen">
+<body class="min-h-screen">
 
   <!-- Navbar -->
-  <div class="navbar bg-base-100 border-b border-base-200 shadow-sm sticky top-0 z-20">
-    <div class="w-full max-w-3xl mx-auto px-4 flex items-center justify-between">
-      <div class="flex items-center gap-2">
-        <span class="text-2xl">🌿</span>
-        <span class="font-extrabold text-gray-900 text-lg tracking-tight">ALYASMEEN</span>
+  <nav class="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-20">
+    <div class="max-w-5xl mx-auto px-5 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 bg-emerald-600 rounded-xl flex items-center justify-center shadow-sm shrink-0">
+          <span class="text-white text-base leading-none">🌿</span>
+        </div>
+        <div class="leading-tight">
+          <span class="font-black text-gray-900 text-base tracking-tight block">ALYASMEEN</span>
+          <span class="text-xs text-gray-400 block">لوحة الإدارة</span>
+        </div>
       </div>
-      <div class="flex items-center gap-1 flex-wrap">
-        <a href="/orders"    class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-base-200 transition-colors">الطلبات</a>
-        <a href="/dashboard" class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-base-200 transition-colors">الإحصائيات</a>
-        <a href="/products"  class="px-3 py-1.5 rounded-lg text-sm font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">المنتجات</a>
-        <a href="/broadcast" class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-base-200 transition-colors">رسائل جماعية</a>
-        <a href="/logout"    class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-400 hover:text-red-500 transition-colors">خروج</a>
+      <div class="flex items-center gap-1">
+        <a href="/orders"    class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 transition-colors">الطلبات</a>
+        <a href="/dashboard" class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 transition-colors">الإحصائيات</a>
+        <a href="/products"  class="px-3 py-1.5 rounded-lg text-sm font-bold bg-emerald-600 text-white shadow-sm">المنتجات</a>
+        <a href="/broadcast" class="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 transition-colors">رسائل جماعية</a>
+        <a href="/logout"    class="mr-1 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">خروج</a>
       </div>
     </div>
-  </div>
+  </nav>
 
   <!-- Main (Alpine.js root) -->
-  <div x-data="productsApp()" x-init="init()" class="max-w-3xl mx-auto px-4 py-5">
+  <div x-data="productsApp()" x-init="init()" class="max-w-5xl mx-auto px-5 py-6">
 
     <!-- Header -->
-    <div class="flex items-center justify-between mb-5">
+    <div class="flex items-center justify-between mb-6">
       <div>
-        <h1 class="text-2xl font-extrabold text-gray-900">المنتجات</h1>
+        <h1 class="text-2xl font-black text-gray-900">المنتجات</h1>
         <p class="text-xs text-gray-400 mt-0.5" x-text="products.length + ' منتج مسجّل'"></p>
       </div>
       <button @click="openAdd()"
-        class="btn bg-emerald-600 hover:bg-emerald-700 border-0 text-white text-sm font-bold gap-2 shadow-sm">
+        class="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl shadow-sm transition-colors">
         <span class="text-lg leading-none">+</span>
         إضافة منتج
       </button>
     </div>
 
     <!-- Loading -->
-    <div x-show="loading" class="flex items-center justify-center py-16 gap-2 text-gray-400">
+    <div x-show="loading" class="flex items-center justify-center py-20 gap-3 text-gray-400">
       <span class="loading loading-spinner loading-md"></span>
-      <span class="text-sm">جاري التحميل...</span>
+      <span class="text-sm font-medium">جاري التحميل...</span>
     </div>
 
     <!-- Empty state -->
     <div x-show="!loading && products.length === 0" x-cloak
-      class="flex flex-col items-center py-16 text-gray-400 gap-3">
-      <span class="text-6xl">🌿</span>
-      <p class="font-semibold text-base">لا توجد منتجات بعد</p>
-      <p class="text-sm">اضغط "إضافة منتج" لتبدأ</p>
+      class="flex flex-col items-center py-24 text-gray-400 gap-4">
+      <div class="w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center text-5xl">🌿</div>
+      <p class="font-bold text-base text-gray-500">لا توجد منتجات بعد</p>
+      <p class="text-sm text-gray-400">اضغط "إضافة منتج" لتبدأ</p>
     </div>
 
-    <!-- Product list -->
-    <div x-show="!loading && products.length > 0" x-cloak class="flex flex-col gap-3">
+    <!-- Product grid -->
+    <div x-show="!loading && products.length > 0" x-cloak
+      class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       <template x-for="p in products" :key="p.id">
-        <div class="card bg-base-100 border border-base-200 shadow-sm card-enter">
-          <div class="card-body p-4 gap-0">
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden card-enter flex flex-col">
 
-            <div class="flex items-start justify-between gap-3">
-              <!-- Info -->
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 flex-wrap mb-1">
-                  <span class="font-extrabold text-gray-900 text-base" x-text="p.name"></span>
-                  <span x-show="p.active"
-                    class="badge badge-sm bg-emerald-100 text-emerald-700 border-emerald-200 font-semibold">فعّال</span>
-                  <span x-show="!p.active"
-                    class="badge badge-sm bg-gray-100 text-gray-400 border-gray-200 font-semibold">مخفي</span>
-                </div>
-                <p class="text-xs text-gray-500 leading-relaxed" x-show="p.description" x-text="p.description"></p>
-                <p class="text-xs text-gray-400 mt-1" x-show="p.tags" x-text="p.tags"></p>
-              </div>
-              <!-- Price -->
-              <div class="shrink-0 text-left">
-                <p class="text-xl font-extrabold text-emerald-600" x-text="p.price.toFixed(2) + '₪'"></p>
-              </div>
+          <!-- Product image placeholder -->
+          <div class="h-44 bg-gradient-to-br from-emerald-50 via-teal-50 to-green-100 flex items-center justify-center relative overflow-hidden">
+            <div class="text-center">
+              <div class="text-5xl mb-1">🌿</div>
+              <div class="text-xs text-emerald-600 font-semibold opacity-60">ALYASMEEN</div>
+            </div>
+            <!-- Active/Inactive badge -->
+            <div class="absolute top-3 right-3">
+              <span x-show="p.active"
+                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-600 text-white shadow-sm">
+                <span class="w-1.5 h-1.5 rounded-full bg-white inline-block"></span> فعّال
+              </span>
+              <span x-show="!p.active"
+                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-gray-200 text-gray-500">
+                <span class="w-1.5 h-1.5 rounded-full bg-gray-400 inline-block"></span> مخفي
+              </span>
+            </div>
+          </div>
+
+          <div class="p-4 flex flex-col flex-1">
+            <div class="flex items-start justify-between gap-2 mb-2">
+              <span class="font-black text-gray-900 text-base leading-tight" x-text="p.name"></span>
+              <span class="text-xl font-black text-emerald-600 shrink-0" x-text="p.price.toFixed(2) + '₪'"></span>
+            </div>
+            <p class="text-xs text-gray-500 leading-relaxed flex-1" x-show="p.description" x-text="p.description"></p>
+            <div x-show="p.tags" class="mt-2">
+              <span class="text-xs text-gray-400 bg-gray-50 px-2 py-0.5 rounded-lg" x-text="p.tags"></span>
             </div>
 
             <!-- Actions -->
-            <div class="flex items-center gap-2 mt-3 pt-3 border-t border-base-200">
+            <div class="flex items-center gap-2 mt-4 pt-3 border-t border-gray-100">
               <button @click="openEdit(p)"
-                class="btn btn-sm flex-1 bg-base-100 hover:bg-base-200 border border-base-300 text-gray-600 font-semibold text-xs gap-1">
+                class="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-600 font-bold text-xs transition-colors">
                 ✏️ تعديل
               </button>
               <button @click="toggleProduct(p)"
                 :class="p.active
-                  ? 'btn btn-sm flex-1 bg-base-100 hover:bg-amber-50 border border-amber-200 text-amber-600 font-semibold text-xs gap-1'
-                  : 'btn btn-sm flex-1 bg-base-100 hover:bg-emerald-50 border border-emerald-200 text-emerald-600 font-semibold text-xs gap-1'">
+                  ? 'flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-600 font-bold text-xs transition-colors'
+                  : 'flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-600 font-bold text-xs transition-colors'">
                 <span x-text="p.active ? '🔴 إخفاء' : '🟢 تفعيل'"></span>
               </button>
               <button @click="deleteProduct(p)"
-                class="btn btn-sm bg-base-100 hover:bg-red-50 border border-red-100 text-red-400 hover:text-red-600 font-semibold text-xs px-3">
-                حذف
+                class="flex items-center justify-center py-2 px-3 rounded-xl bg-red-50 hover:bg-red-100 border border-red-100 text-red-400 hover:text-red-600 font-bold text-xs transition-colors">
+                🗑️
               </button>
             </div>
-
           </div>
+
         </div>
       </template>
     </div>
 
-    <!-- ── DaisyUI Modal ── -->
+    <!-- Modal -->
     <div class="modal" :class="modal.open ? 'modal-open' : ''" x-cloak>
       <div class="modal-box w-full max-w-md bg-white rounded-2xl p-6 shadow-2xl">
 
         <div class="flex items-center justify-between mb-5">
-          <h3 class="font-extrabold text-gray-900 text-lg" x-text="modal.title"></h3>
+          <h3 class="font-black text-gray-900 text-lg" x-text="modal.title"></h3>
           <button @click="closeModal()"
-            class="btn btn-ghost btn-sm btn-circle text-gray-400 hover:text-gray-600">✕</button>
+            class="w-8 h-8 flex items-center justify-center rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors text-lg font-bold">✕</button>
         </div>
 
         <div class="flex flex-col gap-4">
 
           <div class="form-control">
             <label class="label pb-1">
-              <span class="label-text font-semibold text-gray-700">اسم المنتج <span class="text-red-500">*</span></span>
+              <span class="label-text font-bold text-gray-700">اسم المنتج <span class="text-red-500">*</span></span>
             </label>
             <input type="text" x-model="modal.name" placeholder="مثال: كريم اليدين"
-              class="input input-bordered focus:input-success w-full text-sm" />
+              class="input input-bordered focus:input-success w-full text-sm rounded-xl" />
           </div>
 
           <div class="form-control">
             <label class="label pb-1">
-              <span class="label-text font-semibold text-gray-700">السعر (₪) <span class="text-red-500">*</span></span>
+              <span class="label-text font-bold text-gray-700">السعر (₪) <span class="text-red-500">*</span></span>
             </label>
             <input type="number" x-model="modal.price" min="0.01" step="0.01" placeholder="0.00"
-              class="input input-bordered focus:input-success w-full text-sm" />
+              class="input input-bordered focus:input-success w-full text-sm rounded-xl" />
           </div>
 
           <div class="form-control">
             <label class="label pb-1">
-              <span class="label-text font-semibold text-gray-700">الوصف</span>
+              <span class="label-text font-bold text-gray-700">الوصف</span>
             </label>
             <textarea x-model="modal.description" rows="2" placeholder="وصف قصير للمنتج..."
-              class="textarea textarea-bordered focus:textarea-success w-full text-sm resize-none"></textarea>
+              class="textarea textarea-bordered focus:textarea-success w-full text-sm resize-none rounded-xl"></textarea>
           </div>
 
           <div class="form-control">
             <label class="label pb-1">
-              <span class="label-text font-semibold text-gray-700">الوسوم</span>
+              <span class="label-text font-bold text-gray-700">الوسوم</span>
             </label>
             <input type="text" x-model="modal.tags" placeholder="مثال: مرطب, طبيعي, للبشرة"
-              class="input input-bordered focus:input-success w-full text-sm" />
+              class="input input-bordered focus:input-success w-full text-sm rounded-xl" />
             <label class="label pt-1">
               <span class="label-text-alt text-gray-400">افصل بين الوسوم بفاصلة</span>
             </label>
@@ -164,21 +180,19 @@
 
         </div>
 
-        <!-- Error -->
         <div x-show="modal.error" x-cloak
           class="alert alert-error text-sm py-2 mt-3 rounded-xl">
           <span x-text="modal.error"></span>
         </div>
 
-        <!-- Buttons -->
         <div class="flex gap-3 mt-5">
           <button @click="saveProduct()" :disabled="modal.saving"
-            class="btn flex-1 bg-emerald-600 hover:bg-emerald-700 border-0 text-white font-bold text-sm">
+            class="flex-1 flex items-center justify-center gap-2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl transition-colors shadow-sm">
             <span x-show="modal.saving" class="loading loading-spinner loading-xs"></span>
             <span x-text="modal.saving ? 'جاري الحفظ...' : 'حفظ'"></span>
           </button>
           <button @click="closeModal()"
-            class="btn flex-1 bg-base-100 hover:bg-base-200 border border-base-300 text-gray-600 font-medium text-sm">
+            class="flex-1 py-3 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-600 font-bold text-sm rounded-xl transition-colors">
             إلغاء
           </button>
         </div>
@@ -190,12 +204,12 @@
     <!-- Toast -->
     <div x-show="toast.show" x-cloak x-transition
       class="toast toast-bottom toast-center z-50 pointer-events-none">
-      <div class="alert bg-gray-900 text-white text-sm shadow-xl rounded-2xl px-5 py-3">
+      <div class="alert bg-gray-900 text-white text-sm shadow-2xl rounded-2xl px-5 py-3">
         <span x-text="toast.msg"></span>
       </div>
     </div>
 
-  </div><!-- /x-data -->
+  </div>
 
 <script>
 function productsApp() {
