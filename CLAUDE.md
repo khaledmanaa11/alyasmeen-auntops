@@ -24,14 +24,46 @@ The aunt manages orders via a built-in web dashboard. Claude Haiku powers the AI
 - Wave invoicing wired (fires on status → done)
 - **Product management page** — `/products` dashboard tab; aunt can add, edit, toggle, delete products herself
 - **Products moved to Supabase** — `products` table replaces `catalog.json` as live source of truth; bot picks up changes instantly
+- **Full dashboard UI redesign** — all 5 templates rebuilt with premium design system (see Frontend Design System below)
+- WhatsApp webhook GET verification fixed (dotted query params via `request.query_params`)
+- Webhook challenge returns `PlainTextResponse` (not JSON)
+- WhatsApp phone number registered via Meta Cloud API
+- Custom domain `alyasmeen.org` configured on Railway (DNS via Namecheap)
+- Meta business review submitted to lift WABA restriction
 
 ### Still To Do 🔲
-1. **Deploy** — host on Railway or Render
+1. **Deploy** — hosted on Railway (`alyasmeen.org`), SSL cert pending
 2. **Add real products** — use the `/products` dashboard page to add real ALYASMEEN products (catalog.json is no longer used)
-3. **Set `AUNT_PHONE`** in `.env` — needed for new-order notifications + monthly report
-4. **Set WhatsApp vars** — `WA_META_TOKEN`, `WA_META_PHONE_ID`, `WA_META_VERIFY_TOKEN`
-5. **Configure Meta webhook URL** — `https://your-app-url/whatsapp/webhook`
+3. **Wait for Meta business review** — WABA restriction pending approval
+4. **Update `WA_META_TOKEN`** in Railway env vars — new system user token
+5. **Add real product images** — upload to Cloudinary, add `image_url` column to `products` table, update template
 6. **Add FAQ/store info** — `app/data/knowledge/` is empty; add `.md` files for AI context
+
+---
+
+## Frontend Design System (all 5 templates)
+
+All dashboard templates (`login`, `orders`, `dashboard`, `products`, `broadcast`) share a consistent premium design language:
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| Primary green | `#006948` | Buttons, active nav, badges, chart colors |
+| Primary dark | `#004d33` | Hover states |
+| Primary light | `#e6f3ee` | Card backgrounds, tints |
+| Page background | `#f0f7f4` | `<body>` background |
+| Card border | `#e8f3ee` | All card borders |
+
+**Icons:** Material Symbols Outlined — loaded from Google Fonts CDN
+```html
+<link href="https://fonts.googleapis.com/css2?family=Cairo:...&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+<span class="material-symbols-outlined">icon_name</span>
+```
+
+**Navbar:** Glassmorphism — `background: rgba(255,255,255,0.92); backdrop-filter: blur(16px)`
+
+**Cards:** `border-radius: 20px`, `border: 1px solid #e8f3ee`, `box-shadow: 0 2px 12px rgba(0,0,0,0.04)`
+
+**When editing templates:** Keep this design system consistent. Do not revert to the old `#059669` green or DaisyUI component classes.
 
 ---
 
@@ -253,30 +285,21 @@ uvicorn app.main:app --reload --port 8000
 
 ## Multi-Agent Pipeline
 
-A 4-agent pipeline lives in `agents/pipeline.py`.
-Run it for any new feature: `python -m agents.pipeline "feature description"`
-Output is saved to `agents/output/`. Never commit output files.
-The pipeline uses `claude-sonnet-4-6` for the Developer agent and
-`claude-haiku-4-5-20251001` for PM, QA, and DevOps.
-Do not add agent logic to `app/` — `agents/` is a separate folder.
+A 4-agent pipeline lives in `agents/pipeline.py` — **optional, not required for routine work.**
+For this small solo project, direct iteration is faster. Use the pipeline only for genuinely complex
+features where upfront planning adds value.
 
 ```
 agents/
-├── pipeline.py     ← orchestrator + CLI entry point
-├── prompts.py      ← all 4 system prompt constants
-└── output/         ← generated .md files (gitignored)
+├── pipeline.py          ← 4-agent: PM → Developer → QA → DevOps
+├── frontend_pipeline.py ← 2-agent: Frontend Dev → Visual QA
+├── prompts.py           ← all system prompt constants
+└── output/              ← generated .md files (gitignored)
 ```
 
-Agents in order: **Product Manager → Developer (streams) → QA (retry ×2) → DevOps**
-Requires `CLAUDE_API_KEY` set in `.env`.
-
-### Frontend Pipeline (separate)
-
-For UI-only work: `python -m agents.frontend_pipeline "design brief"`
-After a backend pipeline run: `python -m agents.frontend_pipeline "brief" --backend agents/output/<file>.md`
-Agents: **Frontend Developer (streams) → Visual QA (retry ×2)** — no DevOps step.
-Frontend Dev puts JS in `app/static/js/`, CSS in `app/static/css/` — never inline.
-Visual QA checks: RTL, Arabic text, no inline styles, mobile layout, no hardcoded URLs, accessibility.
+Run if needed: `python -m agents.pipeline "feature description"`
+Frontend only: `python -m agents.frontend_pipeline "design brief"`
+Requires `CLAUDE_API_KEY` set in `.env`. Never commit `agents/output/` files.
 
 ---
 
