@@ -27,9 +27,19 @@ from app.services.ai_service import generate_reply as ai_generate_reply
 from app.services.config import Config
 
 if Config.USE_MOCK_WHATSAPP:
-    from app.services.whatsapp_dev import send_text, verify_get
+    from app.services.whatsapp_dev import send_text, send_buttons, verify_get
 else:
-    from app.services.whatsapp_meta import send_text, verify_get
+    from app.services.whatsapp_meta import send_text, send_buttons, verify_get
+
+# Arabic aliases → normalized English command keys
+_AR_ALIASES: dict[str, str] = {
+    "سلة": "cart", "سلتي": "cart", "السلة": "cart", "شوف السلة": "cart", "عرض السلة": "cart",
+    "امسح": "clear", "مسح": "clear", "مسح السلة": "clear", "امسح السلة": "clear",
+    "قائمة": "menu", "منيو": "menu", "المنتجات": "menu", "شوف المنتجات": "menu", "عرض المنتجات": "menu",
+    "استلام": "pickup", "استلم": "pickup",
+    "توصيل": "delivery",
+    "تأكيد": "confirm", "تأكيد الطلب": "confirm", "أكد الطلب": "confirm",
+}
 
 router = APIRouter(prefix="/whatsapp", tags=["whatsapp"])
 
@@ -70,7 +80,7 @@ def _tool_add_to_cart(inp: dict, st: dict, cart: list) -> str:
 def _tool_show_menu(inp: dict, st: dict) -> str:
     """Load products from Supabase and build a numbered menu string. Updates session."""
     category = (inp.get("category") or "").strip() or None
-    products = search_products(category, category) if category else search_products(None, None)
+    products = search_products(None, category) if category else search_products(None, None)
     products = products[:WHATSAPP_MENU_LIMIT]
 
     if not products:
@@ -171,6 +181,9 @@ def webhook_post(msg: Msg):
     st = load_session(phone)
     cart = st.get("cart") or []
 
+    # Normalize Arabic aliases to command keys (e.g. "سلة" → "cart")
+    low = _AR_ALIASES.get(low, low)
+
     # -----------------------------------------------------------------------
     # NEW CUSTOMER WELCOME — fires once on their very first message
     # -----------------------------------------------------------------------
@@ -205,8 +218,15 @@ def webhook_post(msg: Msg):
             total += subtotal
             lines.append(f"{arabic_n(i)}) {it.get('name','منتج')} × {qty} = {subtotal:.2f}₪")
         lines.append(f"\nالإجمالي: {total:.2f}₪")
-        lines.append("اكتب 'confirm' لتأكيد الطلب أو 'clear' لمسح السلة.")
-        return send_text(phone, "\n".join(lines))
+        cart_text = "\n".join(lines)
+        if st.get("fulfillment"):
+            return send_buttons(phone, cart_text,
+                [{"id": "confirm", "title": "✅ تأكيد الطلب"},
+                 {"id": "clear",   "title": "🗑️ مسح السلة"}])
+        return send_buttons(phone, cart_text,
+            [{"id": "pickup",   "title": "🏪 استلام"},
+             {"id": "delivery", "title": "🚚 توصيل"},
+             {"id": "clear",    "title": "🗑️ مسح السلة"}])
 
     # CLEAR: empty the cart
     if low == "clear":
@@ -235,7 +255,8 @@ def webhook_post(msg: Msg):
                 return send_text(phone, "📍 وين بدك نوصلك؟ أرسل عنوانك كاملاً (المدينة، الحي، الشارع).")
         else:
             save_session(phone, st)
-            return send_text(phone, "تمام، استلام من المتجر ✅. اكتب 'confirm' لتأكيد الطلب.")
+            return send_buttons(phone, "تمام، استلام من المتجر ✅",
+                [{"id": "confirm", "title": "✅ تأكيد الطلب"}])
 
     # CONFIRM: place the order
     if low == "confirm":
@@ -313,26 +334,27 @@ def webhook_post(msg: Msg):
         st["address"] = address
         st["stage"] = "root"
         save_session(phone, st)
-        return send_text(
-            phone,
-            f"✅ تم حفظ العنوان:\n{address}\n\nاكتب 'confirm' لتأكيد الطلب أو 'delivery' لتغيير العنوان."
-        )
+        return send_buttons(phone, f"✅ تم حفظ العنوان:\n{address}",
+            [{"id": "confirm",  "title": "✅ تأكيد الطلب"},
+             {"id": "delivery", "title": "🔄 تغيير العنوان"}])
 
-    # MENU: show numbered product list (utility command, still useful)
+    # MENU: show numbered product list from Supabase
     if low == "menu":
-        products = _CATALOG[:WHATSAPP_MENU_LIMIT]
+        products = search_products(None, None)[:WHATSAPP_MENU_LIMIT]
 
         if not products:
             return send_text(phone, "حالياً لا توجد منتجات متاحة.")
 
-        st["menu_products"] = products
+        st["menu_products"] = [
+            {"id": int(p["sku"]), "name": p["name"], "list_price": float(p.get("price", 0))}
+            for p in products
+        ]
         save_session(phone, st)
 
         lines: list[str] = []
         for i, p in enumerate(products, start=1):
-            price = float(p.get("list_price") or 0)
-            price_str = f"{price:.0f}".rstrip("0").rstrip(".")
-            lines.append(f"{i}) {p['name']} – {price_str}₪")
+            price = float(p.get("price") or 0)
+            lines.append(f"{i}) {p['name']} — {price:.0f}₪")
         lines.append("\nاكتب رقم المنتج لإضافته للسلة، أو 'info 1' لتفاصيله.")
         return send_text(phone, "قائمة المنتجات:\n" + "\n".join(lines))
 
@@ -356,9 +378,10 @@ def webhook_post(msg: Msg):
         st["cart"] = cart
         st["stage"] = "confirm"
         save_session(phone, st)
-        return send_text(phone,
-            f"✅ تم إضافة {prod['name']} للسلة.\n"
-            "اكتب 'cart' لمشاهدة السلة أو 'confirm' لتأكيد الطلب.")
+        return send_buttons(phone, f"✅ تمت إضافة {prod['name']} للسلة 🎉",
+            [{"id": "pickup",   "title": "🏪 استلام"},
+             {"id": "delivery", "title": "🚚 توصيل"},
+             {"id": "cart",     "title": "🛒 عرض السلة"}])
 
     # QUANTITY PATTERN: "2x1", "2 x 1", "3*2"
     qty_match = re.match(r"^\s*(\d+)\s*[xX*]\s*(\d+)\s*$", low)
@@ -381,9 +404,10 @@ def webhook_post(msg: Msg):
             st["cart"] = cart
             st["stage"] = "confirm"
             save_session(phone, st)
-            return send_text(phone,
-                f"✅ تم إضافة {prod['name']} × {qty} للسلة.\n"
-                "اكتب 'cart' لمشاهدة السلة أو 'confirm' لتأكيد الطلب.")
+            return send_buttons(phone, f"✅ تمت إضافة {prod['name']} × {qty} للسلة 🎉",
+                [{"id": "pickup",   "title": "🏪 استلام"},
+                 {"id": "delivery", "title": "🚚 توصيل"},
+                 {"id": "cart",     "title": "🛒 عرض السلة"}])
 
     # INFO COMMAND: "info 1" or "تفاصيل 1"
     if low.startswith("info") or low.startswith("تفاصيل"):
@@ -450,4 +474,12 @@ def webhook_post(msg: Msg):
         save_session(phone, st)
 
     append_history(phone, "assistant", reply)
+
+    # If cart was just updated and fulfillment not chosen yet, attach fulfillment buttons
+    if _tools_ran[0] and st.get("cart") and not st.get("fulfillment"):
+        return send_buttons(phone,
+            reply + "\n\nاختار طريقة الاستلام 👇",
+            [{"id": "pickup",   "title": "🏪 استلام"},
+             {"id": "delivery", "title": "🚚 توصيل"}])
+
     return send_text(phone, reply)

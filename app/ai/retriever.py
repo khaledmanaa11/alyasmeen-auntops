@@ -30,7 +30,7 @@ def _load_catalog() -> list[dict]:
     """
     from app.db.database import query
     rows = query(
-        "SELECT id, name, price, description, tags, active FROM products WHERE active = true ORDER BY id"
+        "SELECT id, name, price, description, tags, aliases, active FROM products WHERE active = true ORDER BY id"
     )
     result = []
     for r in rows:
@@ -40,6 +40,7 @@ def _load_catalog() -> list[dict]:
             "price": float(r["price"]),
             "description": r.get("description") or "",
             "tags": [t.strip() for t in (r.get("tags") or "").split(",") if t.strip()],
+            "aliases": r.get("aliases") or "",
         })
     return result
 
@@ -65,7 +66,7 @@ def search_products(query: str | None, category: str | None) -> list[dict]:
         category: Category name to filter by. None means no filter.
 
     Returns:
-        A list of up to 12 matching product dicts.
+        Up to 8 products when no filter is given; up to 12 when a filter is applied.
     """
     rows = _catalog()
     if not rows:
@@ -79,13 +80,14 @@ def search_products(query: str | None, category: str | None) -> list[dict]:
 
     out = []
     for r in rows:
-        if category and cn not in _normalize(r.get("category", "")):
+        if category and not any(cn in _normalize(t) for t in r.get("tags", [])):
             continue
         if query:
             hay = " ".join([
                 _normalize(r.get("name", "")),
                 _normalize(r.get("description", "")),
                 _normalize(str(r.get("sku", ""))),
+                _normalize(r.get("aliases", "")),
             ])
             if qn not in hay:
                 continue

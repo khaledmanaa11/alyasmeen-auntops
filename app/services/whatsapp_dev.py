@@ -55,6 +55,25 @@ def send_document(to: str, url: str, filename: str, caption: str | None = None) 
     print(payload)
     return payload
 
+def send_buttons(to: str, body: str, buttons: list[dict]) -> dict:
+    """Mock interactive button message — prints to console and returns dict with buttons list.
+
+    Args:
+        to:      Recipient phone number.
+        body:    Message body text shown above the buttons.
+        buttons: List of {"id": str, "title": str} dicts (max 3).
+
+    Returns:
+        Dict with dev=True, to, text, and buttons keys.
+    """
+    msg = {"dev": True, "to": to, "text": body, "buttons": buttons}
+    print("\nreply (buttons)\n---------------")
+    print(f"body: {body}")
+    for b in buttons:
+        print(f"  [{b['title']}]  id={b['id']}")
+    return msg
+
+
 def verify_get(params: dict) -> tuple[bool,int,str]:
     """Accept any webhook verification request in dev mode and echo the challenge.
 

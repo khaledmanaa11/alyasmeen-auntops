@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS products (
   price       NUMERIC(10,2)  NOT NULL,
   description TEXT           DEFAULT '',
   tags        TEXT           DEFAULT '',
+  aliases     TEXT           DEFAULT '',  -- comma-separated synonyms (e.g. "hand cream, كريم اليد")
   active      BOOLEAN        DEFAULT true,
   created_at  TIMESTAMPTZ    DEFAULT NOW()
 );

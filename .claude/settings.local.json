@@ -25,7 +25,8 @@
       "Bash(curl -s http://localhost:8000/)",
       "Bash(curl -s http://localhost:8000/static/js/broadcast_improve.js)",
       "Bash(python -c \"import aiofiles; print\\(''aiofiles ok''\\)\")",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "WebSearch"
     ]
   }
 }

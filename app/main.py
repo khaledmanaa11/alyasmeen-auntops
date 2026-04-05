@@ -23,7 +23,9 @@ from app.routers.whatsapp import router as whatsapp_router  # noqa: E402
 
 try:
     from app.routers.debug import router as debug_router  # noqa: E402
-except Exception:
+except Exception as _e:
+    import traceback; traceback.print_exc()
+    print(f"[WARN] debug router not loaded: {_e}")
     debug_router = None
 
 # Basic logging setup; consumers can configure more advanced logging/handlers

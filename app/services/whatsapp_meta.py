@@ -38,6 +38,46 @@ def send_text(to: str, text: str) -> dict:
         data = {"status": r.status_code, "text": r.text}
     return {"status": r.status_code, "resp": data}
 
+def send_buttons(to: str, body: str, buttons: list[dict]) -> dict:
+    """Send an interactive button message via the Meta Cloud API.
+
+    Args:
+        to:      Recipient phone number.
+        body:    Message body text shown above the buttons.
+        buttons: List of {"id": str, "title": str} dicts (max 3, title max 20 chars).
+
+    Returns:
+        Dict with status (HTTP code) and resp (API response) keys.
+    """
+    if Config.USE_MOCK_WHATSAPP:
+        from app.services.whatsapp_dev import send_buttons as dev_send
+        return dev_send(to, body, buttons)
+
+    url = f"https://graph.facebook.com/v19.0/{Config.WA_META_PHONE_ID}/messages"
+    headers = {"Authorization": f"Bearer {Config.WA_META_TOKEN}", "Content-Type": "application/json"}
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": to.replace(" ", ""),
+        "type": "interactive",
+        "interactive": {
+            "type": "button",
+            "body": {"text": body},
+            "action": {
+                "buttons": [
+                    {"type": "reply", "reply": {"id": b["id"], "title": b["title"][:20]}}
+                    for b in buttons[:3]
+                ]
+            }
+        }
+    }
+    r = requests.post(url, headers=headers, json=payload, timeout=15)
+    try:
+        data = r.json()
+    except Exception:
+        data = {"status": r.status_code, "text": r.text}
+    return {"status": r.status_code, "resp": data}
+
+
 def send_document_bytes(to: str, pdf_bytes: bytes, filename: str, caption: str | None = None) -> dict:
     """Upload PDF bytes to the Meta media API, then send as a WhatsApp document."""
     if Config.USE_MOCK_WHATSAPP:

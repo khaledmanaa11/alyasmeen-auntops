@@ -7,7 +7,7 @@ Public API:
     generate_reply(user_message, previous_messages) -> str
     ai_available() -> bool
 
-Note: This file is ~198 lines — within acceptable range (under 200). No split needed.
+Note: This file contains the full AI layer — prompt, tools, knowledge, and catalog injection.
 """
 from __future__ import annotations
 
@@ -26,52 +26,99 @@ from app.services.config import Config
 log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Knowledge base (loaded once from app/data/knowledge/*.md)
+# Knowledge base (app/data/knowledge/*.md) — selectively injected per message
 # ---------------------------------------------------------------------------
 
-_KNOWLEDGE: str | None = None
+# Cache: filename → (triggers_set, full_content)
+_KNOWLEDGE_FILES: dict[str, tuple[set[str], str]] | None = None
 
 
-def _load_knowledge() -> str:
+def _load_knowledge_files() -> dict[str, tuple[set[str], str]]:
+    """Load all .md files from the knowledge directory.
+
+    Each file may start with a comment line:
+        # triggers: word1, word2, word3
+    If present, the file is only injected when the user message contains one
+    of those trigger words. Files without a triggers line are always included.
+    """
     base = os.path.join(os.getcwd(), "app", "data", "knowledge")
-    parts: list[str] = []
+    result: dict[str, tuple[set[str], str]] = {}
     for path in glob.glob(os.path.join(base, "**", "*.md"), recursive=True):
         try:
             with open(path, encoding="utf-8") as f:
-                parts.append(f"# {os.path.basename(path)}\n" + f.read())
+                content = f.read()
+            triggers: set[str] = set()
+            first_line = content.split("\n", 1)[0].strip()
+            if first_line.startswith("# triggers:"):
+                raw = first_line[len("# triggers:"):].strip()
+                triggers = {t.strip() for t in raw.replace("،", ",").split(",") if t.strip()}
+            result[os.path.basename(path)] = (triggers, content)
         except Exception:
             pass
-    return "\n\n".join(parts)[:20_000]
+    return result
 
 
-def _knowledge() -> str:
-    global _KNOWLEDGE
-    if _KNOWLEDGE is None:
-        _KNOWLEDGE = _load_knowledge()
-    return _KNOWLEDGE
+def _knowledge_files() -> dict[str, tuple[set[str], str]]:
+    global _KNOWLEDGE_FILES
+    if _KNOWLEDGE_FILES is None:
+        _KNOWLEDGE_FILES = _load_knowledge_files()
+    return _KNOWLEDGE_FILES
+
+
+def _relevant_knowledge(user_message: str) -> str:
+    """Return only the knowledge files whose trigger keywords appear in the user message.
+
+    Falls back to returning all files if none match, so the context is never
+    completely empty when the knowledge base has content.
+    """
+    files = _knowledge_files()
+    if not files:
+        return ""
+    msg_lower = user_message.lower()
+    matched: list[str] = []
+    unfiltered: list[str] = []
+    for _name, (triggers, content) in files.items():
+        if not triggers:
+            # No trigger line — always include
+            unfiltered.append(content)
+        elif any(t.lower() in msg_lower for t in triggers):
+            matched.append(content)
+    selected = matched or unfiltered  # use matched if any, else files with no triggers
+    return "\n\n".join(selected)[:20_000]
 
 
 # ---------------------------------------------------------------------------
-# Product context from catalog
+# Product context — always inject full catalog into system prompt
 # ---------------------------------------------------------------------------
 
-def _product_context(user_message: str) -> str:
+def _full_catalog_context() -> str:
+    """Return all active products formatted as a <catalog> XML block.
+
+    For a small store (≤30 products ≈ 1 500 tokens) it is always cheaper to
+    include the full catalog in the system prompt than to do per-message
+    keyword retrieval, which silently returns nothing when the customer says
+    'بدي اطلب' without mentioning a product name.
+    """
     try:
-        from app.ai.retriever import search_products
-        items = search_products(user_message, None)
+        from app.ai.retriever import _catalog as get_catalog
+        items = get_catalog()
     except Exception:
         return ""
     if not items:
         return ""
-    lines = ["Matching products from catalog:"]
-    for r in items[:6]:
-        name = r.get("name", "")
+    lines = ["<catalog>"]
+    for r in items:
+        name  = r.get("name", "")
         price = r.get("price", "")
-        desc = (r.get("description") or "").strip()
+        desc  = (r.get("description") or "").strip()
+        tags  = ", ".join(r.get("tags", []))
+        line  = f"- {name} | {price}₪"
+        if tags:
+            line += f" | tags: {tags}"
         if desc:
-            lines.append(f"- {name} — {price} | {desc[:90]}")
-        else:
-            lines.append(f"- {name} — {price}")
+            line += f" | {desc[:100]}"
+        lines.append(line)
+    lines.append("</catalog>")
     return "\n".join(lines)
 
 
@@ -90,18 +137,71 @@ def _is_arabic(text: str) -> bool:
 # Prompt building
 # ---------------------------------------------------------------------------
 
-_SYSTEM_PROMPT = (
-    "أنتِ 'عمة ALYASMEEN' — مساعدة ودودة ومتخصصة في منتجات العناية الطبيعية "
-    "والمصنوعة يدويًا (كريمات، لوشن، شموع) من فلسطين.\n\n"
-    "القواعد:\n"
-    "- اقترحي فقط منتجات موجودة في الكتالوج المرفق. لا تخترعي أسماء أو أسعارًا.\n"
-    "- إذا كان طلب الزبون واضحًا (نوع البشرة + المشكلة)، ابدئي بتوصية 1–3 منتجات مباشرة.\n"
-    "- اسألي 1–2 سؤال توضيحي فقط عند الضرورة.\n"
-    "- لكل منتج: الاسم + الفائدة الرئيسية + السعر (إن وُجد) + سطر قصير للاستخدام.\n"
-    "- ردودك قصيرة ومباشرة (3 فقرات كحد أقصى أو 6 نقاط).\n"
-    "- هذا ليس بديلاً عن استشارة طبيب.\n"
-    "- إذا كتب المستخدم بالإنجليزية، ردّي بالإنجليزية. وإلا فبالعربية.\n"
-)
+_SYSTEM_PROMPT = """\
+<role>
+أنتِ "عمة ALYASMEEN" — مساعدة ودودة ومتخصصة في منتجات العناية الطبيعية
+والمصنوعة يدويًا (كريمات، لوشن، شموع) من فلسطين.
+استخدمي دائمًا اللهجة الفلسطينية الدارجة، وكوني دافئة ومشجعة.
+</role>
+
+<catalog_grounding>
+اقترحي فقط منتجات موجودة في قائمة <catalog> أدناه.
+لا تخترعي أسماء منتجات أو أسعارًا أبدًا.
+إذا لم يطابق طلب الزبون أي منتج، استدعي show_menu أو اطرحي سؤالاً توضيحيًا.
+</catalog_grounding>
+
+<tool_rules>
+<decision_tree>
+- إذا ذكر الزبون اسم منتج + فعل شراء (بدي، بشتري، أطلب، I want، add، buy)
+  → استدعي add_to_cart مباشرة بدون أسئلة إضافية
+- إذا ذكر الزبون فئة منتجات (كريمات، شموع، لوشن، creams، candles، lotions)
+  → استدعي show_menu مع تصفية الفئة المناسبة
+- إذا قال الزبون "بدي اطلب" أو "شو عندكم" أو "I want to order" أو "show me products" أو أي جملة تعني العرض العام
+  → استدعي show_menu بدون تصفية
+- إذا وصف الزبون مشكلة بشرة (جافة، دهنية، حساسية، حب شباب) بدون فعل شراء واضح
+  → اسألي سؤالاً واحداً لتوضيح نوع البشرة، ثم أوصي بمنتج مناسب، ثم انتظري تأكيد الرغبة في الشراء
+- إذا ذكر الزبون اسم منتج بدون فعل شراء (مثلاً "الكريم الفلاني")
+  → اسألي: "بدك تضيفه للسلة؟" — لا تستدعي add_to_cart حتى يؤكد
+- إذا اعترض الزبون على السعر ("غالي"، "expensive"، "كتير")
+  → ردّي بأسلوب ودّي تشرحي فيه القيمة الطبيعية والجودة — لا تستدعي أي أداة
+</decision_tree>
+</tool_rules>
+
+<examples>
+<example>
+<user>بدي كريم لبشرتي الجافة</user>
+<action>call show_menu with category="كريمات"</action>
+<reply>تفضلي كريماتنا الطبيعية المناسبة للبشرة الجافة 👇</reply>
+</example>
+<example>
+<user>I want to order the hand cream</user>
+<action>call add_to_cart with product_name="hand cream", qty=1</action>
+<reply>Done! Hand cream is in your cart 🛒 Want to add anything else?</reply>
+</example>
+<example>
+<user>شو عندكم؟</user>
+<action>call show_menu with no category filter</action>
+<reply>هاي كل منتجاتنا الطبيعية 🌿👇</reply>
+</example>
+<example>
+<user>الكريم غالي شوي</user>
+<action>no tool call — conversational reply only</action>
+<reply>فاهمة قصدك 😊 منتجاتنا مصنوعة يدوياً بمكونات طبيعية 100% — مش في عليها أي كيماويات. الجودة بتفرق كتير على البشرة وبتحسيها من أول استخدام!</reply>
+</example>
+<example>
+<user>بدي الكريم والشمعة</user>
+<action>call add_to_cart twice — once for each product</action>
+<reply>تمام! أضفت الاثنين للسلة 🎉</reply>
+</example>
+</examples>
+
+<reply_rules>
+- الردود قصيرة ومباشرة (3 فقرات كحد أقصى)
+- إذا كتب الزبون بالإنجليزية، ردّي بالإنجليزية. وإلا فبالعربية
+- إذا خلط الزبون العربية والإنجليزية، ردّي بالعربية واستخدمي أسماء المنتجات بنفس اللغة التي كتبها الزبون
+- خاطبي الزبون باسمه عند الترحيب أو التوصية إذا كان الاسم متاحًا
+</reply_rules>\
+"""
 
 
 # ---------------------------------------------------------------------------
@@ -113,19 +213,30 @@ _TOOLS: list[dict] = [
         "name": "add_to_cart",
         "description": (
             "Add a product to the customer's shopping cart. "
-            "Use this when the customer clearly says they want to order or buy a specific product. "
-            "Match by the product name the customer mentioned."
+            "Use this IMMEDIATELY — without asking follow-up questions — when: "
+            "the customer names a specific product and uses a buying verb (بدي، بشتري، أطلب، I want، add، buy، order), "
+            "the customer picks a numbered product from the menu, "
+            "or the customer clearly wants to purchase something specific. "
+            "Do NOT call this tool if the customer just mentions a product name without buying intent — ask 'بدك تضيفه للسلة؟' first. "
+            "If the product name is ambiguous or matches multiple products, pick the closest match and add it — do not ask. "
+            "Never confirm before adding — add immediately and let the customer see their cart."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "product_name": {
                     "type": "string",
-                    "description": "The product name the customer wants (Arabic or English as they said it)",
+                    "description": (
+                        "The product name the customer wants, in Arabic or English exactly as they said it. "
+                        "Examples: 'كريم اليدين', 'hand cream', 'الشمعة', 'lavender candle'."
+                    ),
                 },
                 "qty": {
                     "type": "integer",
-                    "description": "Quantity to add. Defaults to 1 if the customer did not specify.",
+                    "description": (
+                        "Quantity to add. Defaults to 1 if the customer did not specify. "
+                        "Accept both Western numerals (1, 2, 3) and Arabic-Indic numerals (١، ٢، ٣)."
+                    ),
                 },
             },
             "required": ["product_name"],
@@ -135,8 +246,12 @@ _TOOLS: list[dict] = [
         "name": "show_menu",
         "description": (
             "Show the product catalog to the customer as a numbered list. "
-            "Use when the customer asks to see products, browse, or asks what is available. "
-            "Optionally filter by category keyword."
+            "Use when: the customer asks to see products ('شو عندكم؟', 'وريني المنتجات', 'what do you have?'), "
+            "says they want to order without specifying a product ('بدي اطلب', 'I want to order'), "
+            "or mentions a product category ('كريمات', 'شموع', 'لوشن', 'creams', 'candles', 'lotions'). "
+            "Category filtering works by matching the keyword against product tags — "
+            "pass the Arabic or English category word as-is (e.g. 'كريمات', 'candles'). "
+            "Leave category empty to show all available products."
         ),
         "input_schema": {
             "type": "object",
@@ -144,8 +259,9 @@ _TOOLS: list[dict] = [
                 "category": {
                     "type": "string",
                     "description": (
-                        "Optional category keyword to filter by (e.g. 'candles', 'creams', 'lotions'). "
-                        "Leave empty to show all products."
+                        "Optional category keyword to filter by. "
+                        "Examples: 'كريمات', 'شموع', 'لوشن', 'creams', 'candles'. "
+                        "Leave empty or omit to show all products."
                     ),
                 },
             },
@@ -155,8 +271,9 @@ _TOOLS: list[dict] = [
     {
         "name": "get_order_status",
         "description": (
-            "Look up the customer's most recent order and return its status. "
-            "Use when the customer asks about their order, delivery, or where their package is."
+            "Look up the customer's most recent order and return its current status. "
+            "Use when the customer asks about their order, delivery, or where their package is "
+            "('وين طلبي؟', 'متى بوصل؟', 'شو صار بطلبي؟', 'where is my order?')."
         ),
         "input_schema": {
             "type": "object",
@@ -167,15 +284,19 @@ _TOOLS: list[dict] = [
     {
         "name": "save_address",
         "description": (
-            "Save the customer's delivery address. "
-            "Use when the customer provides their address for delivery during checkout."
+            "Save the customer's delivery address during checkout. "
+            "Use when the customer provides their address for delivery. "
+            "IMPORTANT: Only save if the address contains at minimum a city AND neighborhood or street — "
+            "at least 15 characters. "
+            "If the customer sends only a city name (e.g. 'رام الله' alone), do NOT call this tool — "
+            "instead ask: 'وين بالضبط؟ اكتبي المدينة والحي والشارع لو سمحتِ 🙏'"
         ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "address": {
                     "type": "string",
-                    "description": "The full delivery address as the customer wrote it",
+                    "description": "The full delivery address as the customer wrote it (city + neighborhood + street minimum).",
                 },
             },
             "required": ["address"],
@@ -199,13 +320,7 @@ def _build_messages(
             if role in ("user", "assistant") and content:
                 messages.append({"role": role, "content": content})
 
-    # Append current user message, attaching catalog context inline
-    ctx = _product_context(user_message)
-    full_user_content = user_message
-    if ctx:
-        full_user_content += f"\n\n---\n{ctx}"
-
-    messages.append({"role": "user", "content": full_user_content})
+    messages.append({"role": "user", "content": user_message})
     return messages
 
 
@@ -242,8 +357,14 @@ def generate_reply(
             "أضف CLAUDE_API_KEY في ملف .env لتفعيلها ✨"
         )
 
-    know = _knowledge()
+    know = _relevant_knowledge(user_message)
     system = _SYSTEM_PROMPT
+
+    # Always inject full catalog — grounding must be authoritative, not per-message
+    catalog_ctx = _full_catalog_context()
+    if catalog_ctx:
+        system += f"\n\n{catalog_ctx}"
+
     if customer_name:
         system += f"\n\nاسم الزبون/ة: {customer_name}. خاطبيه/ا باسمه/ا عند الترحيب أو التوصية."
     if know:
@@ -272,7 +393,7 @@ def generate_reply(
 
         create_kwargs: dict = dict(
             model=Config.CLAUDE_MODEL,
-            max_tokens=400,
+            max_tokens=600 if tool_executor else 400,
             temperature=0.3,
             system=system,
             messages=messages,
