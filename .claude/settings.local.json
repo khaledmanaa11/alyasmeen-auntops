@@ -26,7 +26,28 @@
       "Bash(curl -s http://localhost:8000/static/js/broadcast_improve.js)",
       "Bash(python -c \"import aiofiles; print\\(''aiofiles ok''\\)\")",
       "Bash(pip install:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(python -c \"from app.routers.debug import router; print\\(''OK'', [r.path for r in router.routes]\\)\")",
+      "Bash(curl -s http://127.0.0.1:8000/openapi.json)",
+      "Bash(python -c:*)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "WebFetch(domain:www.anthropic.com)",
+      "Bash(grep -v -E \"\\(__pycache__|\\\\.git/|\\\\.pyc$|agents/output/\\)\")",
+      "Bash(grep -v -E \"\\(__pycache__|\\\\.git/|\\\\.pyc$|agents/output/|\\\\.venv/|\\\\.ruff_cache/|\\\\.pytest_cache/|\\\\.coverage$|\\\\.claude/\\)\")",
+      "mcp__claude_ai_Supabase__apply_migration",
+      "Bash(uv run:*)",
+      "Bash(where uv:*)",
+      "Read(//c/Users/Hp/AppData/Local/uv/bin/**)",
+      "Read(//c/Users/Hp/.cargo/bin/**)",
+      "Bash(powershell -c \"irm https://astral.sh/uv/install.ps1 | iex\" 2>&1)",
+      "Bash(pkill -f \"uvicorn app.main:app\")",
+      "Bash(nslookup alyasmeen.org)",
+      "Bash(nslookup www.alyasmeen.org)",
+      "Bash(python3 -c ' *)",
+      "Bash(git -C \"C:\\\\Users\\\\Hp\\\\OneDrive\\\\Desktop\\\\Semester6\\\\AI_lab\\\\AI_LAB1\" status)",
+      "Bash(python main.py 30)",
+      "Bash(dir puzzles *)",
+      "Bash(dir __pycache__)"
     ]
   }
 }
