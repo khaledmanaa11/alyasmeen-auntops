@@ -29,7 +29,7 @@ def test_ai_aunt_free_text(monkeypatch):
     # Patch the AI generate_reply to avoid real API calls
     monkeypatch.setattr(
         "app.routers.whatsapp.ai_generate_reply",
-        lambda user_message, previous_messages=None, cart=None, customer_name=None: fixed_reply,
+        lambda user_message, previous_messages=None, cart=None, customer_name=None, tool_executor=None: fixed_reply,
     )
 
     client = TestClient(app)
