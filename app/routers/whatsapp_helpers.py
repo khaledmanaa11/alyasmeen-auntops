@@ -49,6 +49,54 @@ STATUS_LABELS = {
 # Session helpers (PostgreSQL-backed)
 # ---------------------------------------------------------------------------
 
+def load_context(phone: str, history_limit: int = 8) -> dict[str, Any]:
+    """Load session + customer + chat history in ONE database round trip.
+
+    Replaces the load_session / upsert_customer-SELECT / load_history /
+    get_customer_name / get_saved_address sequence (4-5 sequential RPCs)
+    on the webhook hot path.
+
+    Returns:
+        {
+          "session":  same shape as load_session(),
+          "customer": {"name": ..., "saved_address": ...} or None if new,
+          "history":  [{"role": ..., "content": ...}, ...] oldest-first,
+        }
+    """
+    rows = query(
+        """
+        SELECT
+          (SELECT row_to_json(s) FROM (
+              SELECT stage, cart, fulfillment, menu_products, address
+              FROM sessions WHERE phone = %s) s)                        AS session,
+          (SELECT row_to_json(c) FROM (
+              SELECT name, saved_address
+              FROM customers WHERE phone = %s) c)                       AS customer,
+          (SELECT coalesce(
+              json_agg(json_build_object('role', h.role, 'content', h.content)
+                       ORDER BY h.created_at),
+              '[]'::json)
+           FROM (SELECT role, content, created_at FROM chat_history
+                 WHERE phone = %s
+                 ORDER BY created_at DESC LIMIT %s) h)                  AS history
+        """,
+        (phone, phone, phone, history_limit),
+    )
+    row = rows[0] if rows else {}
+    sess = row.get("session") or {}
+    return {
+        "session": {
+            "stage": sess.get("stage") or "root",
+            "cart": sess["cart"] if isinstance(sess.get("cart"), list) else [],
+            "fulfillment": sess.get("fulfillment"),
+            "menu_products": sess["menu_products"] if isinstance(sess.get("menu_products"), list) else [],
+            "address": sess.get("address") or "",
+        },
+        "customer": row.get("customer"),
+        "history": row.get("history") or [],
+    }
+
+
 def load_session(phone: str) -> dict[str, Any]:
     rows = query(
         "SELECT stage, cart, fulfillment, menu_products, address FROM sessions WHERE phone = %s",
@@ -136,6 +184,22 @@ def upsert_customer(phone: str, name: str = "") -> bool:
         (phone, name),
     )
     return True
+
+
+def create_customer(phone: str, name: str = "") -> None:
+    """Insert a new customer row (no-op if it already exists)."""
+    execute(
+        "INSERT INTO customers (phone, name, created_at, updated_at) "
+        "VALUES (%s, %s, now(), now()) ON CONFLICT (phone) DO NOTHING",
+        (phone, name),
+    )
+
+
+def update_customer_name(phone: str, name: str) -> None:
+    execute(
+        "UPDATE customers SET name = %s, updated_at = now() WHERE phone = %s",
+        (name, phone),
+    )
 
 
 def get_customer_name(phone: str) -> str:

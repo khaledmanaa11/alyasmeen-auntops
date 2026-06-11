@@ -139,7 +139,7 @@ class TestGenerateReply:
         monkeypatch.setattr(ai, "Anthropic", lambda **kw: fake_client)
 
         ai.generate_reply("hello", [], customer_name="فاطمة")
-        assert "فاطمة" in captured.get("system", "")
+        assert "فاطمة" in _system_text(captured)
 
     def test_includes_cart_context_when_items_present(self, monkeypatch):
         import app.services.ai_service as ai
@@ -159,7 +159,15 @@ class TestGenerateReply:
 
         cart = [{"name": "كريم", "qty": 1, "price": 25.0}]
         ai.generate_reply("confirm", [], cart=cart)
-        assert "سلة" in captured.get("system", "")
+        assert "سلة" in _system_text(captured)
+
+
+def _system_text(captured: dict) -> str:
+    """The system prompt is now a list of content blocks (for prompt caching)."""
+    sys = captured.get("system", "")
+    if isinstance(sys, list):
+        return "\n".join(b.get("text", "") for b in sys)
+    return sys
 
 
 def _make_mock_anthropic(reply_text: str):

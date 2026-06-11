@@ -26,6 +26,28 @@ from app.services.config import Config
 log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
+# Anthropic client — reused across requests so HTTP connections stay warm.
+# Cache is keyed on (Anthropic class, api key) so tests that monkeypatch
+# either one get a fresh client.
+# ---------------------------------------------------------------------------
+
+_CLIENT_CACHE: tuple | None = None  # (anthropic_cls, api_key, client)
+
+
+def _get_client():
+    global _CLIENT_CACHE
+    key = (Anthropic, Config.CLAUDE_API_KEY)
+    if _CLIENT_CACHE is None or _CLIENT_CACHE[:2] != key:
+        _CLIENT_CACHE = (Anthropic, Config.CLAUDE_API_KEY, Anthropic(api_key=Config.CLAUDE_API_KEY))  # type: ignore
+    return _CLIENT_CACHE[2]
+
+
+# Tools whose output is already a complete, customer-ready message.
+# When Claude calls ONLY these, we skip the second API call and send the
+# tool output directly — halving latency on the most common requests.
+_DIRECT_REPLY_TOOLS = {"show_menu", "get_order_status"}
+
+# ---------------------------------------------------------------------------
 # Knowledge base (app/data/knowledge/*.md) — selectively injected per message
 # ---------------------------------------------------------------------------
 
@@ -358,17 +380,27 @@ def generate_reply(
         )
 
     know = _relevant_knowledge(user_message)
-    system = _SYSTEM_PROMPT
 
-    # Always inject full catalog — grounding must be authoritative, not per-message
+    # Static prefix — role prompt + full catalog. Marked with cache_control so
+    # Claude caches it (the tools render before system, so this breakpoint
+    # caches the tool definitions too). Catalog edits change the text and bust
+    # the cache naturally.
+    static_text = _SYSTEM_PROMPT
     catalog_ctx = _full_catalog_context()
     if catalog_ctx:
-        system += f"\n\n{catalog_ctx}"
+        static_text += f"\n\n{catalog_ctx}"
+    system: list[dict] = [{
+        "type": "text",
+        "text": static_text,
+        "cache_control": {"type": "ephemeral"},
+    }]
 
+    # Volatile per-customer context goes AFTER the cache breakpoint
+    dynamic_parts: list[str] = []
     if customer_name:
-        system += f"\n\nاسم الزبون/ة: {customer_name}. خاطبيه/ا باسمه/ا عند الترحيب أو التوصية."
+        dynamic_parts.append(f"اسم الزبون/ة: {customer_name}. خاطبيه/ا باسمه/ا عند الترحيب أو التوصية.")
     if know:
-        system += f"\n\nمعلومات عن المتجر (للقراءة فقط):\n{know}"
+        dynamic_parts.append(f"معلومات عن المتجر (للقراءة فقط):\n{know}")
 
     # Tell Claude about the cart so it can guide the customer
     if cart:
@@ -381,14 +413,17 @@ def generate_reply(
             total += qty * price
             cart_lines.append(f"- {name} × {qty} = {qty * price:.2f}₪")
         cart_lines.append(f"الإجمالي: {total:.2f}₪")
-        system += (
-            "\n\nسلة الزبون الحالية:\n"
+        dynamic_parts.append(
+            "سلة الزبون الحالية:\n"
             + "\n".join(cart_lines)
             + "\n(إذا أراد الزبون التأكيد، ذكّره بكتابة 'confirm')"
         )
 
+    if dynamic_parts:
+        system.append({"type": "text", "text": "\n\n".join(dynamic_parts)})
+
     try:
-        client = Anthropic(api_key=Config.CLAUDE_API_KEY)  # type: ignore
+        client = _get_client()
         messages = _build_messages(user_message, previous_messages)
 
         create_kwargs: dict = dict(
@@ -409,13 +444,17 @@ def generate_reply(
         # ---------------------------------------------------------------
         if tool_executor and resp.stop_reason == "tool_use":
             tool_results = []
+            tool_names: list[str] = []
+            result_texts: list[str] = []
             for block in resp.content:
                 if getattr(block, "type", None) == "tool_use":
+                    tool_names.append(block.name)
                     try:
                         result_text = tool_executor(block.name, dict(block.input))
                     except Exception as exc:
                         log.warning("Tool %s failed: %s", block.name, exc)
                         result_text = f"خطأ في تنفيذ الأداة: {exc}"
+                    result_texts.append(result_text)
                     tool_results.append(
                         {
                             "type": "tool_result",
@@ -423,6 +462,18 @@ def generate_reply(
                             "content": result_text,
                         }
                     )
+
+            # show_menu / get_order_status already return a customer-ready
+            # message — skip the second API call and send it directly,
+            # keeping any short intro text Claude wrote before the tool call.
+            if tool_names and all(n in _DIRECT_REPLY_TOOLS for n in tool_names):
+                intro = "\n".join(
+                    block.text for block in resp.content if getattr(block, "text", None)
+                ).strip()
+                body = "\n\n".join(t for t in result_texts if t).strip()
+                direct = f"{intro}\n\n{body}".strip() if intro else body
+                if direct:
+                    return direct
 
             # Append assistant turn (with tool_use blocks) + tool results
             messages.append({"role": "assistant", "content": resp.content})
@@ -487,7 +538,7 @@ def improve_message(draft: str) -> dict:
             "- Return only the improved message with no explanation or preamble."
         )
 
-    client = Anthropic(api_key=Config.CLAUDE_API_KEY)  # type: ignore
+    client = _get_client()
     response = client.messages.create(
         model=Config.CLAUDE_MODEL,
         max_tokens=Config.BROADCAST_IMPROVEMENT_MAX_TOKENS,

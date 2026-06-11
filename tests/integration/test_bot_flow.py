@@ -38,23 +38,45 @@ def client(monkeypatch):
     return TestClient(app)
 
 
+def _ctx(customer):
+    """Build a load_context stub returning a fixed customer."""
+    def fake(phone, history_limit=8):
+        return {
+            "session": {"stage": "root", "cart": [], "fulfillment": None, "menu_products": [], "address": ""},
+            "customer": customer,
+            "history": [],
+        }
+    return fake
+
+
 class TestNewCustomerWelcome:
     def test_first_message_triggers_welcome(self, client, monkeypatch):
-        monkeypatch.setattr(wa, "upsert_customer", lambda phone, name="": True)
+        monkeypatch.setattr(wa, "load_context", _ctx(None))  # None → new customer
+        sent = []
+        monkeypatch.setattr(
+            wa, "send_text",
+            lambda to, msg: (sent.append(msg), {"dev": True, "to": to, "text": msg})[1],
+        )
         r = client.post(
             "/whatsapp/webhook",
             json={"from_number": _phone(), "text": "مرحبا", "wa_name": "أحمد"},
         )
         assert r.status_code == 200
+        assert any("أهلاً وسهلاً" in m for m in sent)
 
     def test_returning_customer_no_welcome(self, client, monkeypatch):
-        monkeypatch.setattr(wa, "upsert_customer", lambda phone, name="": False)
-        # Should proceed normally without welcome message being sent
+        monkeypatch.setattr(wa, "load_context", _ctx({"name": "أحمد", "saved_address": ""}))
+        sent = []
+        monkeypatch.setattr(
+            wa, "send_text",
+            lambda to, msg: (sent.append(msg), {"dev": True, "to": to, "text": msg})[1],
+        )
         r = client.post(
             "/whatsapp/webhook",
             json={"from_number": _phone(), "text": "cart"},
         )
         assert r.status_code == 200
+        assert not any("أهلاً وسهلاً" in m for m in sent)
 
 
 class TestFullPickupOrderFlow:
@@ -115,7 +137,10 @@ class TestFullDeliveryOrderFlow:
             json={"from_number": phone, "text": "شارع النصر، رام الله"},
         )
         assert r_addr.status_code == 200
-        assert "confirm" in r_addr.json().get("text", "")
+        addr_data = r_addr.json()
+        assert "تم حفظ العنوان" in addr_data.get("text", "")
+        # confirm is offered as a button, not as message text
+        assert any(b.get("id") == "confirm" for b in addr_data.get("buttons", []))
 
         # Confirm
         r_confirm = client.post(

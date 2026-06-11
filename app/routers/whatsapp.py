@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import re
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, BackgroundTasks, Request
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
@@ -14,14 +14,12 @@ from app.routers.whatsapp_helpers import (
     STATUS_LABELS,
     append_history,
     clear_session,
-    get_customer_name,
+    create_customer,
     get_latest_order,
-    get_saved_address,
-    load_history,
-    load_session,
+    load_context,
     save_customer_address,
     save_session,
-    upsert_customer,
+    update_customer_name,
 )
 from app.services.ai_service import generate_reply as ai_generate_reply
 from app.services.config import Config
@@ -147,6 +145,29 @@ def _make_tool_executor(phone: str, st: dict, cart: list, ran_flag: list[bool]):
     return executor
 
 
+def _notify_aunt(order_name: str, customer_name: str, phone: str, cart: list,
+                 total: float, fulfillment: str, address: str | None) -> None:
+    """Send the new-order alert to AUNT_PHONE. Runs as a background task so the
+    customer's confirmation is never delayed (or failed) by this call."""
+    try:
+        fulfillment_label = "توصيل 🚚" if fulfillment == "delivery" else "استلام 🏪"
+        items_lines = "\n".join(
+            f"  • {it.get('name', '')} × {int(it.get('qty', 1))}"
+            for it in cart
+        )
+        address_line = f"\n📍 {address}" if fulfillment == "delivery" and address else ""
+        send_text(
+            Config.AUNT_PHONE,
+            f"🛍️ طلب جديد! {order_name}\n"
+            f"👤 {customer_name} — {phone}\n"
+            f"{items_lines}\n"
+            f"💰 الإجمالي: {total:.2f}₪\n"
+            f"📦 {fulfillment_label}{address_line}"
+        )
+    except Exception:
+        log.warning("Failed to notify aunt of new order %s", order_name)
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -169,7 +190,7 @@ class Msg(BaseModel):
 
 
 @router.post("/webhook")
-def webhook_post(msg: Msg):
+def webhook_post(msg: Msg, background_tasks: BackgroundTasks):
     phone = msg.from_number
     text = (msg.text or "").strip()
     low = text.lower()
@@ -178,8 +199,11 @@ def webhook_post(msg: Msg):
     log.info("/whatsapp/webhook from=%s name=%r text=%r", phone, wa_name, text)
     print(f"WHATSAPP RX from={phone} name={wa_name} text={text}")
 
-    st = load_session(phone)
+    # Session + customer + chat history in a single DB round trip
+    ctx = load_context(phone)
+    st = ctx["session"]
     cart = st.get("cart") or []
+    customer = ctx["customer"]  # None → first contact
 
     # Normalize Arabic aliases to command keys (e.g. "سلة" → "cart")
     low = _AR_ALIASES.get(low, low)
@@ -187,7 +211,7 @@ def webhook_post(msg: Msg):
     # -----------------------------------------------------------------------
     # NEW CUSTOMER WELCOME — fires once on their very first message
     # -----------------------------------------------------------------------
-    if upsert_customer(phone, wa_name):
+    if customer is None:
         name_part = f" يا {wa_name}" if wa_name else ""
         send_text(
             phone,
@@ -196,7 +220,10 @@ def webhook_post(msg: Msg):
             "أنا هنا أساعدك تختاري المنتج المناسب لبشرتك.\n"
             "احكيلي شو بدك أو شو مشكلة بشرتك وأنصحك! 😊"
         )
+        background_tasks.add_task(create_customer, phone, wa_name)
         # Don't return — continue processing their first message normally
+    elif wa_name and not (customer.get("name") or "").strip():
+        background_tasks.add_task(update_customer_name, phone, wa_name)
 
     # -----------------------------------------------------------------------
     # HARD COMMANDS — always work regardless of conversation state
@@ -232,29 +259,26 @@ def webhook_post(msg: Msg):
     if low == "clear":
         st["cart"] = []
         st["stage"] = "root"
-        save_session(phone, st)
+        background_tasks.add_task(save_session, phone, st)
         return send_text(phone, "تم مسح السلة. شو بدك تطلب؟ 😊")
 
     # FULFILLMENT: pickup or delivery
     if low in ("pickup", "delivery"):
         st["fulfillment"] = low
         if low == "delivery":
-            saved = get_saved_address(phone)
+            saved = ((customer or {}).get("saved_address") or "").strip()
+            st["stage"] = "awaiting_address"
+            background_tasks.add_task(save_session, phone, st)
             if saved:
                 # Offer their saved address as a shortcut
-                st["stage"] = "awaiting_address"
-                save_session(phone, st)
                 return send_text(
                     phone,
                     f"📍 عندنا عنوانك المحفوظ:\n{saved}\n\n"
                     "اكتب 'نفس العنوان' لاستخدامه، أو أرسل عنوانًا جديداً."
                 )
-            else:
-                st["stage"] = "awaiting_address"
-                save_session(phone, st)
-                return send_text(phone, "📍 وين بدك نوصلك؟ أرسل عنوانك كاملاً (المدينة، الحي، الشارع).")
+            return send_text(phone, "📍 وين بدك نوصلك؟ أرسل عنوانك كاملاً (المدينة، الحي، الشارع).")
         else:
-            save_session(phone, st)
+            background_tasks.add_task(save_session, phone, st)
             return send_buttons(phone, "تمام، استلام من المتجر ✅",
                 [{"id": "confirm", "title": "✅ تأكيد الطلب"}])
 
@@ -268,7 +292,7 @@ def webhook_post(msg: Msg):
         # Block delivery orders that have no address yet
         if fulfillment == "delivery" and not st.get("address"):
             st["stage"] = "awaiting_address"
-            save_session(phone, st)
+            background_tasks.add_task(save_session, phone, st)
             return send_text(phone, "📍 محتاج عنوانك للتوصيل. أرسل عنوانك كاملاً (المدينة، الحي، الشارع).")
 
         # Calculate total
@@ -285,55 +309,45 @@ def webhook_post(msg: Msg):
         )
         order_id = order_row["id"]
         order_name = f"ORD-{order_id:04d}"
-        execute("UPDATE orders SET order_name = %s WHERE id = %s", (order_name, order_id))
 
-        # Insert order lines
+        # One statement: stamp the order name + insert all line items
+        line_values = ", ".join(["(%s, %s, %s, %s, %s)"] * len(cart))
+        line_params: list = [order_name, order_id]
         for it in cart:
             qty = int(it.get("qty", 1))
             price = float(it.get("price", 0) or 0)
-            execute(
-                "INSERT INTO order_lines (order_id, product_name, qty, unit_price, line_total) VALUES (%s, %s, %s, %s, %s)",
-                (order_id, it.get("name", ""), qty, price, qty * price),
-            )
+            line_params += [order_id, it.get("name", ""), qty, price, qty * price]
+        execute(
+            "WITH named AS (UPDATE orders SET order_name = %s WHERE id = %s) "
+            "INSERT INTO order_lines (order_id, product_name, qty, unit_price, line_total) "
+            f"VALUES {line_values}",
+            tuple(line_params),
+        )
 
-        clear_session(phone)
+        # Customer hears back immediately; cleanup + aunt alert run after the response
         send_text(phone, f"✅ تم إنشاء الطلب! رقم طلبك {order_name}. سنخبرك لما يكون جاهز 🎉")
-
-        # Notify aunt of the new order
+        background_tasks.add_task(clear_session, phone)
         if Config.AUNT_PHONE:
-            try:
-                customer_name = get_customer_name(phone) or phone
-                fulfillment_label = "توصيل 🚚" if fulfillment == "delivery" else "استلام 🏪"
-                items_lines = "\n".join(
-                    f"  • {it.get('name', '')} × {int(it.get('qty', 1))}"
-                    for it in cart
-                )
-                address_line = f"\n📍 {st.get('address')}" if fulfillment == "delivery" and st.get("address") else ""
-                send_text(
-                    Config.AUNT_PHONE,
-                    f"🛍️ طلب جديد! {order_name}\n"
-                    f"👤 {customer_name} — {phone}\n"
-                    f"{items_lines}\n"
-                    f"💰 الإجمالي: {total:.2f}₪\n"
-                    f"📦 {fulfillment_label}{address_line}"
-                )
-            except Exception:
-                log.warning("Failed to notify aunt of new order %s", order_name)
+            customer_name = (customer or {}).get("name") or wa_name or phone
+            background_tasks.add_task(
+                _notify_aunt, order_name, customer_name, phone,
+                list(cart), total, fulfillment, st.get("address"),
+            )
 
         return {"ok": True, "order_id": order_id, "order_name": order_name}
 
     # AWAITING ADDRESS: customer chose delivery and we're waiting for their address
     if st.get("stage") == "awaiting_address":
         if low in ("نفس العنوان", "same", "نفس", "same address"):
-            address = get_saved_address(phone)
+            address = ((customer or {}).get("saved_address") or "").strip()
             if not address:
                 return send_text(phone, "ما عندنا عنوان محفوظ لك. أرسل عنوانك كاملاً من فضلك.")
         else:
             address = text
-            save_customer_address(phone, address)  # remember for next time
+            background_tasks.add_task(save_customer_address, phone, address)  # remember for next time
         st["address"] = address
         st["stage"] = "root"
-        save_session(phone, st)
+        background_tasks.add_task(save_session, phone, st)
         return send_buttons(phone, f"✅ تم حفظ العنوان:\n{address}",
             [{"id": "confirm",  "title": "✅ تأكيد الطلب"},
              {"id": "delivery", "title": "🔄 تغيير العنوان"}])
@@ -349,7 +363,7 @@ def webhook_post(msg: Msg):
             {"id": int(p["sku"]), "name": p["name"], "list_price": float(p.get("price", 0))}
             for p in products
         ]
-        save_session(phone, st)
+        background_tasks.add_task(save_session, phone, st)
 
         lines: list[str] = []
         for i, p in enumerate(products, start=1):
@@ -377,7 +391,7 @@ def webhook_post(msg: Msg):
             })
         st["cart"] = cart
         st["stage"] = "confirm"
-        save_session(phone, st)
+        background_tasks.add_task(save_session, phone, st)
         return send_buttons(phone, f"✅ تمت إضافة {prod['name']} للسلة 🎉",
             [{"id": "pickup",   "title": "🏪 استلام"},
              {"id": "delivery", "title": "🚚 توصيل"},
@@ -403,7 +417,7 @@ def webhook_post(msg: Msg):
                 })
             st["cart"] = cart
             st["stage"] = "confirm"
-            save_session(phone, st)
+            background_tasks.add_task(save_session, phone, st)
             return send_buttons(phone, f"✅ تمت إضافة {prod['name']} × {qty} للسلة 🎉",
                 [{"id": "pickup",   "title": "🏪 استلام"},
                  {"id": "delivery", "title": "🚚 توصيل"},
@@ -451,9 +465,11 @@ def webhook_post(msg: Msg):
     # show menu, get order status, save address). The executor runs them
     # here in whatsapp.py where we have full session/DB access.
     # -----------------------------------------------------------------------
-    append_history(phone, "user", text)
-    prev = load_history(phone, limit=8)
-    customer_name = wa_name or get_customer_name(phone)
+    # History came with load_context — current message NOT included (it's
+    # appended separately by the AI layer, which also fixes the old bug where
+    # the current message appeared twice in Claude's prompt).
+    prev = ctx["history"]
+    customer_name = wa_name or ((customer or {}).get("name") or "").strip()
 
     # Track whether any tool call mutated session state
     _tools_ran: list[bool] = [False]
@@ -469,17 +485,19 @@ def webhook_post(msg: Msg):
     if not reply:
         reply = "عذرًا، صار خلل مؤقت. جرّب مرة ثانية. 🙏"
 
-    # Persist session only if a tool actually ran and changed state
-    if _tools_ran[0]:
-        save_session(phone, st)
-
-    append_history(phone, "assistant", reply)
-
-    # If cart was just updated and fulfillment not chosen yet, attach fulfillment buttons
+    # Reply to the customer FIRST; persist conversation state after the response
     if _tools_ran[0] and st.get("cart") and not st.get("fulfillment"):
-        return send_buttons(phone,
+        result = send_buttons(phone,
             reply + "\n\nاختار طريقة الاستلام 👇",
             [{"id": "pickup",   "title": "🏪 استلام"},
              {"id": "delivery", "title": "🚚 توصيل"}])
+    else:
+        result = send_text(phone, reply)
 
-    return send_text(phone, reply)
+    # Persist session only if a tool actually ran and changed state
+    if _tools_ran[0]:
+        background_tasks.add_task(save_session, phone, st)
+    background_tasks.add_task(append_history, phone, "user", text)
+    background_tasks.add_task(append_history, phone, "assistant", reply)
+
+    return result
