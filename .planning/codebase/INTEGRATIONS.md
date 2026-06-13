@@ -1,0 +1,140 @@
+# External Integrations
+
+**Analysis Date:** 2026-06-13
+
+## APIs & External Services
+
+**Messaging:**
+- Meta Cloud API (WhatsApp Business) — sends text messages, interactive button messages, and PDF documents to customers and the aunt
+  - SDK/Client: `requests` (plain HTTP, no official Meta SDK)
+  - Implementation: `app/services/whatsapp_meta.py`
+  - Base URL: `https://graph.facebook.com/v19.0/{WA_META_PHONE_ID}/messages`
+  - Auth: `Authorization: Bearer {WA_META_TOKEN}`
+  - Dev mock: `app/services/whatsapp_dev.py` (prints to console when `USE_MOCK_WHATSAPP=1`)
+  - Sends: text (`send_text`), interactive buttons (`send_buttons`), documents by URL (`send_document`), PDF bytes upload then send (`send_document_bytes`)
+
+**Artificial Intelligence:**
+- Anthropic Claude API — all AI conversation replies and broadcast message improvement
+  - SDK/Client: `anthropic>=0.25.0` (`Anthropic` class)
+  - Implementation: `app/services/ai_service.py` (single AI file — no other files may import Anthropic)
+  - Auth: `CLAUDE_API_KEY`
+  - Default model: `claude-haiku-4-5-20251001` (overridable via `CLAUDE_MODEL` env var)
+  - Usage: `generate_reply()` for customer chat (agentic 2-call loop with 4 tools), `improve_message()` for broadcast drafts
+  - Max tokens: 600 with tools active, 400 text-only, 300 for broadcast improvement
+
+**Invoicing (Legacy/Optional):**
+- Wave Accounting — referenced in `config/rate_limits.json` and `app/services/retry_queue.py` action type `wave_invoice`; `wave_invoice.py` service file listed in CLAUDE.md but not found in filesystem — likely removed or renamed
+  - Auth: `WAVE_API_KEY`, `WAVE_BUSINESS_ID`, `WAVE_INCOME_ACCOUNT_ID` (all optional)
+  - Status: optional; PDF invoice generation via `app/services/pdf_invoice.py` is the active replacement
+
+**Google Fonts CDN:**
+- Loads Cairo (Arabic UI font) and Material Symbols Outlined (icons) for all dashboard templates
+- URL: `https://fonts.googleapis.com/css2?family=Cairo:...&family=Material+Symbols+Outlined:...`
+- Only in browser — no server-side dependency
+
+## Data Storage
+
+**Databases:**
+- Supabase (PostgreSQL) — primary data store for all application data
+  - Region: ap-southeast-1
+  - Project: `ppwcfmuetgczclmnzvqr`
+  - Connection: HTTPS via `supabase-py` (no psycopg2, no connection pooler)
+  - Client: `app/db/database.py` — singleton `supabase.Client` via `create_client()`
+  - Connection env vars: `SUPABASE_URL`, `SUPABASE_KEY`
+  - Access pattern: all SQL goes through two Supabase RPC helper functions:
+    - `run_query(sql text) → json` — for SELECT and INSERT...RETURNING
+    - `run_exec(sql text) → void` — for INSERT/UPDATE/DELETE
+  - Tables (8 total): `products`, `customers`, `orders`, `order_lines`, `sessions`, `chat_history`, `follow_ups`, `retry_queue`
+  - Schema: `app/db/schema.sql`
+
+**File Storage:**
+- Local filesystem only — PDF invoices generated in-memory as bytes and sent directly via WhatsApp API, never persisted to disk
+- Font file: `app/data/fonts/Heebo-Regular.ttf` (committed to repo)
+
+**Caching:**
+- No external cache — knowledge base files loaded once into module-level `_KNOWLEDGE_FILES` dict in `app/services/ai_service.py`
+- Supabase client held as a module-level singleton in `app/db/database.py`
+
+## Authentication & Identity
+
+**Auth Provider:**
+- Custom — web dashboard uses cookie-based session auth
+  - Implementation: `app/routers/ui.py`
+  - Login: `POST /login` — password compared against `DASHBOARD_PASSWORD`
+  - Cookie value: SHA-256 of `SECRET_KEY:DASHBOARD_PASSWORD`
+  - Cookie name: `session` (httponly)
+  - No third-party OAuth provider
+
+**WhatsApp Identity:**
+- Customers identified by their WhatsApp phone number (E.164 format, e.g. `972599123456`)
+- Phone number is the primary key in `customers` and `sessions` tables
+
+## Monitoring & Observability
+
+**Error Tracking:**
+- None — no Sentry or similar service configured
+
+**Logs:**
+- Python standard `logging` module only
+- Configured in `app/main.py`: `logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")`
+- `server.log` file present in project root (Railway captures stdout/stderr)
+
+**Retry Queue:**
+- Internal retry mechanism: `retry_queue` Supabase table + `app/services/retry_queue.py`
+- Failed WhatsApp or Wave API calls queued with max 3 retries, 15-minute intervals
+- APScheduler runs `process_retries` every 15 minutes
+
+## CI/CD & Deployment
+
+**Hosting:**
+- Railway (primary) — nixpacks build, `Procfile` as process definition
+- Custom domain: `alyasmeen.org` (DNS via Namecheap)
+
+**CI Pipeline:**
+- None configured (no GitHub Actions or Railway CI observed)
+
+**Build:**
+- nixpacks auto-detects Python; `nixpacks.toml` overrides to pin `python311` + `gcc`
+
+## Environment Configuration
+
+**Required env vars (minimum to run):**
+- `SUPABASE_URL` — Supabase project URL
+- `SUPABASE_KEY` — Supabase anon key
+- `DASHBOARD_PASSWORD` — web dashboard login password
+- `SECRET_KEY` — cookie signing secret
+- `AUNT_PHONE` — WhatsApp number for order alerts and monthly reports
+- `CLAUDE_API_KEY` — Anthropic API key
+
+**Production-only env vars:**
+- `WA_META_TOKEN` — Meta permanent access token
+- `WA_META_PHONE_ID` — Meta WhatsApp phone number ID
+- `WA_META_VERIFY_TOKEN` — Meta webhook verification token
+- `USE_MOCK_WHATSAPP=0` — must be explicitly set to disable dev mock
+
+**Optional env vars:**
+- `WA_META_APP_SECRET` — enables webhook POST signature verification
+- `CLAUDE_MODEL` — overrides default AI model (default: `claude-haiku-4-5-20251001`)
+- `WAVE_API_KEY`, `WAVE_BUSINESS_ID`, `WAVE_INCOME_ACCOUNT_ID` — Wave invoicing
+- `KNOWLEDGE_DIR` — overrides path to AI knowledge base `.md` files
+
+**Secrets location:**
+- `.env` file (never committed; `.env.example` is the template)
+- Railway: set via Railway dashboard environment variables panel
+
+## Webhooks & Callbacks
+
+**Incoming:**
+- `GET /whatsapp/webhook` — Meta webhook verification (hub.mode, hub.verify_token, hub.challenge)
+- `POST /whatsapp/webhook` — Meta webhook for all incoming WhatsApp messages
+  - Optional HMAC signature verification via `X-Hub-Signature-256` header if `WA_META_APP_SECRET` is set
+  - Implementation: `app/routers/whatsapp.py`
+  - Verification logic: `app/services/whatsapp_meta.py::verify_get()`
+
+**Outgoing:**
+- All WhatsApp messages sent outbound via `https://graph.facebook.com/v19.0/{phone_id}/messages`
+- PDF documents: first uploaded to `https://graph.facebook.com/v19.0/{phone_id}/media`, then sent by media ID
+
+---
+
+*Integration audit: 2026-06-13*
