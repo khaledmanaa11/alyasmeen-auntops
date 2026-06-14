@@ -316,3 +316,40 @@ uvicorn app.main:app --reload --port 8000
 4. Set WhatsApp webhook: `https://your-app-url/whatsapp/webhook`
 5. Add real products via `/products` dashboard page (products live in the Supabase `products` table)
 6. Add `.md` files to `app/data/knowledge/` for AI context
+
+---
+
+<!-- GSD:project-pointer-start -->
+## 🚦 Production Readiness Program (GSD)
+
+This project is being productionized via GSD across **5 milestones** (M1 Supabase → M2 FastAPI →
+M3 Agent → M4 UI → M5 Go-live). The durable source of truth for that work lives in `.planning/`:
+
+- `.planning/PROJECT.md` — the production program, validated state, key decisions
+- `.planning/REQUIREMENTS.md` — current milestone's requirements (REQ-IDs)
+- `.planning/ROADMAP.md` — current milestone's phases + success criteria
+- `.planning/STATE.md` — where we are right now
+- `.planning/codebase/` + `.planning/intel/` — the brownfield map & ingested design intel
+
+**Current milestone: M1 (Supabase → prod)** — built smoke-thread-first. Read `.planning/` before
+planning or executing production work.
+<!-- GSD:project-pointer-end -->
+
+<!-- GSD:workflow-start source:GSD defaults -->
+## GSD Workflow Enforcement
+
+For the production-readiness work, route changes through a GSD command so planning artifacts and
+execution context stay in sync:
+- `/gsd-quick` for small fixes, doc updates, ad-hoc tasks
+- `/gsd-debug` for investigation and bug fixing
+- `/gsd-plan-phase` / `/gsd-execute-phase` for planned phase work
+
+Prefer not to make direct repo edits outside a GSD workflow unless explicitly asked to bypass it.
+<!-- GSD:workflow-end -->
+
+<!-- GSD:profile-start -->
+## Developer Profile
+
+> Profile not yet configured. Run `/gsd-profile-user` to generate your developer profile.
+> This section is managed by `generate-claude-profile` -- do not edit manually.
+<!-- GSD:profile-end -->

@@ -69,29 +69,27 @@ Planned fresh as their own GSD milestone cycles when reached (see PROJECT.md).
 
 ## Traceability
 
-Populated during roadmap creation.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SPINE-01 | — | Pending |
-| SPINE-02 | — | Pending |
-| SCH-01 | — | Pending |
-| SCH-02 | — | Pending |
-| SCH-03 | — | Pending |
-| MIG-01 | — | Pending |
-| MIG-02 | — | Pending |
-| SEC-01 | — | Pending |
-| SEC-02 | — | Pending |
-| BAK-01 | — | Pending |
-| BAK-02 | — | Pending |
-| RET-01 | — | Pending |
-| RET-02 | — | Pending |
+| SPINE-01 | Phase 1 | Pending |
+| SPINE-02 | Phase 1 | Pending |
+| SCH-01 | Phase 2 | Pending |
+| SCH-02 | Phase 2 | Pending |
+| SCH-03 | Phase 2 | Pending |
+| MIG-01 | Phase 3 | Pending |
+| MIG-02 | Phase 3 | Pending |
+| SEC-01 | Phase 4 | Pending |
+| SEC-02 | Phase 4 | Pending |
+| BAK-01 | Phase 5 | Pending |
+| BAK-02 | Phase 5 | Pending |
+| RET-01 | Phase 6 | Pending |
+| RET-02 | Phase 6 | Pending |
 
 **Coverage:**
 - M1 requirements: 13 total
-- Mapped to phases: 0 (roadmapper to fill)
-- Unmapped: 13 ⚠️
+- Mapped to phases: 13 ✓
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-06-14*
-*Last updated: 2026-06-14 after initialization*
+*Last updated: 2026-06-14 — roadmap created, traceability filled (13/13 mapped to 6 phases)*
