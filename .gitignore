@@ -39,3 +39,11 @@ server.log
 # OS
 .DS_Store
 Thumbs.db
+
+# Obsidian — keep vault content, drop per-machine UI state
+ALYASMEEN/.obsidian/workspace*.json
+ALYASMEEN/.obsidian/cache
+ALYASMEEN/.obsidian/app.json
+
+# graphify — generated output; durable snapshot lives in ALYASMEEN/raw/
+graphify-out/
