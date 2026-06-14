@@ -1,0 +1,30 @@
+{
+  "source_path": "C:/Users/Hp/OneDrive/Desktop/חנאן/ALYASMEEN_fixed/auntops_fixed/docs/PRD.md",
+  "type": "PRD",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Product Requirements Document — ALYASMEEN AuntOps",
+  "summary": "Product requirements for a WhatsApp ordering bot and web dashboard for a Palestinian handmade-skincare business, covering bot, AI, dashboard, and scheduler features.",
+  "scope": [
+    "WhatsApp bot",
+    "Claude Haiku AI conversation",
+    "web dashboard",
+    "products management",
+    "orders",
+    "background scheduler",
+    "follow-up",
+    "monthly report",
+    "retry queue",
+    "Supabase data",
+    "broadcast messaging",
+    "PDF invoicing"
+  ],
+  "cross_refs": [
+    "app/data/knowledge/",
+    "whatsapp.py",
+    "ai_service.py"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

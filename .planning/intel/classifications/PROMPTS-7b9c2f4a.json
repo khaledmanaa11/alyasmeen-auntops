@@ -1,0 +1,13 @@
+{
+  "source_path": "C:/Users/Hp/OneDrive/Desktop/חנאן/ALYASMEEN_fixed/auntops_fixed/docs/PROMPTS.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Prompt Engineering Log — ALYASMEEN AuntOps",
+  "summary": "Documents the system prompts, prompt design principles, tool-use setup, and development prompts used to build the ALYASMEEN AuntOps WhatsApp bot powered by Claude Haiku.",
+  "scope": ["ai_service.py", "system prompt", "Claude Haiku", "tool use", "catalog context injection", "chat history", "cart context", "whatsapp.py", "products dashboard", "broadcast messaging"],
+  "cross_refs": ["app/services/ai_service.py", "app/data/knowledge/", "app/ai/retriever.py", "catalog.json", "whatsapp.py", "ui.py", "orders.html"],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

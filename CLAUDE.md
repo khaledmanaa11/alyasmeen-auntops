@@ -45,7 +45,7 @@ The aunt manages orders via a built-in web dashboard. Claude Haiku powers the AI
 - Orders page redesigned: customer name as headline, inline products, WhatsApp link, live counts, auto-refresh
 - **Aunt gets a WhatsApp notification the moment a customer confirms an order**
 - Monthly report, follow-up scheduler, retry queue all wired and running
-- Wave invoicing wired (fires on status → done)
+- PDF invoice generated and sent to the customer on status → done (`pdf_invoice.py`; no external invoicing service)
 - **Product management page** — `/products` dashboard tab; aunt can add, edit, toggle, delete products herself
 - **Products moved to Supabase** — `products` table replaces `catalog.json` as live source of truth; bot picks up changes instantly
 - **Full dashboard UI redesign** — all 5 templates rebuilt with premium design system (see Frontend Design System below)
@@ -57,7 +57,7 @@ The aunt manages orders via a built-in web dashboard. Claude Haiku powers the AI
 
 ### Still To Do 🔲
 1. **Deploy** — hosted on Railway (`alyasmeen.org`), SSL cert pending
-2. **Add real products** — use the `/products` dashboard page to add real ALYASMEEN products (catalog.json is no longer used)
+2. **Add real products** — use the `/products` dashboard page to add real ALYASMEEN products (live in the Supabase `products` table)
 3. **Wait for Meta business review** — WABA restriction pending approval
 4. **Update `WA_META_TOKEN`** in Railway env vars — new system user token
 5. **Add real product images** — upload to Cloudinary, add `image_url` column to `products` table, update template
@@ -120,8 +120,9 @@ auntops_fixed/
 │   │   ├── ai_service.py        # ONLY AI file — Claude Haiku, product context, chat history
 │   │   ├── followup.py          # Post-delivery follow-up (every 6 hours)
 │   │   ├── monthly_report.py    # Monthly summary sent to aunt on 1st of each month
-│   │   ├── wave_invoice.py      # Wave invoicing — PDF invoice on DONE
-│   │   ├── retry_queue.py       # Failed WhatsApp/Wave calls — retries every 15 min
+│   │   ├── pdf_invoice.py       # Generates the PDF invoice sent to the customer on DONE
+│   │   ├── retry_queue.py       # Failed WhatsApp/invoice calls — retries every 15 min
+│   │   ├── retry_actions.py     # Re-sends a queued WhatsApp message or PDF invoice (action dispatch)
 │   │   ├── whatsapp_meta.py     # Real WhatsApp sender (Meta Cloud API)
 │   │   └── whatsapp_dev.py      # Mock WhatsApp sender (prints to console)
 │   ├── ai/
@@ -130,8 +131,8 @@ auntops_fixed/
 │   │   ├── database.py          # Supabase HTTPS client — query / execute / execute_returning
 │   │   └── schema.sql           # DB schema reference (7 tables, already applied on Supabase)
 │   └── data/
-│       ├── catalog.json         # Legacy — no longer used; products live in Supabase `products` table
-│       └── knowledge/           # AI knowledge base — EMPTY, add .md files here
+│       ├── fonts/               # PDF invoice fonts (David, Heebo)
+│       └── knowledge/           # AI knowledge base — store info, shipping, returns, FAQ .md files
 ├── tests/
 │   └── data/
 │       └── whatsapp_agent_dataset.json  # Agent eval dataset — 75 labeled customer messages (intent, entities, edge-case tags)
@@ -206,7 +207,7 @@ SUPABASE_KEY=<anon key>
 | `order_lines` | Line items inside each order |
 | `chat_history` | AI conversation memory (last 6 turns to Claude) |
 | `follow_ups` | 3-day post-delivery follow-up tracking |
-| `retry_queue` | Failed WhatsApp/Wave calls queued for retry |
+| `retry_queue` | Failed WhatsApp/PDF-invoice calls queued for retry |
 
 ---
 
@@ -265,7 +266,7 @@ Only fires if `AUNT_PHONE` is set. Wrapped in try/except — order never fails i
 |-----|----------|-------------|
 | `followup.send_followups` | Every 6 hours | Sends follow-up to customers 3+ days after delivery |
 | `monthly_report.send_monthly_report` | 1st of month, 8 AM | Arabic summary sent to `AUNT_PHONE` |
-| `retry_queue.process_retries` | Every 15 min | Retries failed WhatsApp/Wave calls (max 3x) |
+| `retry_queue.process_retries` | Every 15 min | Retries failed WhatsApp/PDF-invoice calls (max 3x) |
 
 ---
 
@@ -296,9 +297,6 @@ Only fires if `AUNT_PHONE` is set. Wrapped in try/except — order never fails i
 | `WA_META_APP_SECRET` | optional | Webhook signature check |
 | `CLAUDE_MODEL` | optional | Default: claude-haiku-4-5-20251001 |
 | `USE_MOCK_WHATSAPP` | dev | 1=mock, 0=real (default: 1) |
-| `WAVE_API_KEY` | optional | Wave invoicing |
-| `WAVE_BUSINESS_ID` | optional | Wave invoicing |
-| `WAVE_INCOME_ACCOUNT_ID` | optional | Wave invoicing |
 
 ---
 
@@ -311,30 +309,10 @@ uvicorn app.main:app --reload --port 8000
 # test order: POST http://localhost:8000/dev/test_order
 ```
 
-## Multi-Agent Pipeline
-
-A 4-agent pipeline lives in `agents/pipeline.py` — **optional, not required for routine work.**
-For this small solo project, direct iteration is faster. Use the pipeline only for genuinely complex
-features where upfront planning adds value.
-
-```
-agents/
-├── pipeline.py          ← 4-agent: PM → Developer → QA → DevOps
-├── frontend_pipeline.py ← 2-agent: Frontend Dev → Visual QA
-├── prompts.py           ← all system prompt constants
-└── output/              ← generated .md files (gitignored)
-```
-
-Run if needed: `python -m agents.pipeline "feature description"`
-Frontend only: `python -m agents.frontend_pipeline "design brief"`
-Requires `CLAUDE_API_KEY` set in `.env`. Never commit `agents/output/` files.
-
----
-
 ## Deployment Checklist (Railway / Render)
 1. Push to GitHub
 2. Set env vars (see table above) — minimum: `SUPABASE_URL`, `SUPABASE_KEY`, `DASHBOARD_PASSWORD`, `SECRET_KEY`, `AUNT_PHONE`, `CLAUDE_API_KEY`
 3. Set `USE_MOCK_WHATSAPP=0`
 4. Set WhatsApp webhook: `https://your-app-url/whatsapp/webhook`
-5. Add real products via `/products` dashboard page (catalog.json is no longer used)
+5. Add real products via `/products` dashboard page (products live in the Supabase `products` table)
 6. Add `.md` files to `app/data/knowledge/` for AI context

@@ -93,7 +93,7 @@ cart present + fulfillment chosen (+ address if delivery)
 ```
 auth cookie check → UPDATE orders.status
   → WhatsApp customer with status message
-  → on 'done' → Wave/invoice action (retry_actions)
+  → on 'done' → generate + send PDF invoice (pdf_invoice; failures via retry_actions)
   → failures enqueued to retry_queue
 ```
 
@@ -101,7 +101,7 @@ auth cookie check → UPDATE orders.status
 ```
 followup.send_followups      every 6h    → message customers 3+ days post-delivery
 monthly_report.send_...      1st @ 08:00  → Arabic monthly summary to AUNT_PHONE
-retry_queue.process_retries  every 15min  → retry failed WhatsApp/Wave calls (max 3x)
+retry_queue.process_retries  every 15min  → retry failed WhatsApp/PDF-invoice calls (max 3x)
 ```
 
 ## Key Abstractions

@@ -6,36 +6,38 @@ from __future__ import annotations
 
 import json
 import logging
-import pathlib
 from typing import Any
 
+from app.ai.retriever import _catalog as _active_products
 from app.db.database import execute, query
 
 log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Product catalog (catalog.json — legacy; Supabase products table is live source)
+# Product catalog — live from the Supabase `products` table (app/ai/retriever.py)
 # ---------------------------------------------------------------------------
 
-def _load_catalog() -> list[dict[str, Any]]:
-    p = pathlib.Path(__file__).resolve().parents[2] / "app" / "data" / "catalog.json"
-    try:
-        with open(p, encoding="utf-8") as f:
-            raw = json.load(f)
-        return [
-            {
-                "id": i + 1,
-                "name": item.get("name", ""),
-                "list_price": float(item.get("price", 0)),
-                "description_sale": item.get("description", ""),
-            }
-            for i, item in enumerate(raw)
-        ]
-    except Exception:
-        return []
+def catalog() -> list[dict[str, Any]]:
+    """Active products in the legacy {id, name, list_price, description_sale} shape.
 
-
-_CATALOG: list[dict[str, Any]] = _load_catalog()
+    The bot's numeric `info N` command and the /dev/test_order endpoint index into
+    this list. It adapts the cached Supabase loader in app/ai/retriever.py, so it
+    always reflects the live `products` table; after a product create/update/delete
+    the dashboard calls invalidate_catalog() there and the next call here is fresh.
+    """
+    out: list[dict[str, Any]] = []
+    for r in _active_products():
+        try:
+            pid = int(r["sku"])
+        except (TypeError, ValueError, KeyError):
+            continue
+        out.append({
+            "id": pid,
+            "name": r.get("name", ""),
+            "list_price": float(r.get("price", 0) or 0),
+            "description_sale": r.get("description", ""),
+        })
+    return out
 
 STATUS_LABELS = {
     "to_do":     "قيد التحضير 🔄",

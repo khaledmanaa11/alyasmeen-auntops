@@ -7,6 +7,7 @@
 
 import json
 import logging
+import time
 from typing import Any
 
 from supabase import Client, create_client
@@ -71,27 +72,92 @@ def _build(sql: str, params: tuple) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Resilience — retry + circuit breaker around the Supabase RPC seam.
+# Every DB call in the app funnels through query/execute/execute_returning,
+# so this is the single place to absorb transient Supabase failures (a brief
+# network blip otherwise surfaces as a hard error on the customer's next message).
+# Tunables live in config/rate_limits.json under "supabase" — never hardcoded.
+# ---------------------------------------------------------------------------
+
+# Circuit-breaker state (process-local).
+_consecutive_failures = 0
+_circuit_open_until = 0.0
+
+
+def _retry_cfg() -> dict[str, Any]:
+    """Read the 'supabase' resilience settings, with safe fallbacks."""
+    cfg = (Config.RATE_LIMITS or {}).get("services", {}).get("supabase", {})
+    return {
+        "max_retries": cfg.get("max_retries", 2),
+        "retry_after_seconds": cfg.get("retry_after_seconds", 0.5),
+        "circuit_threshold": cfg.get("circuit_threshold", 5),
+        "circuit_cooldown_seconds": cfg.get("circuit_cooldown_seconds", 10),
+    }
+
+
+def _call(rpc_name: str, final_sql: str, retryable: bool) -> list[dict[str, Any]]:
+    """Run one Supabase RPC with a circuit breaker and optional retry.
+
+    Reads (retryable=True) are retried with exponential backoff because they are
+    idempotent. Writes are NOT retried here: an insert/update whose response was
+    lost after it committed would double-apply on retry. The circuit breaker
+    observes every call and, once enough consecutive failures pile up, fails fast
+    for a cooldown window instead of hammering a down database.
+    """
+    global _consecutive_failures, _circuit_open_until
+    cfg = _retry_cfg()
+
+    now = time.monotonic()
+    if now < _circuit_open_until:
+        raise RuntimeError(
+            f"Supabase circuit open — failing fast for "
+            f"{_circuit_open_until - now:.1f}s after repeated errors"
+        )
+
+    attempts = cfg["max_retries"] + 1 if retryable else 1
+    last_exc: Exception | None = None
+    for attempt in range(attempts):
+        try:
+            result = _get_client().rpc(rpc_name, {"sql": final_sql}).execute()
+            _consecutive_failures = 0
+            return result.data or []
+        except Exception as exc:
+            last_exc = exc
+            log.warning("db: %s failed attempt=%d/%d: %s", rpc_name, attempt + 1, attempts, exc)
+            if attempt < attempts - 1:
+                time.sleep(cfg["retry_after_seconds"] * (2 ** attempt))
+
+    _consecutive_failures += 1
+    if _consecutive_failures >= cfg["circuit_threshold"]:
+        _circuit_open_until = time.monotonic() + cfg["circuit_cooldown_seconds"]
+        log.error("db: circuit opened after %d consecutive failures", _consecutive_failures)
+    raise last_exc  # type: ignore[misc]
+
+
+# ---------------------------------------------------------------------------
 # Public API  (same interface as the old psycopg2 version)
 # ---------------------------------------------------------------------------
 
 def query(sql: str, params: tuple = ()) -> list[dict[str, Any]]:
-    """Run a SELECT.  Returns a list of row dicts."""
+    """Run a SELECT.  Returns a list of row dicts.  Retried on transient failure."""
     final = _build(sql, params)
-    result = _get_client().rpc("run_query", {"sql": final}).execute()
-    return result.data or []
+    return _call("run_query", final, retryable=True)
 
 
 def execute(sql: str, params: tuple = ()) -> None:
-    """Run INSERT / UPDATE / DELETE.  Returns nothing."""
+    """Run INSERT / UPDATE / DELETE.  Not retried (writes are non-idempotent)."""
     final = _build(sql, params)
-    _get_client().rpc("run_exec", {"sql": final}).execute()
+    _call("run_exec", final, retryable=False)
 
 
 def execute_returning(sql: str, params: tuple = ()) -> dict[str, Any] | None:
-    """Run INSERT/UPDATE … RETURNING *.  Returns the first affected row."""
+    """Run INSERT/UPDATE … RETURNING *.  Returns the first affected row.
+
+    Not retried — this is a write, so a lost response after commit must not
+    double-apply.
+    """
     final = _build(sql, params)
-    result = _get_client().rpc("run_query", {"sql": final}).execute()
-    rows = result.data or []
+    rows = _call("run_query", final, retryable=False)
     return rows[0] if rows else None
 
 

@@ -21,7 +21,7 @@ human-meaningful prose.
 
 | Layer | Lives in | Built by | Nature |
 |-------|----------|----------|--------|
-| **1. Code** | `../app/`, `../tests/`, `../agents/` | Khaled + Claude | Ground truth — the running system |
+| **1. Code** | `../app/`, `../tests/` | Khaled + Claude | Ground truth — the running system |
 | **2. Graph** | `../graphify-out/` → mirrored in `graph/` | graphify (automated) | Structural skeleton — entities, edges, communities, god nodes |
 | **3. Wiki** | `wiki/` | Claude (curated) | Semantic layer — cited prose, navigable in Obsidian |
 

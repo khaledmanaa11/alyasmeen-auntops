@@ -38,7 +38,7 @@ def client(monkeypatch):
 
     monkeypatch.setattr(debug_module, "execute", fake_execute)
     monkeypatch.setattr(debug_module, "execute_returning", fake_execute_returning)
-    monkeypatch.setattr(debug_module, "_CATALOG", FAKE_CATALOG)
+    monkeypatch.setattr(debug_module, "catalog", lambda: FAKE_CATALOG)
     return TestClient(app)
 
 
@@ -81,7 +81,7 @@ class TestCreateTestOrder:
         assert r.status_code == 400
 
     def test_empty_catalog_returns_500(self, client, monkeypatch):
-        monkeypatch.setattr(debug_module, "_CATALOG", [])
+        monkeypatch.setattr(debug_module, "catalog", lambda: [])
         r = client.post("/dev/test_order", json={})
         assert r.status_code == 500
 

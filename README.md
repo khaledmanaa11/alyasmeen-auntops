@@ -183,9 +183,6 @@ The `/broadcast` page allows sending a custom WhatsApp message to:
 | `WA_META_PHONE_ID` | Production | WhatsApp phone ID from Meta Developer Portal |
 | `WA_META_VERIFY_TOKEN` | Production | Webhook verification token (you choose this value) |
 | `WA_META_APP_SECRET` | Optional | Webhook signature verification |
-| `WAVE_API_KEY` | Optional | Wave invoicing API key |
-| `WAVE_BUSINESS_ID` | Optional | Wave business ID |
-| `WAVE_INCOME_ACCOUNT_ID` | Optional | Wave income account ID |
 
 ---
 

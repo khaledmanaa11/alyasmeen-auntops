@@ -1,0 +1,38 @@
+{
+  "source_path": "C:/Users/Hp/OneDrive/Desktop/חנאן/ALYASMEEN_fixed/auntops_fixed/docs/PLAN.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Architecture & Planning Document — ALYASMEEN AuntOps",
+  "summary": "Technical architecture spec for the AuntOps WhatsApp ordering system: C4 model, request flows, component contracts, API tables, embedded ADRs, and database schema.",
+  "scope": [
+    "FastAPI backend",
+    "WhatsApp webhook",
+    "Supabase PostgreSQL",
+    "Claude Haiku AI service",
+    "APScheduler jobs",
+    "web dashboard",
+    "JSON APIs",
+    "database schema",
+    "Meta Cloud API integration",
+    "PDF invoice / retry queue / follow-up services"
+  ],
+  "cross_refs": [
+    "app/routers/whatsapp.py",
+    "app/routers/ui.py",
+    "app/routers/debug.py",
+    "app/services/ai_service.py",
+    "app/db/database.py",
+    "app/services/config.py",
+    "app/services/followup.py",
+    "app/services/monthly_report.py",
+    "app/services/pdf_invoice.py",
+    "app/services/retry_queue.py",
+    "app/services/whatsapp_meta.py",
+    "app/services/whatsapp_dev.py",
+    "app/ai/retriever.py"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "MANIFEST_TYPE=SPEC applied as authoritative. Document is a hybrid: it embeds ADR-001 through ADR-005 in section 5 plus full API/schema tables. Manifest declaration honored; synthesizer should note the embedded ADR decisions may warrant separate locked-decision extraction."
+}

@@ -11,13 +11,13 @@
 ---
 
 ALYASMEEN AuntOps is a WhatsApp ordering bot for **ALYASMEEN**, a natural & handmade
-skincare products business (lotions, creams, candles) in Palestine. Customers order via
-WhatsApp in Arabic or English; the aunt manages orders through a built-in web dashboard;
+skincare products business (lotions, creams, candles) in israel used for israeli arabs . Customers order via
+WhatsApp in Arabic ; the aunt manages orders through a built-in web dashboard;
 Claude Haiku powers the AI conversation. (source: raw/project-claude-md.md)
 
 - **Owner:** Khaled (building it for his aunt)
 - **Market:** Palestine · **Volume:** 10–30 orders/day
-- **Languages:** Arabic (primary) + English
+- **Languages:** Arabic (primary)
 
 ## How a message flows
 

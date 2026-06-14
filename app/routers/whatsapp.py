@@ -10,9 +10,9 @@ from pydantic import BaseModel
 from app.ai.retriever import search_products
 from app.db.database import execute, execute_returning
 from app.routers.whatsapp_helpers import (
-    _CATALOG,
     STATUS_LABELS,
     append_history,
+    catalog,
     clear_session,
     get_customer_name,
     get_latest_order,
@@ -414,8 +414,9 @@ def webhook_post(msg: Msg):
         parts = low.split()
         if len(parts) >= 2 and parts[1].isdigit():
             idx = int(parts[1]) - 1
-            if 0 <= idx < len(_CATALOG):
-                p = _CATALOG[idx]
+            cat = catalog()
+            if 0 <= idx < len(cat):
+                p = cat[idx]
                 price = float(p.get("list_price") or 0)
                 price_str = f"{price:.0f}".rstrip("0").rstrip(".")
                 desc = (p.get("description_sale") or "").strip()
