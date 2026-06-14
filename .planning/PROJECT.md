@@ -40,8 +40,8 @@ layers underneath it.
 
 - [ ] **M0/M1 spine (current):** one real Meta-format WhatsApp message → parsed → order created → aunt notified, against live Supabase
 - [ ] **M1 — Supabase → prod:** complete schema (add missing `monthly_snapshots`), migration discipline, secure the RPC/key surface (not cargo-culted RLS), data-loss insurance (scripted export now → Pro PITR ~July 2026), retention/cleanup for unbounded tables
-- [ ] **M2 — FastAPI → prod:** webhook signature verification, real Meta-envelope parsing, rate limiting, health checks, deploy hardening, webhook idempotency (dedupe Meta retries)
-- [ ] **M3 — Agent → prod:** AI reliability + fallbacks, Claude cost control, eval harness over the labeled dataset, knowledge base (`app/data/knowledge/`)
+- [ ] **M2 — FastAPI → prod:** **web+worker two-process split** (web acks webhook fast → durable **inbox/outbox** tables → worker processes Claude calls async), webhook signature verification, real Meta-envelope parsing, **idempotency** (dedupe on Meta `wamid`), rate limiting, health checks, structured logging (structlog), deploy hardening
+- [ ] **M3 — Agent → prod:** AI reliability + fallbacks, Claude cost control, eval harness over the labeled dataset, knowledge base (`app/data/knowledge/`), **deterministic policy gate** before any AI-proposed action, **human handoff** for risky/uncertain messages (voice notes, images, payments, complaints, custom requests) with auto-replies paused during handoff (**hybrid autonomy**)
 - [ ] **M4 — UI → prod (lean):** kill insecure defaults, `secure` cookie, login rate-limiting, input validation — sized for a single trusted operator, not a hostile multi-user app
 - [ ] **M5 — Go-live:** end-to-end test, monitoring/alerting, Meta WABA approval, SSL/custom domain, cutover to real customers
 
@@ -50,7 +50,7 @@ layers underneath it.
 <!-- Explicit boundaries with reasoning. -->
 
 - **Website (new build)** — it's a new product, not productionizing this one; its own future project
-- **Microservices / message-queue rearchitecture** — the single-process monolith is adequate at current+near-term volume; revisit only if scale forces it
+- **Microservices / external message-queue (Redis, SQS, etc.)** — out of scope; the M2 web+worker split uses a simple DB-backed inbox/outbox (Supabase tables polled by the worker), not a broker or microservices
 - **Multi-tenant / serving other businesses** — this is one aunt's system; generality is wasted effort now
 - **Gold-plated multi-user auth (heavy CSRF/session infra)** — the dashboard has one trusted operator; over-building auth is wasted effort (see Key Decisions)
 - **Anything not in service of go-live** — feature ideas wait until the aunt has a working system
@@ -61,11 +61,12 @@ layers underneath it.
 - **Deployment:** hosted on Railway at `alyasmeen.org` (SSL pending); Meta WABA business review pending approval.
 - **Known critical gaps (`.planning/codebase/CONCERNS.md`):** webhook can't parse real Meta payloads (🔴 — no real message works today), `monthly_snapshots` table queried but missing from schema (🔴), `info N` reads a dead legacy catalog (🔴); plus webhook has no auth, insecure default secrets (`admin123`/`change-me`), no login rate-limiting, unbounded `chat_history`/`retry_queue` growth.
 - **Builder:** Khaled — solo student, budget-conscious, wants to be directed and challenged, learning as he builds.
+- **Parallel "Gemini" spike (2026-06-14):** a separate clone ran its own GSD init + 4-agent research + a large *uncommitted* refactor (web/worker inbox/outbox). We kept our clean repo and **harvested the good ideas** (research → `.planning/research/`; web/worker + agent-safety decisions below). We **rejected its broken code** (model downgrade, encoding corruption, `DATABASE_URL`/SQLAlchemy). Its unmerged branches are parked in STATE.md.
 
 ## Constraints
 
 - **Tech stack**: FastAPI + Supabase (PostgreSQL over HTTPS RPC, supabase-py — no psycopg2) + Claude (Anthropic SDK) + APScheduler — established; do not re-architect away from it
-- **Architecture**: single-process modular monolith; one AI file (`ai_service.py`), one DB file (`database.py`); all config via `Config` — enforced by convention
+- **Architecture**: modular monolith moving to a deliberate **two-process** split in M2 — `web` (FastAPI, fast webhook ack) + `worker` (APScheduler + inbox/outbox processor); one AI file (`ai_service.py`), one DB file (`database.py`); all config via `Config` — enforced by convention
 - **Access model**: server-side only — browser never touches Supabase; security work targets the RPC/key surface, not client RLS
 - **Locale**: Arabic-first (primary) + English; Palestine market
 - **Operator**: a single non-technical user (the aunt) — UX and ops must assume that
@@ -82,6 +83,11 @@ layers underneath it.
 | Keep M4 (UI auth) lean | Single trusted operator on one device; heavy multi-user auth infra is wasted effort — fix insecure defaults + secure cookie + rate-limit only | — Pending |
 | 5 milestones = 5 GSD milestone cycles, each planned from the current point | User wants to discuss/challenge each milestone freshly rather than pre-plan M2–M5 blind | — Pending |
 | Website is a separate future project | Productionizing ≠ new build; keep scope clean | — Pending |
+| Web+worker two-process architecture with DB-backed inbox/outbox + `wamid` idempotency (built in M2) | Meta requires a fast webhook 200; Claude calls are slow (1–5s, ×2 on tool use) — process async or risk timeouts/retry-storms. Adopted from the Gemini spike. | — Pending |
+| No `DATABASE_URL`/SQLAlchemy job store — keep HTTPS-RPC-only; APScheduler uses MemoryJobStore | Jobs are code-defined and re-registered on startup; a persistent Postgres job store would reintroduce the direct-connection/pooler pain the project deliberately avoided | — Pending |
+| Hybrid agent autonomy: auto for low-risk `to_do` orders, human handoff for risky/uncertain cases; pause auto-replies during handoff (M3) | Some cases (payments, complaints, media, custom requests) exceed safe autonomous authority; pausing prevents the bot contradicting the aunt | — Pending |
+| Retain conversations/handoffs 12 months, then anonymize | Supports improvement (evals) while limiting personal-data exposure | — Pending |
+| Staged pilot (few real customers) before public launch (M5) | Limits customer impact while real workflows + operator readiness are proven | — Pending |
 
 ## Evolution
 

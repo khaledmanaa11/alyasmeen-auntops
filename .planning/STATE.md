@@ -63,8 +63,8 @@ Items acknowledged and carried forward (M2–M5 — future GSD milestone cycles,
 
 | Category | Item | Status | Deferred At |
 |----------|------|--------|-------------|
-| M2 FastAPI | Webhook signature verification, full Meta-envelope parsing, rate limiting, health checks, idempotency | Deferred | 2026-06-14 |
-| M3 Agent | AI reliability/fallbacks, Claude cost control, eval harness, knowledge base, `info N` fix | Deferred | 2026-06-14 |
+| M2 FastAPI | **Web+worker two-process split + DB-backed inbox/outbox + `wamid` idempotency** (harvested from Gemini spike), webhook signature verification, full Meta-envelope parsing, rate limiting, health checks, structlog, deploy hardening | Deferred | 2026-06-14 |
+| M3 Agent | AI reliability/fallbacks, Claude cost control, eval harness, knowledge base, `info N` fix, **deterministic policy gate + human handoff + hybrid autonomy** (harvested), 12-mo retention-then-anonymize | Deferred | 2026-06-14 |
 | M4 UI | Kill insecure defaults, secure cookie, login rate-limiting, input validation | Deferred | 2026-06-14 |
 | M5 Go-live | E2E test, monitoring/alerting, Meta WABA approval, SSL/domain, customer cutover | Deferred | 2026-06-14 |
 
@@ -78,6 +78,8 @@ Unmerged agent branches found 2026-06-14; evaluated as M3 material, parked to ke
 | `origin/claude/project-memory-notes-PRVo7` | 2026-06-06 | Eval-dataset research (Israeli-Arabic dialect, 50K dataset plan); `MEMORY.md` | Eval harness foundation (pairs with `tests/data/whatsapp_agent_dataset.json`) |
 
 Junk (safe to delete): `copilot/vscode-mpshk5w7-eqtp` (2026-05-30) — stale context dump, mangled `AGENTS.md` ("Codex Haiku", "Wave invoicing"), `project_dump.txt`, guidelines PDF.
+
+**Gemini spike harvested (2026-06-14):** a separate clone's 4-agent research copied into `.planning/research/` (see its README); its decisions folded into PROJECT.md (web/worker, agent safety, retention, pilot). Its uncommitted code refactor was **not** adopted (model downgrade, encoding corruption, `DATABASE_URL`/SQLAlchemy). Spike clone: `…/OneDrive/Desktop/.../ALYASMEEN_fixed/auntops_fixed`.
 
 ## Session Continuity
 
