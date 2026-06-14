@@ -68,6 +68,17 @@ Items acknowledged and carried forward (M2–M5 — future GSD milestone cycles,
 | M4 UI | Kill insecure defaults, secure cookie, login rate-limiting, input validation | Deferred | 2026-06-14 |
 | M5 Go-live | E2E test, monitoring/alerting, Meta WABA approval, SSL/domain, customer cutover | Deferred | 2026-06-14 |
 
+### Parked branches (M3 inputs — do NOT merge into M1)
+
+Unmerged agent branches found 2026-06-14; evaluated as M3 material, parked to keep M1 focused:
+
+| Branch | Date | Contents | Use in M3 |
+|--------|------|----------|-----------|
+| `origin/claude/project-architecture-overview-18sf0c` | 2026-06-11 | Latency optimization (batched DB context, reply-first persistence, prompt caching) in `whatsapp.py`/`ai_service.py`/`whatsapp_helpers.py`; `docs/PROJECT_LEARNINGS.md`; tests | AI reliability + Claude cost control; review before M3 planning |
+| `origin/claude/project-memory-notes-PRVo7` | 2026-06-06 | Eval-dataset research (Israeli-Arabic dialect, 50K dataset plan); `MEMORY.md` | Eval harness foundation (pairs with `tests/data/whatsapp_agent_dataset.json`) |
+
+Junk (safe to delete): `copilot/vscode-mpshk5w7-eqtp` (2026-05-30) — stale context dump, mangled `AGENTS.md` ("Codex Haiku", "Wave invoicing"), `project_dump.txt`, guidelines PDF.
+
 ## Session Continuity
 
 Last session: 2026-06-14
