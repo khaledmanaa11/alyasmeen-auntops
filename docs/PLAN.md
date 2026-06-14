@@ -226,7 +226,7 @@ Searches the Supabase `products` table for products matching a user's message. O
 - No psycopg2 dependency, no connection pool configuration needed
 - Works reliably on any HTTPS-capable host
 - All SQL is written manually — no ORM magic
-- Slight overhead per query from HTTPS round-trip vs. direct TCP (acceptable at this volume)
+- Slight overhead per query from HTTPS round-trip vs. direct TCP (a latency cost to watch as volume grows)
 
 ### ADR-002: Claude Haiku as the AI model
 
@@ -236,7 +236,7 @@ Searches the Supabase `products` table for products matching a user's message. O
 
 **Reasons:**
 - Strong Arabic language support
-- Low cost per token — critical for 10–30 messages per order at this volume
+- Low cost per token — keeps per-message cost down as volume scales
 - Fast response time (< 1 second typical)
 - Sufficient capability for product recommendation and skincare Q&A
 - Easy to upgrade to Sonnet or Opus later without code changes (just change `CLAUDE_MODEL` env var)
@@ -276,7 +276,7 @@ Searches the Supabase `products` table for products matching a user's message. O
 
 **Consequences:**
 - Each tool call that Claude makes costs one extra API call (first call → tool use, second call → final reply)
-- At 10–30 orders/day with Claude Haiku, this is negligible cost
+- With Claude Haiku the per-call cost is low, but it scales with traffic — monitor as volume grows
 
 ### ADR-004: SQL via Supabase RPC instead of Supabase Python client query builder
 

@@ -114,7 +114,7 @@ All Claude calls use `max_tokens=400`. This is lower than the Haiku default.
 **Reason:**
 - WhatsApp messages that are too long are scrolled past without reading
 - Shorter responses feel more conversational and less like a FAQ page
-- Limits cost per message — at 10–30 orders per day with multiple messages per order, this adds up
+- Limits cost per message — with multiple messages per order, this compounds as volume grows
 - The system prompt's "3 paragraphs max" rule handles the qualitative limit; max_tokens handles the hard cap
 
 ### 5. Tool use: Claude as an agent, not just a responder

@@ -16,7 +16,7 @@ Architecture decisions extracted from the ingested docs. No doc in this set is t
 - status: Accepted (not locked)
 - scope: AI model selection
 - decision: Use Claude Haiku (smallest/fastest Claude model). Upgrade path to Sonnet/Opus via `CLAUDE_MODEL` env var with no code change.
-- rationale: strong Arabic support, low cost/token at 10–30 orders/day, sub-second latency.
+- rationale: strong Arabic support, low cost/token, sub-second latency.
 
 ## ADR-003 — FastAPI over Flask or Django
 - source: docs/PLAN.md (§5, embedded in SPEC)
@@ -37,7 +37,7 @@ Architecture decisions extracted from the ingested docs. No doc in this set is t
 - status: Accepted (not locked)
 - scope: AI tool-use architecture
 - decision: `generate_reply` accepts an optional `tool_executor: Callable[[str, dict], str]`. The caller (`whatsapp.py`) supplies a closure capturing `phone`, `st`, `cart` and routes tool calls to handlers there. `ai_service.py` stays the single AI file with no DB/session imports.
-- rationale: preserves "one AI file" rule; tool handlers live with the session state they need; each tool call costs one extra API call (negligible at volume).
+- rationale: preserves "one AI file" rule; tool handlers live with the session state they need; each tool call costs one extra API call (a real per-message cost to monitor as volume grows).
 
 ## ADR-PE-001 — Full catalog in system prompt vs. per-message retrieval
 - source: docs/PLAN_PROMPT_ENGINEERING.md (§4, embedded in SPEC)

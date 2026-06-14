@@ -58,10 +58,10 @@ so product detail lookups silently fail.
 ## 🟡 Performance
 
 - **Unbounded table growth:** `chat_history` and `retry_queue` have no cleanup/retention
-  job. At 10–30 orders/day this is slow-burn, but both grow forever.
+  job. Both tables grow forever — a real concern as volume scales; needs a retention/cleanup job.
 - **Template cache disabled:** `ui.py::_NoCache` re-parses every template on every request
-  (intentional workaround for a Jinja2 unhashable-key bug; fine at current volume, revisit
-  if traffic grows).
+  (intentional workaround for a Jinja2 unhashable-key bug; re-parsing every request is a
+  throughput cost to fix before higher traffic).
 - **Catalog cache is process-global** — `retriever._CATALOG` invalidation relies on every
   product-mutation path calling `invalidate_catalog()`; a missed call serves stale products.
 

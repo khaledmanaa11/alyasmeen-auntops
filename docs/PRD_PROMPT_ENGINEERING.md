@@ -207,4 +207,4 @@ The following scenarios must pass when tested manually via `GET /dev/chat`:
 | Vector/semantic product search | Overkill for a 30-product catalog; revisit if catalog grows past 100 products |
 | Multi-turn skincare consultation flow | Requires conversation state tracking beyond current stage field |
 | Automated tag suggestion | Not needed while catalog is managed manually by one person |
-| A/B testing of prompt variants | Out of scope for a solo-owner business at this volume |
+| A/B testing of prompt variants | Out of scope for now; revisit once volume can power statistically meaningful tests |

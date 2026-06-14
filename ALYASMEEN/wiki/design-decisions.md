@@ -28,7 +28,7 @@ standalone ADR. (source: .planning/intel/decisions.md)
   Railway/Render. See [[supabase-data-layer]]. (source: .planning/intel/decisions.md, app/db/database.py)
 - **ADR-002 — Claude Haiku as the AI model.** Smallest/fastest Claude; upgrade path to
   Sonnet/Opus via `CLAUDE_MODEL` env var with no code change. *Why:* strong Arabic, low
-  cost at 10–30 orders/day, sub-second latency. See [[ai-service]]. (source: .planning/intel/decisions.md)
+  cost per token, sub-second latency. See [[ai-service]]. (source: .planning/intel/decisions.md)
 - **ADR-003 — FastAPI over Flask/Django.** *Why:* native async, Pydantic validation, OpenAPI
   docs, native Jinja2. (source: .planning/intel/decisions.md)
 - **ADR-004 — SQL via Supabase RPC, not the supabase-py query builder.** `database.py`

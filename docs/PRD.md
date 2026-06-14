@@ -12,7 +12,7 @@ ALYASMEEN AuntOps is a WhatsApp ordering system for ALYASMEEN, a Palestinian sma
 
 **Business context:**
 - Location: Palestine
-- Order volume: 10–30 orders per day
+- Order volume: variable, no fixed cap — designed to scale with demand
 - Primary language: Arabic, with English support
 - Sales channel: WhatsApp (no website or app)
 - Management: Single owner (the aunt) managing orders solo
@@ -127,7 +127,7 @@ ALYASMEEN AuntOps is a WhatsApp ordering system for ALYASMEEN, a Palestinian sma
 | Security | Dashboard password hashed with SHA-256; session via httponly cookie; no secrets in code |
 | Data | All customer data (phone, name, address) stored in Supabase; no local files |
 | Cost | Optimized for Supabase free tier and Claude Haiku (lowest cost Anthropic model) |
-| Scalability | Designed for 10–30 orders/day; stateless FastAPI + Supabase can scale if needed |
+| Scalability | No fixed volume cap; stateless FastAPI + Supabase scale horizontally — designed to grow with demand |
 
 ---
 

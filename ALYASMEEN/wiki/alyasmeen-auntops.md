@@ -16,7 +16,7 @@ WhatsApp in Arabic ; the aunt manages orders through a built-in web dashboard;
 Claude Haiku powers the AI conversation. (source: raw/project-claude-md.md)
 
 - **Owner:** Khaled (building it for his aunt)
-- **Market:** Palestine · **Volume:** 10–30 orders/day
+- **Market:** Palestine · **Volume:** variable — built to scale (no fixed cap)
 - **Languages:** Arabic (primary)
 
 ## How a message flows

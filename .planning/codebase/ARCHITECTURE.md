@@ -12,8 +12,8 @@ serves three surfaces from one process:
 3. **Background scheduler** — APScheduler jobs (follow-ups, monthly report, retry queue)
 
 There is no microservice split, no message queue, and no separate worker process —
-everything runs inside the same uvicorn process. This matches the project scale
-(10–30 orders/day, single operator).
+everything runs inside the same uvicorn process. This is a deliberately simple
+single-process design — adequate today, but a known scaling seam to revisit as volume grows.
 
 ## Layers
 

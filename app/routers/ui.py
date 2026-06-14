@@ -25,7 +25,7 @@ class _NoCache:
     Jinja2 <= 3.1.3 builds a cache key that includes the globals dict,
     making the key unhashable (TypeError: unhashable type: 'dict').
     This stub accepts any key and always returns a cache miss so the
-    template is re-parsed each request — safe at this request volume.
+    template is re-parsed each request — a throughput cost to revisit as traffic grows.
     """
 
     def get(self, key: object) -> None:  # noqa: ARG002

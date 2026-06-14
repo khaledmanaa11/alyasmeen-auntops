@@ -30,7 +30,7 @@ A WhatsApp ordering bot for ALYASMEEN — a natural & handmade skincare products
 The aunt manages orders via a built-in web dashboard. Claude Haiku powers the AI conversation.
 
 **Owner:** Khaled (building this for his aunt)
-**Market:** Palestine | **Volume:** 10–30 orders/day
+**Market:** Palestine | **Volume:** variable — built to scale (no fixed cap; plan for growth)
 **Languages:** Arabic (primary) + English
 
 ---
