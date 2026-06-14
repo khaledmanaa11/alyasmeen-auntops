@@ -6,7 +6,7 @@ A WhatsApp ordering bot + web dashboard for ALYASMEEN — a natural & handmade s
 
 ## Overview
 
-ALYASMEEN AuntOps is a complete order management system built for a small Palestinian skincare business selling lotions, creams, and candles. Customers place orders by chatting in Arabic or English on WhatsApp. The business owner (the aunt) manages everything through a clean web dashboard without needing any third-party tools.
+ALYASMEEN AuntOps is a complete order management system built for a small Palestinian skincare business selling lotions, creams, and candles. Customers place orders by chatting in Arabic or English on WhatsApp. The business owner manages everything through a clean web dashboard without needing any third-party tools.
 
 **Key features:**
 
