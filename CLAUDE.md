@@ -1,5 +1,29 @@
 # ALYASMEEN AuntOps — Project Brief for Claude
 
+## ⚡ Knowledge layers — READ FIRST (token discipline)
+
+This repo carries a curated knowledge vault so you can understand the project **without
+re-exploring it every session**. The vault IS the retrieval layer — there is no vector DB
+and you should not build one. Orient through the vault before grepping or reading code.
+
+**Workflow for any task:**
+1. Open `ALYASMEEN/wiki/index.md` (the Map of Content) → find the relevant concept page.
+2. Read that `ALYASMEEN/wiki/*.md` page → it summarizes the area and lists exact
+   `(source: path)` citations. Jump straight to those files.
+3. For "what connects to what / what's safe to change", read
+   `ALYASMEEN/graph/graph-overview.md` (god nodes = core abstractions, communities = clusters).
+4. Only then read code. Make **targeted** reads guided by the citations — do NOT broad-grep
+   or re-map the codebase when the vault already answers the question.
+5. After a meaningful change, update the relevant `ALYASMEEN/wiki/*.md` page (and `log.md`)
+   so the next session inherits the knowledge instead of rediscovering it.
+
+**Rules:** the vault documents the project but is not the code — verify a wiki claim against
+its `(source:)` before acting. Never hand-edit `ALYASMEEN/graph/` or `ALYASMEEN/raw/`
+(generated / immutable). `.planning/` is GSD's working memory; `ALYASMEEN/` is durable human
+knowledge — keep durable lessons in the vault, not buried in `.planning/`.
+
+---
+
 ## What This Project Is
 A WhatsApp ordering bot for ALYASMEEN — a natural & handmade skincare products business
 (lotions, creams, candles) in Palestine. Customers order via WhatsApp in Arabic or English.
@@ -109,6 +133,8 @@ auntops_fixed/
 │       ├── catalog.json         # Legacy — no longer used; products live in Supabase `products` table
 │       └── knowledge/           # AI knowledge base — EMPTY, add .md files here
 ├── tests/
+│   └── data/
+│       └── whatsapp_agent_dataset.json  # Agent eval dataset — 75 labeled customer messages (intent, entities, edge-case tags)
 ├── .env                         # Secrets — NEVER commit
 ├── .env.example                 # Template for .env
 ├── Procfile                     # uvicorn app.main:app --host 0.0.0.0 --port $PORT
@@ -125,6 +151,8 @@ auntops_fixed/
 - `run_exec(sql text) → void` — INSERT / UPDATE / DELETE
 
 SQL uses `%s` placeholders throughout. `_escape()` + `_build()` in `database.py` substitute them before the RPC call. All SQL is written by us, never from user input.
+
+**Resilience (single seam):** Every DB call funnels through `query` / `execute` / `execute_returning`, which route the RPC through `_call()` — a retry + circuit-breaker wrapper. Reads (`query`) retry transient failures with exponential backoff; writes (`execute`, `execute_returning`) are **not** retried (a lost response after commit would double-apply). After enough consecutive failures the circuit opens and calls fail fast for a cooldown. Tunables live in `config/rate_limits.json` under `"supabase"` (`max_retries`, `retry_after_seconds`, `circuit_threshold`, `circuit_cooldown_seconds`) — never hardcoded.
 
 **Required env vars:**
 ```
