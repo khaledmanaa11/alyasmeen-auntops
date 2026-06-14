@@ -1,0 +1,13 @@
+{
+  "source_path": "C:/Users/Hp/OneDrive/Desktop/חנאן/ALYASMEEN_fixed/auntops_fixed/docs/TODO_PROMPT_ENGINEERING.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "TODO — Bot Prompt Engineering & Data Optimization",
+  "summary": "Task tracker for a completed prompt-engineering and data-optimization sprint, listing done code fixes, audit fixes, manual verification scenarios, and pending data/knowledge-base tasks.",
+  "scope": ["ai_service.py system prompt", "retriever.py product search", "whatsapp.py tool dispatch", "knowledge base markdown files", "products table aliases column", "manual verification scenarios", "future improvements backlog"],
+  "cross_refs": ["app/data/knowledge/store_info.md", "app/data/knowledge/shipping_policy.md", "app/data/knowledge/returns_policy.md", "app/data/knowledge/ingredients_faq.md", "app/data/knowledge/skin_advice.md", "app/data/knowledge/about_store.md", "app/db/schema.sql"],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

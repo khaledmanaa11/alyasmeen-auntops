@@ -49,7 +49,5 @@ ALYASMEEN/.obsidian/graph.json
 # graphify — generated output; durable snapshot lives in ALYASMEEN/raw/
 graphify-out/
 
-# GSD / agent generated output
-agents/output/*
-!agents/output/.gitkeep
+# GSD generated output
 .planning/graphs/

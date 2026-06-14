@@ -1,0 +1,1195 @@
+[
+  {
+    "id": 1,
+    "raw_input": "مرحبا حنان شو الوضع",
+    "expected_intent": "greeting",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "target_name": "حنان (Hanan)"
+    },
+    "edge_case_tags": [
+      "informal_greeting",
+      "no_order_intent_yet"
+    ]
+  },
+  {
+    "id": 2,
+    "raw_input": "بدي اسألك شغالة ليوم ؟",
+    "expected_intent": "check_availability",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "time_reference": "ليوم (today)"
+    },
+    "edge_case_tags": [
+      "informal_inquiry",
+      "phonetic_spelling",
+      "missing_alef",
+      "pre_order_check"
+    ]
+  },
+  {
+    "id": 3,
+    "raw_input": "عندك مقشر للجلد",
+    "expected_intent": "check_product_availability",
+    "language_profile": "Arabic",
+    "entities": {
+      "product_category": "مقشر للجلد (skin exfoliator)"
+    },
+    "edge_case_tags": [
+      "catalog_inquiry",
+      "no_quantity_specified",
+      "pre_order_check"
+    ]
+  },
+  {
+    "id": 4,
+    "raw_input": "هاي شو لوضع",
+    "expected_intent": "greeting",
+    "language_profile": "Colloquial Arabic (Levantine) with English Loanword",
+    "entities": {},
+    "edge_case_tags": [
+      "informal_greeting",
+      "loanword",
+      "phonetic_spelling",
+      "missing_alef",
+      "no_order_intent_yet"
+    ]
+  },
+  {
+    "id": 5,
+    "raw_input": "مرحبا ام ناصيف مش اخبارك شغالة ليوم ز",
+    "expected_intent": "greeting_and_check_availability",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "target_name": "ام ناصيف (Om Nassif)",
+      "time_reference": "ليوم (today)"
+    },
+    "edge_case_tags": [
+      "cultural_address_kunya",
+      "severe_typo",
+      "phonetic_spelling",
+      "stray_character",
+      "multi_intent_noise"
+    ]
+  },
+  {
+    "id": 6,
+    "raw_input": "حناك كيفك عزيزتي ،",
+    "expected_intent": "greeting",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "target_name": "حناك (Typo for Hanan)"
+    },
+    "edge_case_tags": [
+      "informal_greeting",
+      "keyboard_typo",
+      "term_of_endearment",
+      "trailing_punctuation",
+      "no_order_intent_yet"
+    ]
+  },
+  {
+    "id": 7,
+    "raw_input": "حنان الغالية شو الاخبار",
+    "expected_intent": "greeting",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "target_name": "حنان (Hanan)",
+      "honorific": "الغالية (dear/precious)"
+    },
+    "edge_case_tags": [
+      "informal_greeting",
+      "term_of_endearment",
+      "standard_spelling",
+      "no_order_intent_yet"
+    ]
+  },
+  {
+    "id": 8,
+    "raw_input": "السلام عليم ورحمة الله وبركاته",
+    "expected_intent": "greeting",
+    "language_profile": "Modern Standard Arabic / Traditional Greeting",
+    "entities": {},
+    "edge_case_tags": [
+      "formal_greeting",
+      "keyboard_typo",
+      "missing_letter",
+      "religious_phrase",
+      "no_order_intent_yet"
+    ]
+  },
+  {
+    "id": 9,
+    "raw_input": "يسعد اوقاتك يا قمر",
+    "expected_intent": "greeting",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "honorific_endearment": "يا قمر (moon/beautiful)"
+    },
+    "edge_case_tags": [
+      "informal_greeting",
+      "flattery_endearment",
+      "cultural_nuance",
+      "no_order_intent_yet"
+    ]
+  },
+  {
+    "id": 10,
+    "raw_input": "مرحبا حنان شو الاخبار بدي اسألك بعد عندك من الشامبو والمطري والماسك للشعر ؟ وكريم الجسم والريحة الرش ؟",
+    "expected_intent": "greeting_and_check_product_availability",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "target_name": "حنان (Hanan)",
+      "products_requested": [
+        "الشامبو (shampoo)",
+        "المطري (conditioner/softener)",
+        "الماسك للشعر (hair mask)",
+        "كريم الجسم (body cream)",
+        "الريحة الرش (body splash/spray perfume)"
+      ]
+    },
+    "edge_case_tags": [
+      "multi_intent",
+      "complex_multi_entity_extraction",
+      "colloquial_product_terminology",
+      "pre_order_check"
+    ]
+  },
+  {
+    "id": 11,
+    "raw_input": "هلا حنان، اسمعي بدي اعمل هزمنا لشمع وكريمات. الكريم تبع الجسم طبيعي 100٪ صح؟ لانو جلدي حساس كتير. وبدي كمان مطري شعر",
+    "expected_intent": "create_order_and_check_ingredients",
+    "language_profile": "Colloquial Arabic with Phonetic Hebrew Loanword",
+    "entities": {
+      "target_name": "حنان (Hanan)",
+      "products_requested": [
+        "شمع (candles)",
+        "كريمات (creams)",
+        "مطري شعر (hair softener/conditioner)"
+      ],
+      "conditional_check": "طبيعي 100٪ (100% natural)"
+    },
+    "edge_case_tags": [
+      "phonetic_loanword",
+      "arabic_spelling_of_hebrew",
+      "medical_context_sensitive_skin",
+      "multi_product_order"
+    ]
+  },
+  {
+    "id": 12,
+    "raw_input": "حبيبة قلبي حنان يعطيكي الف عافية، اسمعي بدي اوصي طلبية صغيرة، حطيلي شمعة بريحة اللافندر وبدي المطري تبعك اللي عملتيه اخر مرة بجننن، حطيلي منو 2، قديش بطلعو",
+    "expected_intent": "create_order_and_request_price",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "products_requested": [
+        "شمعة بريحة اللافندر (lavender candle) - Qty: 1",
+        "مطري (softener) - Qty: 2"
+      ]
+    },
+    "edge_case_tags": [
+      "informal_greeting",
+      "reference_to_past_order",
+      "implied_quantity",
+      "pricing_inquiry"
+    ]
+  },
+  {
+    "id": 13,
+    "raw_input": "مرحبا ام ناصيف، يسعد مساكي. بدي 3 مطري شعر وعلبتين كريم جسم. بكرا بكونو جاهزات ؟",
+    "expected_intent": "create_order_and_check_fulfillment",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "target_name": "ام ناصيف (Om Nassif)",
+      "products_requested": [
+        "مطري شعر (hair softener) - Qty: 3",
+        "كريم جسم (body cream) - Qty: 2 (علبتين)"
+      ],
+      "time_reference": "بكرا (tomorrow)"
+    },
+    "edge_case_tags": [
+      "cultural_address_kunya",
+      "dual_form_quantity",
+      "fulfillment_deadline_check"
+    ]
+  },
+  {
+    "id": 14,
+    "raw_input": "مرحبا ام ناصيف، بدي 2 كريم جسم ومطري. في توصيل لشفاعمرو؟ وبقدر ادفع مزومان للشليح ؟",
+    "expected_intent": "create_order_and_check_logistics",
+    "language_profile": "Colloquial Arabic (Levantine) with Phonetic Hebrew Loanwords",
+    "entities": {
+      "target_name": "ام ناصيف (Om Nassif)",
+      "products_requested": [
+        "كريم جسم (body cream) - Qty: 2",
+        "مطري (softener) - Qty: 1"
+      ],
+      "delivery_location": "شفاعمرو (Shefa-'Amr)",
+      "payment_method": "مزومان (mezuman / cash)",
+      "delivery_actor": "الشليح (shaliach / courier)"
+    },
+    "edge_case_tags": [
+      "phonetic_loanword_payment",
+      "phonetic_loanword_logistics",
+      "cultural_address_kunya",
+      "multi_intent_order_and_logistics"
+    ]
+  },
+  {
+    "id": 15,
+    "raw_input": "اسمعي حنان حبيبتي، بطّلت بدي الشمعة، بدليلي اياها بكريم ايدين. قديش بصير الحساب؟",
+    "expected_intent": "modify_order_and_request_price",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "item_to_remove": "الشمعة (candle)",
+      "item_to_add": "كريم ايدين (hand cream)"
+    },
+    "edge_case_tags": [
+      "cart_modification",
+      "item_swap",
+      "pricing_inquiry",
+      "informal_address"
+    ]
+  },
+  {
+    "id": 16,
+    "raw_input": "يعطيكي العافية ام ناصيف. وجهي كتير ناشف هالفترة ومقشر، شو بتنصحيني اخد؟ عندك اشي طبيعي برطّب منيح؟",
+    "expected_intent": "request_product_recommendation",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "target_name": "ام ناصيف (Om Nassif)",
+      "symptom_or_need": "وجهي ناشف ومقشر (dry and peeling face)",
+      "desired_effect": "طبيعي برطّب (natural moisturizer)"
+    },
+    "edge_case_tags": [
+      "symptom_based_query",
+      "no_specific_product_named",
+      "consultative_sales",
+      "cultural_address_kunya"
+    ]
+  },
+  {
+    "id": 17,
+    "raw_input": "بدي مطري للشعر وكريم جسم، بس اعمليلي اياهن بمئراز حلو لانو بدي اهديهن لسلفتي ولدت جديد. قديش بكلف مع الميشلوح؟",
+    "expected_intent": "create_order_with_gift_packaging_and_check_price",
+    "language_profile": "Colloquial Arabic with Phonetic Hebrew Loanwords",
+    "entities": {
+      "products_requested": [
+        "مطري للشعر (hair softener)",
+        "كريم جسم (body cream)"
+      ],
+      "packaging_type": "مئراز (ma'araz / gift box)",
+      "recipient_context": "سلفتي (sister-in-law)",
+      "logistics_type": "ميشلوح (mishloach / delivery)"
+    },
+    "edge_case_tags": [
+      "phonetic_loanword_packaging",
+      "phonetic_loanword_logistics",
+      "gift_context",
+      "pricing_with_delivery_inquiry"
+    ]
+  },
+  {
+    "id": 18,
+    "raw_input": "حبيبتي بدي 5 علب كريم جسم وكبير. بتعمليلي هنحا عليهم؟ او بتحطيلي متناه صغيرة مع الطلبية؟ 😉",
+    "expected_intent": "create_order_and_request_discount",
+    "language_profile": "Colloquial Arabic with Phonetic Hebrew Loanwords",
+    "entities": {
+      "products_requested": [
+        "كريم جسم كبير (large body cream) - Qty: 5"
+      ],
+      "discount_request": "هنحا (hanacha / discount)",
+      "bonus_request": "متناه (matana / gift)"
+    },
+    "edge_case_tags": [
+      "bulk_order",
+      "phonetic_loanword_discount",
+      "phonetic_loanword_gift",
+      "negotiation_attempt",
+      "emoji_usage"
+    ]
+  },
+  {
+    "id": 19,
+    "raw_input": "حنان الشليح لسا ما وصل، تأخر كتير وقال جاي بين ال 2 وال 4. معكي رقمو اتصل عليه؟",
+    "expected_intent": "track_order_and_request_courier_contact",
+    "language_profile": "Colloquial Arabic with Phonetic Hebrew Loanword",
+    "entities": {
+      "target_name": "حنان (Hanan)",
+      "delivery_actor": "الشليح (shaliach / courier)",
+      "time_reference": "بين ال 2 وال 4 (between 2 and 4)"
+    },
+    "edge_case_tags": [
+      "customer_support_complaint",
+      "phonetic_loanword_courier",
+      "requesting_third_party_contact",
+      "time_window_extraction"
+    ]
+  },
+  {
+    "id": 20,
+    "raw_input": "مرحبا حنان، بدي اسأل الشامبو وكريم الجسم تبعك مسموح للحوامل؟ لانو انا بهرايون وبخاف استعمل اشي فيه كيماويات.",
+    "expected_intent": "check_product_safety",
+    "language_profile": "Colloquial Arabic with Phonetic Hebrew Loanword",
+    "entities": {
+      "products_inquired": [
+        "الشامبو (shampoo)",
+        "كريم الجسم (body cream)"
+      ],
+      "health_condition": "هرايون (herayon / pregnancy)",
+      "concern": "كيماويات (chemicals)"
+    },
+    "edge_case_tags": [
+      "medical_safety_check",
+      "phonetic_loanword_pregnancy",
+      "ingredient_inquiry"
+    ]
+  },
+  {
+    "id": 21,
+    "raw_input": "هاي، اسفة التهيت مع الاولاد امبارح ومكملتش الهزمنا. لسا الاغراض اللي طلبتهن موجودات؟ بدي اكمل وادفع ع البيت.",
+    "expected_intent": "resume_abandoned_cart_and_checkout",
+    "language_profile": "Colloquial Arabic with Phonetic Hebrew Loanword",
+    "entities": {
+      "payment_method": "البيت (Bit payment app)"
+    },
+    "edge_case_tags": [
+      "context_retrieval",
+      "phonetic_loanword_order",
+      "ambiguous_payment_term_bit",
+      "time_lapse"
+    ]
+  },
+  {
+    "id": 22,
+    "raw_input": "حبيبتي حنان، عندي عرس اخوي كمان شهر وبدي اعمل توزيعات للحبايب. بتعملي شمع صغير مع اسم العرسان؟ كم بكلف اذا باخد 100 حبة؟",
+    "expected_intent": "create_custom_bulk_order_and_check_price",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "event_type": "عرس (wedding)",
+      "product_requested": "توزيعات شمع صغير (small candle favors)",
+      "customization_request": "اسم العرسان (names of bride and groom)",
+      "quantity": 100
+    },
+    "edge_case_tags": [
+      "bulk_pricing_inquiry",
+      "customization_request",
+      "event_planning"
+    ]
+  },
+  {
+    "id": 23,
+    "raw_input": "ام ناصيف يعطيكي العافية. وصلني المئراز اليوم بس للاسف علبة الكريم مكسورة ومكتوب منها بالنقل. كيف بنقدر نرتبها؟",
+    "expected_intent": "report_damaged_item_and_request_resolution",
+    "language_profile": "Colloquial Arabic with Phonetic Hebrew Loanword",
+    "entities": {
+      "target_name": "ام ناصيف (Om Nassif)",
+      "packaging_type": "المئراز (ma'araz / gift box)",
+      "damaged_product": "علبة الكريم (cream jar)",
+      "issue_description": "مكسورة ومكتوب منها (broken and leaked)"
+    },
+    "edge_case_tags": [
+      "customer_complaint",
+      "refund_or_replacement_trigger",
+      "phonetic_loanword_packaging"
+    ]
+  },
+  {
+    "id": 24,
+    "raw_input": "يعطيكي العافية، شفت صفحتك عالانستجرام بتجنن. في عندكم ميشلوح للقدس؟ ولا بس بتشتغلو بمناطق الشمال؟",
+    "expected_intent": "check_delivery_zone",
+    "language_profile": "Colloquial Arabic with Phonetic Hebrew Loanword",
+    "entities": {
+      "logistics_type": "ميشلوح (mishloach / delivery)",
+      "delivery_location_requested": "القدس (Jerusalem)",
+      "delivery_location_implied": "مناطق الشمال (Northern areas)"
+    },
+    "edge_case_tags": [
+      "geography_check",
+      "phonetic_loanword_logistics",
+      "social_media_referral"
+    ]
+  },
+  {
+    "id": 25,
+    "raw_input": "حنان حبيبتي تذكرت اشي! بعدك ما طلعتي الطلبية صح؟ بدي ازيد عليها كمان شمعة صغيرة. ببعتلك التوسفيت ع البيت هسا.",
+    "expected_intent": "modify_order_add_item_post_checkout",
+    "language_profile": "Colloquial Arabic with Phonetic Hebrew Loanwords",
+    "entities": {
+      "product_to_add": "شمعة صغيرة (small candle)",
+      "payment_concept": "التوسفيت (tosefet / addition/extra charge)",
+      "payment_method": "البيت (Bit payment app)"
+    },
+    "edge_case_tags": [
+      "post_checkout_modification",
+      "phonetic_loanword_extra_charge",
+      "phonetic_loanword_payment_app"
+    ]
+  },
+  {
+    "id": 26,
+    "raw_input": "مرحبا، اسمعي كل منتجاتك طبعونيت؟ يعني فش فيها اشي من الحيوانات؟ لانو انا بهتم بهيك اشياء وبدي اكون متأكدة قبل ما اطلب.",
+    "expected_intent": "check_product_lifestyle_compliance",
+    "language_profile": "Colloquial Arabic with Phonetic Hebrew Loanword",
+    "entities": {
+      "lifestyle_requirement": "طبعونيت (tiv'onit / vegan)",
+      "clarification": "فش فيها اشي من الحيوانات (nothing from animals)"
+    },
+    "edge_case_tags": [
+      "dietary_lifestyle_check",
+      "phonetic_loanword_vegan",
+      "pre_order_inquiry"
+    ]
+  },
+  {
+    "id": 27,
+    "raw_input": "ام ناصيف حولتلك المصاري، هي تصيلوم مساخ. شوفي اذا وصلك عشان تعتمدي الهزمنا وتطلعيها بكرا.",
+    "expected_intent": "submit_payment_proof",
+    "language_profile": "Colloquial Arabic with Phonetic Hebrew Loanwords",
+    "entities": {
+      "target_name": "ام ناصيف (Om Nassif)",
+      "attachment_type": "تصيلوم مساخ (tzilum masakh / screenshot)",
+      "action_requested": "تعتمدي الهزمنا (confirm the hazmana/order)",
+      "time_reference": "بكرا (tomorrow)"
+    },
+    "edge_case_tags": [
+      "multimedia_intent_simulation",
+      "phonetic_loanword_screenshot",
+      "phonetic_loanword_order",
+      "payment_confirmation"
+    ]
+  },
+  {
+    "id": 28,
+    "raw_input": "مرحبا حنان، في عندك ميحيرون او كتالوج ابعتيلي اياه اشوف شو في عندك اشياء للوجه والجسم؟",
+    "expected_intent": "request_catalog_or_pricing",
+    "language_profile": "Colloquial Arabic with Phonetic Hebrew Loanword",
+    "entities": {
+      "document_requested": [
+        "ميحيرون (mehiron / price list)",
+        "كتالوج (catalog)"
+      ],
+      "category_interest": "اشياء للوجه والجسم (things for face and body)"
+    },
+    "edge_case_tags": [
+      "top_of_funnel_inquiry",
+      "phonetic_loanword_pricelist",
+      "catalog_request"
+    ]
+  },
+  {
+    "id": 29,
+    "raw_input": "الو حنان يعطيكي العافية، اسمعي بدي نفس الطلبية تبعت اختي ميساء اللي طلبتها الاسبوع الماضي بتعرفيها صح؟ نفس الاغراض زبطيلي اياهن.",
+    "expected_intent": "duplicate_third_party_order",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "reference_person": "اختي ميساء (my sister Maysa)",
+      "time_reference": "الاسبوع الماضي (last week)"
+    },
+    "edge_case_tags": [
+      "cross_user_reference",
+      "privacy_check_trigger",
+      "historical_order_retrieval",
+      "complex_context_resolution"
+    ]
+  },
+  {
+    "id": 30,
+    "raw_input": "شو في عندي بالسلة هلأ؟",
+    "expected_intent": "view_cart",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {},
+    "edge_case_tags": [
+      "hard_command_equivalent",
+      "colloquial_phrasing_of_command",
+      "should_not_need_ai"
+    ]
+  },
+  {
+    "id": 31,
+    "raw_input": "اشطبيلي كلشي من السلة بدي ابلش من جديد",
+    "expected_intent": "clear_cart",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {},
+    "edge_case_tags": [
+      "hard_command_equivalent",
+      "colloquial_phrasing_of_command",
+      "cart_reset"
+    ]
+  },
+  {
+    "id": 32,
+    "raw_input": "بديش توصيل، بمرق انا باخدها من عندك",
+    "expected_intent": "set_fulfillment_pickup",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "fulfillment_type": "pickup (استلام ذاتي)"
+    },
+    "edge_case_tags": [
+      "negation_of_delivery",
+      "implicit_pickup_request",
+      "fulfillment_selection"
+    ]
+  },
+  {
+    "id": 33,
+    "raw_input": "توصيل اذا بصير، انا ساكنة بطمرة حي البطحة بجانب الصيدلية الجديدة",
+    "expected_intent": "set_fulfillment_delivery_with_address",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "fulfillment_type": "delivery (توصيل)",
+      "delivery_address": "طمرة، حي البطحة بجانب الصيدلية الجديدة"
+    },
+    "edge_case_tags": [
+      "address_in_same_message",
+      "landmark_based_address",
+      "fulfillment_selection"
+    ]
+  },
+  {
+    "id": 34,
+    "raw_input": "confirm",
+    "expected_intent": "confirm_order",
+    "language_profile": "English keyword in Arabic conversation",
+    "entities": {},
+    "edge_case_tags": [
+      "hard_command_exact",
+      "language_switch_for_command",
+      "checkout_trigger"
+    ]
+  },
+  {
+    "id": 35,
+    "raw_input": "وين طلبي صرلي اسبوع ناطرة وما حدا رد عليي",
+    "expected_intent": "track_order_with_complaint",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "time_reference": "صرلي اسبوع (a week ago)",
+      "sentiment": "frustrated"
+    },
+    "edge_case_tags": [
+      "hard_command_phrase_embedded",
+      "complaint_escalation",
+      "negative_sentiment"
+    ]
+  },
+  {
+    "id": 36,
+    "raw_input": "2",
+    "expected_intent": "select_menu_item",
+    "language_profile": "Numeric",
+    "entities": {
+      "menu_selection_index": 2
+    },
+    "edge_case_tags": [
+      "bare_number",
+      "requires_menu_context_in_session",
+      "ambiguous_without_prior_menu"
+    ]
+  },
+  {
+    "id": 37,
+    "raw_input": "3x2",
+    "expected_intent": "select_menu_item_with_quantity",
+    "language_profile": "Numeric shorthand",
+    "entities": {
+      "menu_selection_index": 3,
+      "quantity": 2
+    },
+    "edge_case_tags": [
+      "compact_quantity_notation",
+      "hard_command_pattern",
+      "requires_menu_context_in_session"
+    ]
+  },
+  {
+    "id": 38,
+    "raw_input": "Hi, do you deliver to Haifa? And do you have lavender candles in stock?",
+    "expected_intent": "check_delivery_zone_and_product_availability",
+    "language_profile": "English",
+    "entities": {
+      "delivery_location": "Haifa",
+      "product_requested": "lavender candles"
+    },
+    "edge_case_tags": [
+      "english_message",
+      "multi_intent",
+      "reply_language_should_match_english"
+    ]
+  },
+  {
+    "id": 39,
+    "raw_input": "mar7aba 7anan, baddi 2 cream w shame3a wa7de, adesh el kol?",
+    "expected_intent": "create_order_and_request_price",
+    "language_profile": "Arabizi (Arabic in Latin script with numerals)",
+    "entities": {
+      "target_name": "7anan (Hanan)",
+      "products_requested": [
+        "cream - Qty: 2",
+        "شمعة (candle) - Qty: 1"
+      ]
+    },
+    "edge_case_tags": [
+      "arabizi_transliteration",
+      "digits_as_letters_7_3",
+      "mixed_quantity_formats",
+      "pricing_inquiry"
+    ]
+  },
+  {
+    "id": 40,
+    "raw_input": "هاي حنان بدي اسأل اذا الـ body cream فيه shea butter ولا بس زيوت؟",
+    "expected_intent": "check_product_ingredients",
+    "language_profile": "Arabic-English code-switching",
+    "entities": {
+      "product_inquired": "body cream (كريم الجسم)",
+      "ingredient_inquired": "shea butter"
+    },
+    "edge_case_tags": [
+      "code_switching_mid_sentence",
+      "ingredient_inquiry",
+      "english_product_terms"
+    ]
+  },
+  {
+    "id": 41,
+    "raw_input": "👍🌹",
+    "expected_intent": "acknowledgment",
+    "language_profile": "Emoji only",
+    "entities": {},
+    "edge_case_tags": [
+      "emoji_only_message",
+      "no_actionable_intent",
+      "should_not_trigger_tools",
+      "context_dependent_meaning"
+    ]
+  },
+  {
+    "id": 42,
+    "raw_input": "شكرا كتير حبيبتي يعطيكي العافية 🌹🌹",
+    "expected_intent": "thanks_and_close_conversation",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {},
+    "edge_case_tags": [
+      "conversation_closing",
+      "no_actionable_intent",
+      "should_reply_briefly_not_upsell"
+    ]
+  },
+  {
+    "id": 43,
+    "raw_input": "حنان حبيبتي بدي الغي الطلبية، صار معي ظرف ومش رح اقدر استلمها، سامحيني",
+    "expected_intent": "cancel_order",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "cancellation_reason": "ظرف طارئ (personal circumstance)"
+    },
+    "edge_case_tags": [
+      "order_cancellation",
+      "apologetic_tone",
+      "post_confirmation_modification"
+    ]
+  },
+  {
+    "id": 44,
+    "raw_input": "ليش هيك غالي؟ في وحدة بقريتنا بتبيع نفس الكريم ب 30 شيكل",
+    "expected_intent": "price_objection",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "competitor_price": "30 شيكل",
+      "sentiment": "objection"
+    },
+    "edge_case_tags": [
+      "negotiation_attempt",
+      "competitor_comparison",
+      "agent_should_not_discount_without_policy"
+    ]
+  },
+  {
+    "id": 45,
+    "raw_input": "ممكن احكي مع حنان حالها؟ مش مع الروبوت، عندي موضوع خاص",
+    "expected_intent": "request_human_handoff",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "handoff_target": "حنان (Hanan, the owner)"
+    },
+    "edge_case_tags": [
+      "bot_awareness",
+      "human_handoff_trigger",
+      "privacy_sensitive_topic"
+    ]
+  },
+  {
+    "id": 46,
+    "raw_input": "شو ساعات الدوام عندكم؟ ووين محلكم بالظبط؟",
+    "expected_intent": "request_store_info",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "info_requested": [
+        "ساعات الدوام (working hours)",
+        "الموقع (location)"
+      ]
+    },
+    "edge_case_tags": [
+      "faq_knowledge_base_dependency",
+      "no_order_intent_yet",
+      "home_business_no_storefront"
+    ]
+  },
+  {
+    "id": 47,
+    "raw_input": "[رسالة صوتية - 0:43]",
+    "expected_intent": "unsupported_media_voice_note",
+    "language_profile": "Media placeholder",
+    "entities": {
+      "media_type": "voice_note"
+    },
+    "edge_case_tags": [
+      "unsupported_media",
+      "agent_should_ask_for_text",
+      "graceful_degradation"
+    ]
+  },
+  {
+    "id": 48,
+    "raw_input": "[صورة] بدي زي هاد بالظبط اللي بالصورة",
+    "expected_intent": "order_by_image_reference",
+    "language_profile": "Colloquial Arabic with media attachment",
+    "entities": {
+      "media_type": "image",
+      "reference": "product in attached image"
+    },
+    "edge_case_tags": [
+      "unsupported_media",
+      "deictic_reference_to_image",
+      "agent_should_ask_to_describe_product"
+    ]
+  },
+  {
+    "id": 49,
+    "raw_input": "שלום, יש לכם קרם גוף טבעי? כמה זה עולה?",
+    "expected_intent": "check_product_availability_and_price",
+    "language_profile": "Hebrew",
+    "entities": {
+      "product_requested": "קרם גוף טבעי (natural body cream)"
+    },
+    "edge_case_tags": [
+      "hebrew_script_message",
+      "out_of_supported_languages",
+      "agent_language_policy_decision"
+    ]
+  },
+  {
+    "id": 50,
+    "raw_input": "اه",
+    "expected_intent": "affirmation",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {},
+    "edge_case_tags": [
+      "single_word_affirmation",
+      "context_dependent_meaning",
+      "may_mean_confirm_or_just_yes",
+      "should_not_auto_confirm_order"
+    ]
+  },
+  {
+    "id": 51,
+    "raw_input": "لا مش هاد، التاني اللي فوقو",
+    "expected_intent": "correct_menu_selection",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "correction_reference": "التاني اللي فوقو (the other one above it)"
+    },
+    "edge_case_tags": [
+      "deictic_reference_to_menu",
+      "selection_correction",
+      "requires_menu_context_in_session"
+    ]
+  },
+  {
+    "id": 52,
+    "raw_input": "خليهن 3 مش 2",
+    "expected_intent": "update_cart_quantity",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "new_quantity": 3,
+      "old_quantity": 2
+    },
+    "edge_case_tags": [
+      "quantity_update",
+      "implicit_item_reference",
+      "requires_cart_context"
+    ]
+  },
+  {
+    "id": 53,
+    "raw_input": "قديش الشمعة الكبيرة؟ والصغيرة قديش؟ وفي حجم وسط؟",
+    "expected_intent": "request_price_and_variants",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "product_inquired": "شمعة (candle)",
+      "variants_inquired": [
+        "كبيرة (large)",
+        "صغيرة (small)",
+        "وسط (medium)"
+      ]
+    },
+    "edge_case_tags": [
+      "size_variant_inquiry",
+      "catalog_may_not_have_variants",
+      "multiple_price_points"
+    ]
+  },
+  {
+    "id": 54,
+    "raw_input": "بكفي تبعتولي رسايل، بديش اشي شكرا",
+    "expected_intent": "opt_out_of_messages",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "sentiment": "annoyed"
+    },
+    "edge_case_tags": [
+      "opt_out_request",
+      "followup_suppression_trigger",
+      "compliance_sensitive"
+    ]
+  },
+  {
+    "id": 55,
+    "raw_input": "ابو محمد جهزلي كيلو كزبرة وضمتين بقدونس بمرق عليك المغرب",
+    "expected_intent": "wrong_recipient",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "addressed_to": "ابو محمد (Abu Mohammad - not this business)",
+      "products_mentioned": "خضرة (vegetables - not in catalog)"
+    },
+    "edge_case_tags": [
+      "wrong_number",
+      "out_of_catalog_products",
+      "agent_should_clarify_identity_politely"
+    ]
+  },
+  {
+    "id": 56,
+    "raw_input": "السلام عليكم ورحمة الله وبركاته، أود الاستفسار عن منتجاتكم المخصصة للبشرة الدهنية، وهل تحتوي على مواد حافظة صناعية؟ وجزاكم الله خيراً",
+    "expected_intent": "check_product_availability_and_ingredients",
+    "language_profile": "Modern Standard Arabic (formal)",
+    "entities": {
+      "skin_type": "البشرة الدهنية (oily skin)",
+      "concern": "مواد حافظة صناعية (artificial preservatives)"
+    },
+    "edge_case_tags": [
+      "formal_msa_register",
+      "register_mismatch_with_colloquial_bot",
+      "ingredient_inquiry",
+      "religious_phrase"
+    ]
+  },
+  {
+    "id": 57,
+    "raw_input": "ولك وين الطلبية؟؟ صرلكو ٣ ايام بتقولولي بكرا بكرا، اذا مش جاهزة رجعولي مصاريي",
+    "expected_intent": "track_order_with_refund_threat",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "time_reference": "٣ ايام (3 days, Arabic-Indic numerals)",
+      "sentiment": "angry",
+      "threat": "استرجاع المصاري (refund demand)"
+    },
+    "edge_case_tags": [
+      "arabic_indic_numerals",
+      "angry_customer",
+      "refund_request",
+      "de_escalation_required",
+      "repeated_postponement_complaint"
+    ]
+  },
+  {
+    "id": 58,
+    "raw_input": "بدي ٢ كريم جسم و ٣ شمعات لافندر وشامبو واحد",
+    "expected_intent": "create_order",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "products_requested": [
+        "كريم جسم (body cream) - Qty: 2",
+        "شمعة لافندر (lavender candle) - Qty: 3",
+        "شامبو (shampoo) - Qty: 1"
+      ]
+    },
+    "edge_case_tags": [
+      "arabic_indic_numerals",
+      "mixed_numeral_and_word_quantities",
+      "multi_product_order"
+    ]
+  },
+  {
+    "id": 59,
+    "raw_input": "هل منتجاتكم فيها عطور صناعية؟ ابني عندو ربو وحساسية جلد شديدة والدكتور قال بس اشياء طبيعية 100%",
+    "expected_intent": "check_product_safety",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "health_condition": "ربو وحساسية جلد (asthma and skin allergy)",
+      "affected_person": "ابني (my son - child)",
+      "concern": "عطور صناعية (synthetic fragrances)"
+    },
+    "edge_case_tags": [
+      "medical_safety_check",
+      "child_safety",
+      "agent_should_not_give_medical_claims",
+      "high_stakes_answer"
+    ]
+  },
+  {
+    "id": 60,
+    "raw_input": "ابعتيلي اللوكيشن تبعك ع الواتساب",
+    "expected_intent": "request_location_pin",
+    "language_profile": "Colloquial Arabic with English loanword",
+    "entities": {
+      "info_requested": "اللوكيشن (location pin)"
+    },
+    "edge_case_tags": [
+      "loanword_location",
+      "whatsapp_feature_reference",
+      "faq_knowledge_base_dependency"
+    ]
+  },
+  {
+    "id": 61,
+    "raw_input": "كل عام وانتي بخير حنان 🌙 بمناسبة العيد في عندك عروض او تخفيضات؟",
+    "expected_intent": "greeting_and_check_promotions",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "occasion": "العيد (Eid)",
+      "info_requested": "عروض وتخفيضات (promotions and discounts)"
+    },
+    "edge_case_tags": [
+      "holiday_greeting",
+      "promotion_inquiry",
+      "seasonal_context",
+      "emoji_usage"
+    ]
+  },
+  {
+    "id": 62,
+    "raw_input": "بدي اطلب بس الصراحة ما معي هلأ، بنفع اخد الاغراض وادفعلك اخر الشهر لما اقبض؟",
+    "expected_intent": "request_deferred_payment",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "payment_request": "دفع آجل اخر الشهر (deferred payment end of month)"
+    },
+    "edge_case_tags": [
+      "credit_request",
+      "policy_decision_needed",
+      "agent_should_defer_to_owner",
+      "small_community_trust_dynamics"
+    ]
+  },
+  {
+    "id": 63,
+    "raw_input": "مين انتو اصلا؟ كيف وصلكم رقمي؟ انا ما سجلت عندكم بشي",
+    "expected_intent": "privacy_concern",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "sentiment": "suspicious"
+    },
+    "edge_case_tags": [
+      "privacy_complaint",
+      "trust_building_required",
+      "possible_broadcast_recipient",
+      "compliance_sensitive"
+    ]
+  },
+  {
+    "id": 64,
+    "raw_input": "بدييي كرريم جسسم وشمعه لافندرر بليييز",
+    "expected_intent": "create_order",
+    "language_profile": "Colloquial Arabic with expressive letter repetition",
+    "entities": {
+      "products_requested": [
+        "كريم جسم (body cream)",
+        "شمعة لافندر (lavender candle)"
+      ]
+    },
+    "edge_case_tags": [
+      "expressive_letter_elongation",
+      "fuzzy_product_matching_required",
+      "loanword_please",
+      "taa_marbuta_as_haa"
+    ]
+  },
+  {
+    "id": 65,
+    "raw_input": "ok",
+    "expected_intent": "acknowledgment",
+    "language_profile": "English single word",
+    "entities": {},
+    "edge_case_tags": [
+      "single_word_acknowledgment",
+      "context_dependent_meaning",
+      "should_not_auto_confirm_order"
+    ]
+  },
+  {
+    "id": 66,
+    "raw_input": "كريم الايدين تبعك بنفع للاكزيما؟ صرلي سنة بعاني منها",
+    "expected_intent": "check_product_medical_suitability",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "product_inquired": "كريم الايدين (hand cream)",
+      "health_condition": "اكزيما (eczema)"
+    },
+    "edge_case_tags": [
+      "medical_claim_risk",
+      "agent_must_not_promise_treatment",
+      "suggest_consulting_doctor",
+      "consultative_sales"
+    ]
+  },
+  {
+    "id": 67,
+    "raw_input": "[ملصق]",
+    "expected_intent": "unsupported_media_sticker",
+    "language_profile": "Media placeholder",
+    "entities": {
+      "media_type": "sticker"
+    },
+    "edge_case_tags": [
+      "unsupported_media",
+      "no_actionable_intent",
+      "should_not_trigger_tools"
+    ]
+  },
+  {
+    "id": 68,
+    "raw_input": "مرحبا، بعتتلي صاحبتي رقمك. عندي محل بالناصرة وبدي اشتري منك جملة اعيد بيعها، بتعملو اسعار جملة؟",
+    "expected_intent": "wholesale_inquiry",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "business_location": "الناصرة (Nazareth)",
+      "inquiry_type": "اسعار جملة (wholesale pricing)",
+      "referral_source": "صاحبتي (my friend)"
+    },
+    "edge_case_tags": [
+      "b2b_inquiry",
+      "policy_decision_needed",
+      "agent_should_defer_to_owner",
+      "word_of_mouth_referral"
+    ]
+  },
+  {
+    "id": 69,
+    "raw_input": "والله نسيت شو كنت طالبة، شو في بالسلة عندي ذكريني",
+    "expected_intent": "view_cart",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {},
+    "edge_case_tags": [
+      "memory_recall_request",
+      "hard_command_equivalent",
+      "time_lapse",
+      "session_state_dependency"
+    ]
+  },
+  {
+    "id": 70,
+    "raw_input": "قديش التوصيل عالقدس؟ وقديش بياخد وقت لتوصل؟",
+    "expected_intent": "check_delivery_cost_and_time",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "delivery_location": "القدس (Jerusalem)",
+      "info_requested": [
+        "تكلفة التوصيل (delivery cost)",
+        "مدة التوصيل (delivery time)"
+      ]
+    },
+    "edge_case_tags": [
+      "delivery_pricing_inquiry",
+      "faq_knowledge_base_dependency",
+      "geography_check"
+    ]
+  },
+  {
+    "id": 71,
+    "raw_input": "بتقبلو فيزا؟ ولا بس مزومان وبيت؟",
+    "expected_intent": "check_payment_methods",
+    "language_profile": "Colloquial Arabic with Phonetic Hebrew Loanword",
+    "entities": {
+      "payment_methods_inquired": [
+        "فيزا (credit card)",
+        "مزومان (mezuman / cash)",
+        "بيت (Bit payment app)"
+      ]
+    },
+    "edge_case_tags": [
+      "payment_methods_inquiry",
+      "phonetic_loanword_payment",
+      "ambiguous_payment_term_bit",
+      "faq_knowledge_base_dependency"
+    ]
+  },
+  {
+    "id": 72,
+    "raw_input": "مساء الخير 😍 وصلت الطلبية والكريم بجننننن ريحتو خرافية، يسلمو ايديكي حبيبتي",
+    "expected_intent": "positive_feedback",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "sentiment": "delighted",
+      "product_praised": "الكريم (the cream)"
+    },
+    "edge_case_tags": [
+      "post_delivery_feedback",
+      "expressive_letter_elongation",
+      "opportunity_for_review_request",
+      "emoji_usage"
+    ]
+  },
+  {
+    "id": 73,
+    "raw_input": "هاي حنان شو يعني الكريم خلص عندك؟! انا كل شهر باخد منو، امتى برجع يصير في؟",
+    "expected_intent": "check_restock_date",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "product_inquired": "الكريم (the cream)",
+      "customer_type": "repeat customer (كل شهر)",
+      "sentiment": "disappointed"
+    },
+    "edge_case_tags": [
+      "out_of_stock_scenario",
+      "restock_inquiry",
+      "loyal_customer_retention",
+      "backorder_opportunity"
+    ]
+  },
+  {
+    "id": 74,
+    "raw_input": "ضيفي ع طلبيتي كمان شامبو... لا لا خليكي بلاش الشامبو غالي، حطي بداله مطري",
+    "expected_intent": "modify_order_with_self_correction",
+    "language_profile": "Colloquial Arabic (Levantine)",
+    "entities": {
+      "item_initially_added": "شامبو (shampoo)",
+      "item_finally_added": "مطري (conditioner)",
+      "correction_reason": "غالي (too expensive)"
+    },
+    "edge_case_tags": [
+      "self_correction_within_message",
+      "agent_must_apply_final_state_only",
+      "cart_modification",
+      "sequential_instruction_override"
+    ]
+  },
+  {
+    "id": 75,
+    "raw_input": "marhaba, ana ba3raf 3arabi bas el keyboard 3indi bas english 😅 fi 3indek hair mask? w adesh 7a2o?",
+    "expected_intent": "check_product_availability_and_price",
+    "language_profile": "Arabizi (Arabic in Latin script with numerals)",
+    "entities": {
+      "product_requested": "hair mask (ماسك شعر)",
+      "meta_context": "keyboard limitation explained"
+    },
+    "edge_case_tags": [
+      "arabizi_transliteration",
+      "digits_as_letters_3_7_2",
+      "self_aware_language_constraint",
+      "pricing_inquiry",
+      "reply_language_decision"
+    ]
+  }
+]

@@ -87,10 +87,10 @@ CREATE TABLE IF NOT EXISTS follow_ups (
 );
 CREATE INDEX IF NOT EXISTS idx_follow_ups_sent ON follow_ups(sent);
 
--- Error retry queue (failed WhatsApp / Wave API calls)
+-- Error retry queue (failed WhatsApp / PDF-invoice calls)
 CREATE TABLE IF NOT EXISTS retry_queue (
   id            SERIAL PRIMARY KEY,
-  action        TEXT NOT NULL,             -- 'send_text_ready' | 'send_text_done' | 'send_text_delivered' | 'wave_invoice'
+  action        TEXT NOT NULL,             -- 'send_text_ready' | 'send_text_done' | 'send_text_delivered' | 'pdf_invoice'
   order_id      INT NOT NULL,
   phone         TEXT NOT NULL,
   payload       JSONB DEFAULT '{}'::jsonb, -- extra context if needed

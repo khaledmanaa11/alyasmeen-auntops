@@ -74,8 +74,7 @@
 - [x] Post-delivery follow-up scheduler (every 6 hours)
 - [x] Monthly report scheduler (1st of month, 8 AM, Arabic summary to aunt)
 - [x] Retry queue for failed WhatsApp and invoice calls (every 15 minutes, max 3 attempts)
-- [x] Wave invoicing wired (fires when status changes to `done`)
-- [x] PDF invoice generated and sent to customer on order completion
+- [x] PDF invoice generated and sent to customer on order completion (replaced the earlier Wave invoicing approach — no external invoicing service is used)
 - [x] Product management dashboard page (`/products`) — add, edit, toggle, delete
 - [x] Products moved to Supabase `products` table (bot picks up changes instantly)
 - [x] Broadcast messaging page (`/broadcast`) — send WhatsApp to customer segments

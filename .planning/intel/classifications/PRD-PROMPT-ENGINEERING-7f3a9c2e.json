@@ -1,0 +1,13 @@
+{
+  "source_path": "C:/Users/Hp/OneDrive/Desktop/חנאן/ALYASMEEN_fixed/auntops_fixed/docs/PRD_PROMPT_ENGINEERING.md",
+  "type": "PRD",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Product Requirements Document — Bot Prompt Engineering & Data Optimization",
+  "summary": "Requirements for fixing the ALYASMEEN WhatsApp bot's Claude Haiku prompting, product retrieval, knowledge base, and aliases to eliminate menu bugs and hallucination.",
+  "scope": ["ai_service.py", "retriever.py", "whatsapp.py", "knowledge base", "products table", "aliases column", "system prompt", "show_menu tool", "catalog injection"],
+  "cross_refs": ["docs/TODO_PROMPT_ENGINEERING.md", "app/db/schema.sql"],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

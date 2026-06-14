@@ -1,0 +1,13 @@
+{
+  "source_path": "C:/Users/Hp/OneDrive/Desktop/חנאן/ALYASMEEN_fixed/auntops_fixed/docs/TODO.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "TODO — ALYASMEEN AuntOps",
+  "summary": "Deployment and post-launch task checklist covering hosting, real product entry, WhatsApp Meta API configuration, and the AI knowledge base.",
+  "scope": ["deployment", "Railway/Render hosting", "environment variables", "products dashboard", "WhatsApp Meta Cloud API", "webhook configuration", "knowledge base"],
+  "cross_refs": ["catalog.json", "app/data/knowledge/", "store_info.md", "faq.md", "return_policy.md", "ingredients.md"],
+  "locked": false,
+  "precedence": null,
+  "notes": ""
+}

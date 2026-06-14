@@ -146,3 +146,96 @@ class TestQueryAndExecute:
 
         rows = db.query("SELECT * FROM products WHERE id = %s", (9999,))
         assert rows == []
+
+
+class TestResilience:
+    """Tests for the retry + circuit-breaker layer around the Supabase RPC seam."""
+
+    def _client_that_fails(self, fail_times, payload=None):
+        """Build a fake Supabase client that raises ConnectionError the first
+        ``fail_times`` calls, then returns ``payload`` rows. Tracks call count."""
+        state = {"calls": 0}
+
+        def rpc(self, fn, args):
+            def execute(_self):
+                state["calls"] += 1
+                if state["calls"] <= fail_times:
+                    raise ConnectionError("transient")
+                return type("R", (), {"data": payload or []})()
+            return type("Rpc", (), {"execute": execute})()
+
+        client = type("C", (), {"rpc": rpc})()
+        return client, state
+
+    def setup_method(self):
+        # Reset process-local circuit state before each test.
+        import app.db.database as db
+
+        db._consecutive_failures = 0
+        db._circuit_open_until = 0.0
+
+    def test_query_retries_then_succeeds(self, monkeypatch):
+        import app.db.database as db
+
+        client, state = self._client_that_fails(1, payload=[{"id": 1}])
+        monkeypatch.setattr(db, "_client", client)
+        monkeypatch.setattr(db.time, "sleep", lambda *_: None)  # no real backoff
+
+        rows = db.query("SELECT 1", ())
+        assert rows == [{"id": 1}]
+        assert state["calls"] == 2  # failed once, retried once
+
+    def test_query_raises_after_exhausting_retries(self, monkeypatch):
+        import app.db.database as db
+
+        client, state = self._client_that_fails(99)  # always fails
+        monkeypatch.setattr(db, "_client", client)
+        monkeypatch.setattr(db.time, "sleep", lambda *_: None)
+
+        with pytest.raises(ConnectionError):
+            db.query("SELECT 1", ())
+        # max_retries=2 → 3 attempts total
+        assert state["calls"] == 3
+
+    def test_write_is_not_retried(self, monkeypatch):
+        import app.db.database as db
+
+        client, state = self._client_that_fails(99)
+        monkeypatch.setattr(db, "_client", client)
+        monkeypatch.setattr(db.time, "sleep", lambda *_: None)
+
+        with pytest.raises(ConnectionError):
+            db.execute("DELETE FROM sessions WHERE phone = %s", ("123",))
+        assert state["calls"] == 1  # write attempted exactly once
+
+    def test_circuit_opens_and_fails_fast(self, monkeypatch):
+        import app.db.database as db
+
+        client, _ = self._client_that_fails(99)
+        monkeypatch.setattr(db, "_client", client)
+        monkeypatch.setattr(db.time, "sleep", lambda *_: None)
+        # Lower the threshold so the test trips quickly.
+        monkeypatch.setattr(
+            db, "_retry_cfg",
+            lambda: {"max_retries": 0, "retry_after_seconds": 0,
+                     "circuit_threshold": 2, "circuit_cooldown_seconds": 30},
+        )
+
+        # Two real failures reach the threshold...
+        for _ in range(2):
+            with pytest.raises(ConnectionError):
+                db.execute("UPDATE x SET y = 1", ())
+
+        # ...the next call fails fast without touching the client.
+        with pytest.raises(RuntimeError, match="circuit open"):
+            db.execute("UPDATE x SET y = 1", ())
+
+    def test_success_resets_failure_count(self, monkeypatch):
+        import app.db.database as db
+
+        client, _ = self._client_that_fails(1, payload=[{"ok": 1}])
+        monkeypatch.setattr(db, "_client", client)
+        monkeypatch.setattr(db.time, "sleep", lambda *_: None)
+
+        db.query("SELECT 1", ())  # fails once, retries, succeeds
+        assert db._consecutive_failures == 0

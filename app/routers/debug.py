@@ -14,7 +14,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from app.db.database import execute, execute_returning
-from app.routers.whatsapp import _CATALOG
+from app.routers.whatsapp import catalog
 
 log = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ router = APIRouter(prefix="/dev", tags=["dev"])
 class TestItem(BaseModel):
     """A single line item for a test order, referencing a product by 1-based catalog index."""
 
-    product_index: int  # 1-based index into catalog.json
+    product_index: int  # 1-based index into the active product list (Supabase)
     qty: int = 1
 
 
@@ -57,28 +57,29 @@ def create_test_order(p: CreateTestOrder):
 
     Raises:
         HTTPException 400: if fulfillment is invalid or a product_index is out of range.
-        HTTPException 500: if the catalog is empty or missing.
+        HTTPException 500: if there are no active products in Supabase.
     """
     if p.fulfillment not in ("pickup", "delivery"):
         raise HTTPException(status_code=400, detail="fulfillment must be pickup or delivery")
 
-    if not _CATALOG:
-        raise HTTPException(status_code=500, detail="catalog.json is empty or missing")
+    cat = catalog()
+    if not cat:
+        raise HTTPException(status_code=500, detail="no active products found in Supabase")
 
-    # Build cart from catalog
+    # Build cart from the active product list
     if not p.items:
         cart = [
             {"product_id": prod["id"], "name": prod["name"],
              "price": float(prod.get("list_price", 0) or 0), "qty": 1}
-            for prod in _CATALOG[:3]
+            for prod in cat[:3]
         ]
     else:
         cart = []
         for it in p.items:
             idx = it.product_index - 1
-            if idx < 0 or idx >= len(_CATALOG):
+            if idx < 0 or idx >= len(cat):
                 raise HTTPException(status_code=400, detail=f"product_index {it.product_index} out of range")
-            prod = _CATALOG[idx]
+            prod = cat[idx]
             cart.append({
                 "product_id": prod["id"],
                 "name": prod["name"],

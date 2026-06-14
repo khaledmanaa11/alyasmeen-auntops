@@ -1,0 +1,36 @@
+{
+  "source_path": "C:/Users/Hp/OneDrive/Desktop/חנאן/ALYASMEEN_fixed/auntops_fixed/docs/PLAN_PROMPT_ENGINEERING.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Technical Plan — Bot Prompt Engineering & Data Optimization",
+  "summary": "Implementation plan for a 6-phase prompt-engineering and data-optimization sprint covering bug fixes, system prompt rewrite, tool descriptions, knowledge base, token budget, and an aliases DB migration.",
+  "scope": [
+    "ai_service.py system prompt",
+    "retriever.py product search",
+    "whatsapp.py show_menu tool",
+    "knowledge base files",
+    "products table aliases column",
+    "tool descriptions",
+    "max_tokens budget",
+    "full catalog injection"
+  ],
+  "cross_refs": [
+    "docs/PRD_PROMPT_ENGINEERING.md",
+    "app/ai/retriever.py",
+    "app/routers/whatsapp.py",
+    "app/services/ai_service.py",
+    "app/db/schema.sql",
+    "app/data/knowledge/store_info.md",
+    "app/data/knowledge/shipping_policy.md",
+    "app/data/knowledge/returns_policy.md",
+    "app/data/knowledge/ingredients_faq.md",
+    "app/data/knowledge/skin_advice.md",
+    "app/db/database.py",
+    "app/routers/ui.py",
+    "app/services/config.py"
+  ],
+  "locked": false,
+  "precedence": null,
+  "notes": "Type set by MANIFEST_TYPE override. Content is consistent with SPEC: file-change tables, code contracts, SQL migration, and risk assessment. Note the doc also embeds four ADR-PE sections and references a related PRD, but the manifest declaration is treated as authoritative."
+}

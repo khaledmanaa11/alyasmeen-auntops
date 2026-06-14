@@ -14,6 +14,12 @@
       "concurrent_max": 10,
       "retry_after_seconds": 10,
       "max_retries": 3
+    },
+    "supabase": {
+      "max_retries": 2,
+      "retry_after_seconds": 0.5,
+      "circuit_threshold": 5,
+      "circuit_cooldown_seconds": 10
     }
   }
 }

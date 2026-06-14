@@ -22,6 +22,7 @@ graphify) → **Wiki** (curated pages below). See `CLAUDE.md` for how they fit t
 - [[web-dashboard]] — aunt-facing UI, pages, auth, premium RTL design system
 - [[scheduler-jobs]] — follow-ups, monthly report, retry queue, Wave invoicing
 - [[whatsapp-meta-integration]] — Meta Cloud API sender, mock swap, inbound webhook
+- [[design-decisions]] — the 9 accepted architecture decisions + resolved planning conflicts (from `.planning/intel/`)
 
 ## Graph layer (Layer 2 — auto-generated)
 

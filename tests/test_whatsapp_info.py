@@ -19,7 +19,7 @@ def test_info_command_uses_catalog(monkeypatch):
 
     # Override the catalog with a known test product
     fake_catalog = [{"id": 1, "name": "Ajwa", "list_price": 17.5, "description_sale": "Premium dates.\n500g pack"}]
-    monkeypatch.setattr(wa, "_CATALOG", fake_catalog)
+    monkeypatch.setattr(wa, "catalog", lambda: fake_catalog)
 
     client = TestClient(app)
     phone = "1555000001"
