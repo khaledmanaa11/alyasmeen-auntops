@@ -175,8 +175,7 @@ def webhook_post(msg: Msg):
     low = text.lower()
     wa_name = (msg.wa_name or "").strip()
 
-    log.info("/whatsapp/webhook from=%s name=%r text=%r", phone, wa_name, text)
-    print(f"WHATSAPP RX from={phone} name={wa_name} text={text}")
+    log.info("WHATSAPP RX from=%s name=%s text=%s", phone, wa_name, text)
 
     st = load_session(phone)
     cart = st.get("cart") or []

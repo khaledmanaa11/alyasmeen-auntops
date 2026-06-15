@@ -175,6 +175,45 @@ class TestAuntNotification:
             assert recipient != "972591111111"
 
 
+class TestInboundLoggingEncodingSafe:
+    def test_arabic_inbound_survives_unencodable_console(self, monkeypatch):
+        """Regression: an inbound Arabic message must still be processed even when the
+        dev console can't encode it (Windows cp1255). The top-of-handler inbound log
+        goes through the logger (not a bare print to stdout), so an encoding error can
+        never propagate and drop the message.
+
+        Self-contained (no `client` fixture) — exercises only the `clear`/`امسح` hard
+        command, which needs no product catalog.
+        """
+
+        class _Cp1255Stdout:
+            """Mimics a Windows cp1255 console: ASCII writes fine, Arabic/emoji raise —
+            exactly the failure the old bare `print(...)` hit."""
+            encoding = "cp1255"
+
+            def write(self, s):
+                s.encode("cp1255")  # raises UnicodeEncodeError on Arabic/emoji
+                return len(s)
+
+            def flush(self):
+                pass
+
+            def reconfigure(self, *a, **k):  # a cp1255 console can't switch to utf-8
+                raise OSError("cannot reconfigure")
+
+        # Isolate the inbound-logging path: don't let the mock sender print Arabic too.
+        monkeypatch.setattr(wa, "send_text", lambda to, msg: {"dev": True, "text": msg})
+        monkeypatch.setattr(sys, "stdout", _Cp1255Stdout())
+
+        client = TestClient(app)
+        # "امسح" → clear alias: a hard command (no AI) that always replies in Arabic.
+        r = client.post("/whatsapp/webhook", json={"from_number": _phone(), "text": "امسح"})
+
+        assert r.status_code == 200
+        # A real reply came back — the handler did NOT abort at the inbound log line.
+        assert "مسح" in r.json().get("text", "")
+
+
 class TestAIFallback:
     def test_unknown_message_goes_to_ai(self, client, monkeypatch):
         """Messages that don't match any hard command fall through to AI."""
