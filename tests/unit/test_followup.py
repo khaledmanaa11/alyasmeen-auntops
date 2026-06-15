@@ -11,7 +11,7 @@ import pytest
 def mock_whatsapp(monkeypatch):
     import app.services.followup as fu
 
-    monkeypatch.setattr(fu, "send_text", lambda to, msg: None)
+    monkeypatch.setattr(fu, "enqueue_outbox", lambda to, payload: None)
 
 
 class TestRecordDelivery:
@@ -45,7 +45,7 @@ class TestSendFollowups:
         sent = []
         monkeypatch.setattr(fu, "query", lambda sql, params=(): pending)
         monkeypatch.setattr(fu, "execute", lambda sql, params=(): None)
-        monkeypatch.setattr(fu, "send_text", lambda to, msg: sent.append(to))
+        monkeypatch.setattr(fu, "enqueue_outbox", lambda to, payload: sent.append(to))
 
         result = fu.send_followups()
         assert result == 2
@@ -59,7 +59,7 @@ class TestSendFollowups:
         execute_calls = []
         monkeypatch.setattr(fu, "query", lambda sql, params=(): pending)
         monkeypatch.setattr(fu, "execute", lambda sql, params=(): execute_calls.append(params))
-        monkeypatch.setattr(fu, "send_text", lambda to, msg: None)
+        monkeypatch.setattr(fu, "enqueue_outbox", lambda to, payload: None)
 
         fu.send_followups()
         # Should have called execute to mark sent=TRUE
@@ -74,14 +74,14 @@ class TestSendFollowups:
         ]
         call_count = [0]
 
-        def flaky_send(to, msg):
+        def flaky_send(to, payload):
             call_count[0] += 1
             if call_count[0] == 1:
                 raise ConnectionError("network error")
 
         monkeypatch.setattr(fu, "query", lambda sql, params=(): pending)
         monkeypatch.setattr(fu, "execute", lambda sql, params=(): None)
-        monkeypatch.setattr(fu, "send_text", flaky_send)
+        monkeypatch.setattr(fu, "enqueue_outbox", flaky_send)
 
         result = fu.send_followups()
         assert result == 1  # only one succeeded

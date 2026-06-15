@@ -35,8 +35,58 @@ def _phone():
 
 @pytest.fixture()
 def client(monkeypatch):
-    monkeypatch.setattr(wa, "_CATALOG", FAKE_CATALOG)
-    return TestClient(app)
+    import app.services.worker_tasks as wt
+    from app.services.worker_tasks import _handle_message
+
+    outbox = []
+
+    def mock_enqueue(to, payload, transport="whatsapp"):
+        outbox.append({"to": to, "payload": payload})
+
+    # Capture outbox so we can see what the bot "replied"
+    monkeypatch.setattr("app.services.worker_tasks.enqueue_outbox", mock_enqueue)
+
+    # Patch search_products to use our FAKE_CATALOG
+    def mock_search(query=None, category=None):
+        return [
+            {"sku": str(p["id"]), "name": p["name"], "price": p["list_price"]}
+            for p in FAKE_CATALOG
+        ]
+    monkeypatch.setattr(wt, "search_products", mock_search)
+    monkeypatch.setattr("app.routers.whatsapp_helpers.catalog", lambda: FAKE_CATALOG)
+
+    class MockResponse:
+        def __init__(self, json_data):
+            self.status_code = 200
+            self._json = json_data
+
+        def json(self):
+            return self._json
+
+    class MockClient:
+        def post(self, url, json):
+            phone = json.get("from_number")
+            text = json.get("text")
+            outbox.clear()
+            # The handler now returns either None (if it sent text/buttons)
+            # or a dict (for the 'confirm' command).
+            res = _handle_message(phone, text)
+
+            last_msg = ""
+            if outbox:
+                # Get the last message sent to this specific phone
+                phone_msgs = [o["payload"] for o in outbox if o["to"] == phone]
+                if phone_msgs:
+                    p = phone_msgs[-1]
+                    last_msg = p.get("body", "")
+
+            response_json = {"text": last_msg}
+            if isinstance(res, dict):
+                response_json.update(res)
+
+            return MockResponse(response_json)
+
+    return MockClient()
 
 
 class TestHardCommands:
@@ -159,9 +209,10 @@ class TestOrderConfirmFlow:
 
 class TestOrderTracking:
     def test_order_tracking_keywords(self, client, monkeypatch):
+        import app.services.worker_tasks as wt
         phone = _phone()
         monkeypatch.setattr(
-            wa, "get_latest_order",
+            wt, "get_latest_order",
             lambda p: {"id": 5, "status": "ready", "created_at": "2026-03-01", "fulfillment": "pickup"},
         )
         r = client.post("/whatsapp/webhook", json={"from_number": phone, "text": "وين طلبي"})

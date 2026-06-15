@@ -4,10 +4,14 @@ in app/services/retry_actions.py to boost coverage of lines 38-73.
 """
 
 
+import os
+os.environ["USE_MOCK_WHATSAPP"] = "1"
+
 class TestPdfInvoiceAction:
     def test_pdf_invoice_sends_document(self, monkeypatch):
         import app.services.retry_actions as ra
         import app.services.whatsapp_dev as dev
+        import app.services.whatsapp_meta as meta
 
         documents_sent = []
 
@@ -24,6 +28,7 @@ class TestPdfInvoiceAction:
 
         monkeypatch.setattr(ra, "query", fake_query)
         monkeypatch.setattr(dev, "send_document_bytes", fake_send_doc)
+        monkeypatch.setattr(meta, "send_document_bytes", fake_send_doc)
 
         ra.execute_action("pdf_invoice", order_id=5, phone="972591234567")
         assert len(documents_sent) == 1
@@ -33,6 +38,7 @@ class TestPdfInvoiceAction:
     def test_pdf_invoice_with_no_order_rows(self, monkeypatch):
         import app.services.retry_actions as ra
         import app.services.whatsapp_dev as dev
+        import app.services.whatsapp_meta as meta
 
         documents_sent = []
 
@@ -43,6 +49,8 @@ class TestPdfInvoiceAction:
 
         monkeypatch.setattr(ra, "query", fake_query)
         monkeypatch.setattr(dev, "send_document_bytes",
+                            lambda to, b, filename, caption=None: documents_sent.append(to) or {})
+        monkeypatch.setattr(meta, "send_document_bytes",
                             lambda to, b, filename, caption=None: documents_sent.append(to) or {})
 
         ra.execute_action("pdf_invoice", order_id=99, phone="972591234567")

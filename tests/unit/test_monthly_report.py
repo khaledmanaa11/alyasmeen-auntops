@@ -9,10 +9,10 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def mock_whatsapp(monkeypatch):
-    """Patch send_text so no real WhatsApp call is made."""
+    """Patch enqueue_outbox so no real WhatsApp call is made."""
     import app.services.monthly_report as mr
 
-    monkeypatch.setattr(mr, "send_text", lambda to, msg: None)
+    monkeypatch.setattr(mr, "enqueue_outbox", lambda to, payload: None)
 
 
 @pytest.fixture()
@@ -116,9 +116,10 @@ class TestSendMonthlyReport:
 
         monkeypatch.setattr(cfg.Config, "AUNT_PHONE", None)
         sent = []
-        monkeypatch.setattr(mr, "send_text", lambda to, msg: sent.append(to))
+        monkeypatch.setattr(mr, "enqueue_outbox", lambda to, payload: sent.append(to))
+
         mr.send_monthly_report()
-        assert sent == []
+        assert len(sent) == 0
 
     def test_sends_to_aunt_phone(self, mock_db, monkeypatch):
         import app.services.config as cfg
@@ -126,12 +127,12 @@ class TestSendMonthlyReport:
 
         monkeypatch.setattr(cfg.Config, "AUNT_PHONE", "972591111111")
         sent = []
-        monkeypatch.setattr(mr, "send_text", lambda to, msg: sent.append(to))
+        monkeypatch.setattr(mr, "enqueue_outbox", lambda to, payload: sent.append(to))
+
         mr.send_monthly_report()
-        assert "972591111111" in sent
+        assert len(sent) == 1
+        assert sent[0] == "972591111111"
 
-
-class TestArabicMonths:
     def test_all_12_months_present(self):
         from app.services.monthly_report import _AR_MONTHS
 
