@@ -1,6 +1,6 @@
 # ALYASMEEN AuntOps
 
-A WhatsApp ordering bot + web dashboard for ALYASMEEN — a natural & handmade skincare business in Palestine.
+A WhatsApp ordering bot + web dashboard for ALYASMEEN — a natural & handmade skincare business in israel for israeli arabs.
 
 ---
 
