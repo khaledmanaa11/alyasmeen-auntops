@@ -20,8 +20,8 @@ system. Scope is M1 only — M2–M5 are future GSD milestone cycles.
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Spine Smoke-Thread** - A real Meta-format WhatsApp message creates a live order and notifies the aunt, end-to-end
-- [ ] **Phase 2: Schema Correctness & Integrity** - The live schema is complete, matches `schema.sql`, and missing-table drift fails loudly at startup
+- [x] **Phase 1: Spine Smoke-Thread** - A real Meta-format WhatsApp message creates a live order and notifies the aunt, end-to-end
+- [x] **Phase 2: Schema Correctness & Integrity** - The live schema is complete, matches `schema.sql`, and missing-table drift fails loudly at startup
 - [ ] **Phase 3: Versioned Migrations** - Ordered, repeatable migrations reproduce the full schema on a fresh project
 - [ ] **Phase 4: Database Security Surface** - The Supabase key and arbitrary-SQL RPC surface are deliberately chosen and constrained
 - [ ] **Phase 5: Data-Loss Insurance** - Nightly automated exports run and a tested restore runbook proves recovery
@@ -30,7 +30,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 ## Phase Details
 
 ### Phase 1: Spine Smoke-Thread
-**Goal**: Prove the production spine lives — a real Meta Cloud API WhatsApp message is parsed and creates a real order in live Supabase, and the aunt receives the new-order notification, end-to-end.
+**Goal**: Prove the production spine lives — a real Meta Cloud API webhook payload (nested `entry[].changes[].value.messages[]` envelope) is parsed into `(from_number, text, wa_name)` and reaches the existing message handler without returning HTTP 422
 **Mode:** mvp
 **Depends on**: Nothing (first phase)
 **Requirements**: SPINE-01, SPINE-02
@@ -40,8 +40,8 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. The aunt receives the new-order WhatsApp notification for that order (`AUNT_PHONE`), proven against the live path — not mock
   4. The parser is minimal (proves the path only); full webhook hardening/signature verification is explicitly left to M2
 **Plans**: 2 plans
-  - [ ] 01-01-PLAN.md — Meta-envelope parse seam fix + fixtures + parser/flow tests (SPINE-01, SPINE-02 automated)
-  - [ ] 01-02-PLAN.md — D-02 Meta token prerequisite + D-01 live proof + D-07 cleanup (SPINE-02 live, human-gated)
+  - [x] 01-01-PLAN.md — Meta-envelope parse seam fix + fixtures + parser/flow tests (SPINE-01, SPINE-02 automated)
+  - [x] 01-02-PLAN.md — D-02 Meta token prerequisite + D-01 live proof + D-07 cleanup (SPINE-02 live, human-gated)
 
 ### Phase 2: Schema Correctness & Integrity
 **Goal**: Make `schema.sql` the single, complete, verified source of truth for the live database, and make any schema drift fail loudly at startup instead of crashing mid-operation.
@@ -52,18 +52,21 @@ Decimal phases appear between their surrounding integers in numeric order.
   1. The `monthly_snapshots` table exists in `schema.sql` and on live Supabase, so the monthly-report job and dashboard stat no longer crash on the missing table
   2. `schema.sql` is verified to match the live Supabase schema (tables, columns, types) — one documented source of truth with no silent divergence
   3. A startup check fails loudly (clear error, refuses to run) if a required table or column is missing, instead of failing silently at runtime
-**Plans**: TBD
+**Plans**: 2 plans
+  - [x] 02-01-PLAN.md — Idempotent schema.sql hardening + validate_schema() core (SCH-01, SCH-02, SCH-03)
+  - [x] 02-02-PLAN.md — FastAPI lifespan integration + unit/integration validation tests (SCH-03)
 
 ### Phase 3: Versioned Migrations
 **Goal**: Replace ad-hoc schema edits with an ordered, repeatable migration mechanism that can rebuild the entire schema from scratch.
 **Mode:** mvp
 **Depends on**: Phase 2
-**Requirements**: MIG-01, MIG-02
+**Requirements**: REQ-prod-migrations, MIG-01, MIG-02, MIG-03
 **Success Criteria** (what must be TRUE):
   1. A versioned migration mechanism exists — schema changes are captured as ordered, numbered SQL migrations rather than hand edits to `schema.sql`
   2. Applying the migrations in order to a fresh Supabase project reproduces the full, verified schema (all 9 tables incl. `monthly_snapshots`, indexes, constraints)
   3. The migration set is documented so the builder can run it against a new project from the runbook alone
-**Plans**: TBD
+**Plans**: 1 plan
+  - [ ] 03-01-PLAN.md — Transition to versioned migrations by baselining the current live schema (REQ-prod-migrations, MIG-01, MIG-02, MIG-03)
 
 ### Phase 4: Database Security Surface
 **Goal**: Make the Supabase access surface a deliberate, documented security decision — the right least-privilege key and a constrained arbitrary-SQL RPC surface — rather than a defaulted one.
@@ -105,9 +108,10 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Spine Smoke-Thread | 0/2 | Planned | - |
-| 2. Schema Correctness & Integrity | 0/TBD | Not started | - |
-| 3. Versioned Migrations | 0/TBD | Not started | - |
+| 1. Spine Smoke-Thread | 2/2 | Complete | 2026-06-15 |
+| 2. Schema Correctness & Integrity | 2/2 | Complete | 2026-06-15 |
+| 3. Versioned Migrations | 0/1 | Not started | - |
+
 | 4. Database Security Surface | 0/TBD | Not started | - |
 | 5. Data-Loss Insurance | 0/TBD | Not started | - |
 | 6. Bounded Growth (Retention) | 0/TBD | Not started | - |
