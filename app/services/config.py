@@ -21,7 +21,10 @@ class Config:
 
     # Database (Supabase — HTTPS via supabase-py)
     SUPABASE_URL = os.getenv("SUPABASE_URL", "https://ppwcfmuetgczclmnzvqr.supabase.co")
+    # This must be the service_role key to allow administrative queries and custom RPC access.
     SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
+    # Database password for CLI-based dumps/migrations
+    SUPABASE_DB_PASSWORD = os.getenv("SUPABASE_DB_PASSWORD", "")
 
     # WhatsApp (Meta Cloud API)
     WA_META_TOKEN       = os.getenv("WA_META_TOKEN")        # permanent access token

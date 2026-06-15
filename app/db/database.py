@@ -138,6 +138,57 @@ def _call(rpc_name: str, final_sql: str, retryable: bool) -> list[dict[str, Any]
 # Public API  (same interface as the old psycopg2 version)
 # ---------------------------------------------------------------------------
 
+REQUIRED_SCHEMA = {
+    "products": {"id", "name", "price", "description", "tags", "aliases", "active", "created_at"},
+    "customers": {"phone", "name", "saved_address", "created_at", "updated_at"},
+    "orders": {
+        "id", "order_name", "phone", "fulfillment", "address", "total",
+        "status", "channel", "created_at", "updated_at"
+    },
+    "order_lines": {"id", "order_id", "product_name", "qty", "unit_price", "line_total"},
+    "sessions": {
+        "phone", "stage", "cart", "fulfillment", "menu_products",
+        "address", "created_at", "updated_at"
+    },
+    "chat_history": {"id", "phone", "role", "content", "created_at"},
+    "follow_ups": {"id", "phone", "order_id", "delivered_at", "sent", "sent_at"},
+    "retry_queue": {
+        "id", "action", "order_id", "phone", "payload", "attempts",
+        "max_attempts", "last_error", "next_retry_at", "resolved", "created_at"
+    },
+    "monthly_snapshots": {"year", "month", "data", "created_at"}
+}
+
+
+def validate_schema() -> None:
+    """Validate that the live Supabase schema matches REQUIRED_SCHEMA.
+
+    Queries information_schema.columns to check for every required table and
+    column. Raises RuntimeError if any part of the schema is missing.
+    """
+    log.info("db: validating schema integrity…")
+    rows = query(
+        "SELECT table_name, column_name FROM information_schema.columns "
+        "WHERE table_schema = 'public'"
+    )
+
+    actual: dict[str, set[str]] = {}
+    for r in rows:
+        actual.setdefault(r["table_name"], set()).add(r["column_name"])
+
+    for table, req_cols in REQUIRED_SCHEMA.items():
+        if table not in actual:
+            raise RuntimeError(f"Database integrity error: Missing table '{table}'")
+
+        missing = req_cols - actual[table]
+        if missing:
+            raise RuntimeError(
+                f"Database integrity error: Table '{table}' missing columns: {sorted(list(missing))}"
+            )
+
+    log.info("✅ Database schema is valid (%d tables)", len(REQUIRED_SCHEMA))
+
+
 def query(sql: str, params: tuple = ()) -> list[dict[str, Any]]:
     """Run a SELECT.  Returns a list of row dicts.  Retried on transient failure."""
     final = _build(sql, params)

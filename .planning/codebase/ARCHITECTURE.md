@@ -130,6 +130,13 @@ retry_queue.process_retries  every 15min  → retry failed WhatsApp/PDF-invoice 
   (`ui.py::_session_token`); checked per page/API.
 - **Config** — centralized in `Config`; `.env` loaded twice in `main.py` (CWD + project).
 
+## Database Security
+
+**Access model:** Server-side only. Browser never touches Supabase.
+- **RPC Lockdown:** All database access is funneled through two custom PostgreSQL functions: `run_query(sql text)` and `run_exec(sql text)`.
+- **Restricted Permissions:** Access to these functions is strictly limited to the `service_role` key. Permissions are explicitly revoked from `public`, `anon`, and `authenticated` roles in the migration system (`supabase/migrations/20260615230000_secure_rpc.sql`).
+- **Rationale:** Since the application is a trusted server-side process, using the `service_role` key and disabling public RPC access provides a clean security boundary without the overhead of complex Row Level Security (RLS) policies for every table. The real risk is key leakage; by using `service_role` and custom RPCs, we ensure that even if an `anon` key is leaked, it cannot execute arbitrary SQL or access any data.
+
 ---
 
 *Architecture analysis: 2026-06-13*

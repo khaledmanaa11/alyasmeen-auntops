@@ -12,5 +12,9 @@
     "retry_interval_minutes": 15,
     "monthly_report_day": 1,
     "monthly_report_hour": 8
+  },
+  "retention": {
+    "chat_history_days": 30,
+    "retry_queue_days": 30
   }
 }
