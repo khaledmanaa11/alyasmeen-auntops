@@ -1,4 +1,6 @@
+import contextlib
 import logging
+import sys
 from pathlib import Path
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -6,6 +8,15 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+
+# Make stdout/stderr render non-ASCII (Arabic, emoji) regardless of the console's
+# native encoding. On a Windows dev console (cp1255) the default codec would raise
+# UnicodeEncodeError when logging an inbound Arabic WhatsApp message; errors="replace"
+# keeps logging — and the request handler — from ever crashing on encoding.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        with contextlib.suppress(Exception):
+            _stream.reconfigure(encoding="utf-8", errors="replace")
 
 # Load .env from current CWD and also the project folder (auntops_fixed/.env)
 load_dotenv()

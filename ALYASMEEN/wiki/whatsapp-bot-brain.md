@@ -6,13 +6,25 @@
 
 **Graph**: [[graph-overview#Community Hubs (navigation)]] — community "WhatsApp Bot Brain & Sessions"; god node `_phone()` (18 edges)
 
-**Last updated**: 2026-06-14
+**Last updated**: 2026-06-15
 
 ---
 
 Every inbound WhatsApp message lands here first. The brain checks **hard commands before
 AI** — if the message matches one, the handler runs and Claude is never called.
 (source: app/routers/whatsapp.py)
+
+## Inbound logging is encoding-safe
+
+The first thing `webhook_post` does is log the inbound message via the module logger —
+`log.info("WHATSAPP RX from=%s name=%s text=%s", phone, wa_name, text)`, not a bare
+`print`. This matters because the bot is Arabic-first: on a Windows dev console (cp1255) a
+bare `print` of Arabic/emoji raises `UnicodeEncodeError`, and since this runs before any
+processing it would drop the whole message. The logger swallows handler emit errors (it
+never re-raises), and `app/main.py` reconfigures `sys.stdout`/`sys.stderr` to
+`encoding="utf-8", errors="replace"` at startup so the line also renders correctly. Linux/
+Railway stdout is already UTF-8; this only bit local Windows testing.
+(source: app/routers/whatsapp.py, app/main.py)
 
 ## Hard commands
 
