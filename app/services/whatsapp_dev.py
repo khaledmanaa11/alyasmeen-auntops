@@ -74,6 +74,35 @@ def send_buttons(to: str, body: str, buttons: list[dict]) -> dict:
     return msg
 
 
+def send_template(to: str, template_name: str, language_code: str = "ar", body_vars: list[str] | None = None) -> dict:
+    """Mock sending a WhatsApp template ג€” prints to console.
+
+    Args:
+        to:            Recipient phone number.
+        template_name: The name of the registered Meta template.
+        language_code: The language code.
+        body_vars:     Optional list of text variables for the template body.
+
+    Returns:
+        Dict with dev=True and template details.
+    """
+    payload = {
+        "dev": True,
+        "to": to,
+        "type": "template",
+        "template": {
+            "name": template_name,
+            "language": {"code": language_code},
+        }
+    }
+    if body_vars:
+        payload["template"]["body_vars"] = body_vars
+
+    print("\nreply (template)\n----------------")
+    print(payload)
+    return payload
+
+
 def verify_get(params: dict) -> tuple[bool,int,str]:
     """Accept any webhook verification request in dev mode and echo the challenge.
 

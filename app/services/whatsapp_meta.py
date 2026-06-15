@@ -155,6 +155,51 @@ def send_document(to: str, url: str, filename: str, caption: str | None = None) 
         data = {"status": r.status_code, "text": r.text}
     return {"status": r.status_code, "resp": data}
 
+def send_template(to: str, template_name: str, language_code: str = "ar", body_vars: list[str] | None = None) -> dict:
+    """Send a WhatsApp template message via the Meta Cloud API.
+
+    Args:
+        to:            Recipient phone number.
+        template_name: The name of the registered Meta template.
+        language_code: The language code (e.g., 'ar', 'en'). Defaults to 'ar'.
+        body_vars:     Optional list of text variables for the template body.
+
+    Returns:
+        Dict with status (HTTP code) and resp (API response) keys.
+    """
+    if Config.USE_MOCK_WHATSAPP:
+        from app.services.whatsapp_dev import send_template as dev_send
+        return dev_send(to, template_name, language_code, body_vars)
+
+    url = f"https://graph.facebook.com/v19.0/{Config.WA_META_PHONE_ID}/messages"
+    headers = {"Authorization": f"Bearer {Config.WA_META_TOKEN}", "Content-Type": "application/json"}
+    
+    components = []
+    if body_vars:
+        components.append({
+            "type": "body",
+            "parameters": [{"type": "text", "text": str(var)} for var in body_vars]
+        })
+
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": to.replace(" ", ""),
+        "type": "template",
+        "template": {
+            "name": template_name,
+            "language": {"code": language_code},
+        }
+    }
+    if components:
+        payload["template"]["components"] = components
+
+    r = requests.post(url, headers=headers, json=payload, timeout=15)
+    try:
+        data = r.json()
+    except Exception:
+        data = {"status": r.status_code, "text": r.text}
+    return {"status": r.status_code, "resp": data}
+
 def verify_get(params: dict, headers: dict|None=None, body_bytes: bytes|None=None) -> tuple[bool,int,str]:
     """Verify a Meta webhook GET request and optionally verify a POST signature.
 
