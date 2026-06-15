@@ -567,23 +567,26 @@ def _parse_meta_envelope(body: dict) -> list[tuple[str, str, str | None]]:
 **If this table is empty:** it is not — these four assumptions need planner/Khaled confirmation, none
 block the core code change.
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+All three are resolved by recommendation and encoded in the Phase 1 plans — none are blocking.
 
 1. **Sync-in-async dispatch shape (A1).**
    - What we know: D-08 permits inline processing; the handler is sync; `requests`/Supabase calls block.
    - What's unclear: wrap in `run_in_threadpool` vs accept brief inline block.
-   - Recommendation: `run_in_threadpool(_handle_message, ...)` — cleanest minimal change, keeps the loop
-     responsive, no behavior change to the handler.
+   - RESOLVED: `run_in_threadpool(_handle_message, ...)` — cleanest minimal change, keeps the loop
+     responsive, no behavior change to the handler. Encoded in plan 01-01 Task 2.
 
 2. **Cleanup scope of the live smoke order (A4 / D-07).**
    - What we know: D-07 says delete the one real order; tests must not write to prod.
    - What's unclear: whether to also purge the test `customers`/`chat_history` rows.
-   - Recommendation: delete `order_lines` → `orders` → `sessions` for the test phone (FK-safe order);
+   - RESOLVED: delete `order_lines` → `orders` → `sessions` for the test phone (FK-safe order);
      decide `customers`/`chat_history` with Khaled (default: leave, note in verification log).
+     Encoded in plan 01-02 Task 3.
 
 3. **Token type for the proof (D-02).**
-   - Recommendation: generate a System User token before the proof so the 24h temp-token clock doesn't
-     gate the manual live test.
+   - RESOLVED: generate a System User token before the proof so the 24h temp-token clock doesn't
+     gate the manual live test. Encoded in plan 01-02 Task 1.
 
 ## Environment Availability
 
