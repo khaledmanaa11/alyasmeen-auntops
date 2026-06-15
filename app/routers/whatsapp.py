@@ -6,6 +6,7 @@ import re
 from fastapi import APIRouter, Request
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 
 from app.ai.retriever import search_products
 from app.db.database import execute, execute_returning
@@ -162,18 +163,58 @@ async def webhook_get(request: Request):
         return PlainTextResponse(content=body) if code == 200 else (body, code)
 
 
+def _parse_meta_envelope(body: dict) -> list[tuple[str, str, str | None]]:
+    """
+    Parse a real Meta Cloud API webhook payload.
+    Returns a list of (from_number, text, wa_name) tuples.
+    """
+    if body.get("object") != "whatsapp_business_account":
+        return []
+
+    results = []
+    for entry in (body.get("entry", []) or []):
+        for change in (entry.get("changes", []) or []):
+            if change.get("field") != "messages":
+                continue
+            value = change.get("value") or {}
+            if "messages" not in value:
+                continue
+
+            # Derive wa_name from contacts[0]
+            wa_name = None
+            contacts = value.get("contacts")
+            if contacts and len(contacts) > 0:
+                wa_name = contacts[0].get("profile", {}).get("name")
+
+            for m in (value.get("messages", []) or []):
+                frm = m.get("from")
+                text = ""
+                m_type = m.get("type")
+
+                if m_type == "text":
+                    text = (m.get("text") or {}).get("body", "")
+                elif m_type == "interactive":
+                    inter = m.get("interactive") or {}
+                    sub_type = inter.get("type")
+                    if sub_type:
+                        text = (inter.get(sub_type) or {}).get("id", "")
+
+                if frm and text:
+                    results.append((frm, text, wa_name))
+    return results
+
+
 class Msg(BaseModel):
     from_number: str
     text: str
     wa_name: str | None = None  # WhatsApp profile name (sent by Meta API)
 
 
-@router.post("/webhook")
-def webhook_post(msg: Msg):
-    phone = msg.from_number
-    text = (msg.text or "").strip()
+def _handle_message(phone: str, text: str, wa_name: str | None = None):
+    """Verbatim handler logic extracted from webhook_post."""
+    text = (text or "").strip()
     low = text.lower()
-    wa_name = (msg.wa_name or "").strip()
+    wa_name = (wa_name or "").strip()
 
     log.info("WHATSAPP RX from=%s name=%s text=%s", phone, wa_name, text)
 
@@ -483,3 +524,21 @@ def webhook_post(msg: Msg):
              {"id": "delivery", "title": "🚚 توصيل"}])
 
     return send_text(phone, reply)
+
+
+@router.post("/webhook")
+async def webhook_post(request: Request):
+    body = await request.json()
+
+    # Detect Meta envelope shape
+    if body.get("object") == "whatsapp_business_account":
+        for from_number, text, wa_name in _parse_meta_envelope(body):
+            await run_in_threadpool(_handle_message, from_number, text, wa_name)
+        return {"ok": True}
+
+    # Else fallback to flat dev/mock shape
+    return _handle_message(
+        phone=body.get("from_number", ""),
+        text=body.get("text", ""),
+        wa_name=body.get("wa_name")
+    )
