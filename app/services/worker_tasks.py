@@ -20,13 +20,17 @@ from app.routers.whatsapp_helpers import (
 )
 from app.services.ai_service import generate_reply as ai_generate_reply
 from app.services.config import Config
-
-if Config.USE_MOCK_WHATSAPP:
-    from app.services.whatsapp_dev import send_text, send_buttons
-else:
-    from app.services.whatsapp_meta import send_text, send_buttons
+from app.services.outbox import enqueue_outbox
 
 log = logging.getLogger("worker_tasks")
+
+def send_text(to: str, text: str):
+    """Legacy helper: queue a text message in the outbox."""
+    enqueue_outbox(to, {"type": "text", "body": text})
+
+def send_buttons(to: str, body: str, buttons: list):
+    """Legacy helper: queue a button message in the outbox."""
+    enqueue_outbox(to, {"type": "buttons", "body": body, "buttons": buttons})
 
 WHATSAPP_MENU_LIMIT = 5
 
@@ -302,6 +306,9 @@ def _handle_message(phone: str, text: str, wa_name: str | None = None):
 
         clear_session(phone)
         send_text(phone, f"✅ تم إنشاء الطلب! رقم طلبك {order_name}. سنخبرك لما يكون جاهز 🎉")
+        
+        # Queue PDF generation in the background
+        enqueue_outbox(phone, {"order_id": order_id}, transport="pdf_generation")
 
         # Notify aunt of the new order
         if Config.AUNT_PHONE:
