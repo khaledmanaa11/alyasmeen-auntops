@@ -5,10 +5,19 @@ import signal
 import sys
 from typing import NoReturn
 
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
 from app.services import worker_utils, worker_tasks, whatsapp_meta, pdf_invoice
 from app.services.config import Config
 from app.db import database
 from app.routers.whatsapp_helpers import get_customer_name, get_latest_order
+
+# Job imports for scheduler
+from app.services.backup import run_backup
+from app.services.followup import send_followups
+from app.services.monthly_report import send_monthly_report
+from app.services.retention import run_retention
+from app.services.retry_queue import process_retries
 
 # Configure logging
 logging.basicConfig(
@@ -20,6 +29,15 @@ log = logging.getLogger("worker")
 
 # Flag for graceful shutdown
 shutdown_requested = False
+_scheduler = AsyncIOScheduler()
+
+def register_scheduled_jobs():
+    """Register all background jobs with the scheduler."""
+    _scheduler.add_job(send_followups, "interval", hours=6, id="followup")
+    _scheduler.add_job(send_monthly_report, "cron", day=1, hour=8, minute=0, id="monthly_report")
+    _scheduler.add_job(process_retries, "interval", minutes=15, id="retry_queue")
+    _scheduler.add_job(run_backup, "cron", hour=3, minute=0, id="nightly_backup")
+    _scheduler.add_job(run_retention, "cron", hour=4, minute=0, id="daily_retention")
 
 def handle_exit(sig, frame):
     global shutdown_requested
@@ -137,6 +155,14 @@ async def outbox_loop() -> None:
 
 async def main() -> None:
     """Main entry point for the worker process."""
+    # Pre-register jobs so they are available for --list-jobs
+    register_scheduled_jobs()
+
+    if "--list-jobs" in sys.argv:
+        for job in _scheduler.get_jobs():
+            print(f"Job: {job.id}, Trigger: {job.trigger}")
+        return
+
     if "--dry-run" in sys.argv:
         log.info("Dry run requested. Validating environment and exiting.")
         database.validate_schema()
@@ -208,11 +234,21 @@ async def main() -> None:
         log.critical("Worker failed to start due to schema validation error: %s", e)
         sys.exit(1)
 
-    # Run inbox and outbox loops concurrently
-    await asyncio.gather(
-        inbox_loop(),
-        outbox_loop()
+    # Start Scheduler
+    _scheduler.start()
+    log.info(
+        "Scheduler started — backups at 3am, retention at 4am, follow-up every 6h, monthly report on 1st, retry queue every 15min"
     )
+
+    # Run inbox and outbox loops concurrently
+    try:
+        await asyncio.gather(
+            inbox_loop(),
+            outbox_loop()
+        )
+    finally:
+        _scheduler.shutdown(wait=False)
+        log.info("Scheduler shut down.")
     
     log.info("Worker stopped.")
 

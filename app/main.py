@@ -4,7 +4,6 @@ import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -44,39 +43,14 @@ except Exception as _e:
 # Basic logging setup; consumers can configure more advanced logging/handlers
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
-# ---------------------------------------------------------------------------
-# Scheduler — runs follow-up job every 6 hours
-# ---------------------------------------------------------------------------
-_scheduler = AsyncIOScheduler()
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan: handles startup (validation + scheduler) and shutdown."""
+    """Application lifespan: handles startup (validation) and shutdown."""
     # 1. Database Schema Validation (fail-fast)
     validate_schema()
 
-    # 2. Start Scheduler
-    from app.services.backup import run_backup
-    from app.services.followup import send_followups
-    from app.services.monthly_report import send_monthly_report
-    from app.services.retention import run_retention
-    from app.services.retry_queue import process_retries
-
-    _scheduler.add_job(send_followups, "interval", hours=6, id="followup")
-    _scheduler.add_job(send_monthly_report, "cron", day=1, hour=8, minute=0, id="monthly_report")
-    _scheduler.add_job(process_retries, "interval", minutes=15, id="retry_queue")
-    _scheduler.add_job(run_backup, "cron", hour=3, minute=0, id="nightly_backup")
-    _scheduler.add_job(run_retention, "cron", hour=4, minute=0, id="daily_retention")
-    _scheduler.start()
-    logging.getLogger(__name__).info(
-        "Scheduler started — backups at 3am, retention at 4am, follow-up every 6h, monthly report on 1st, retry queue every 15min"
-    )
-
     yield
-
-    # 3. Shutdown
-    _scheduler.shutdown(wait=False)
 
 
 app = FastAPI(title="Aunt Orders Backend (MOCK Odoo Ready)", lifespan=lifespan)
