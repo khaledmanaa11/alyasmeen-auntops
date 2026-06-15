@@ -12,10 +12,11 @@
 
 ### Phase 08: Worker Process & Durable Loops (M2-P2)
 **Goal**: Move processing logic out of the request loop and into a dedicated worker.
-- [ ] **08-01-WORKER**: Create `worker.py` entry point with event/job claiming loops.
-- [ ] **08-02-MIGRATE-PROC**: Move AI processing and PDF generation to worker claim handlers.
-- [ ] **08-03-OUTBOX**: Refactor all senders to write to `outbox_jobs` instead of calling APIs directly.
-- [ ] **08-04-SCHEDULER**: Move APScheduler from `main.py` to `worker.py`.
+**Plans:** 4 plans
+- [ ] 08-01-PLAN.md — Create worker.py entry point with event/job claiming loops.
+- [ ] 08-02-PLAN.md — Migrate AI processing logic to worker claim handlers.
+- [ ] 08-03-PLAN.md — Standardize on Outbox Jobs and migrate PDF generation.
+- [ ] 08-04-PLAN.md — Move APScheduler from main.py to worker.py and wire scheduled jobs to outbox.
 
 ### Phase 09: Template Integration & Service Migration (M2-P3)
 **Goal**: Fix the out-of-window messaging risk and finalize transport.
