@@ -12,10 +12,8 @@ def verify_meta_signature(body: bytes, signature: str) -> bool:
     Expects signature in format 'sha256=<hash>'.
     """
     if not Config.WA_META_APP_SECRET:
-        log.warning("WA_META_APP_SECRET not set. Signature verification bypassed (DANGEROUS).")
-        # In a real production environment, we might want to return False here 
-        # unless explicitly allowed. For now, we follow the log-and-allow if unset.
-        return True
+        log.error("WA_META_APP_SECRET is not set. All Meta webhooks will be REJECTED (403).")
+        return False
     
     if not signature or not signature.startswith("sha256="):
         log.debug("Signature missing or invalid format")

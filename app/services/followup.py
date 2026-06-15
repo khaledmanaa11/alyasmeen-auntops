@@ -10,12 +10,7 @@ from __future__ import annotations
 import logging
 
 from app.db.database import execute, query
-from app.services.config import Config
-
-if Config.USE_MOCK_WHATSAPP:
-    from app.services.whatsapp_dev import send_text
-else:
-    from app.services.whatsapp_meta import send_text
+from app.services.outbox import enqueue_outbox
 
 log = logging.getLogger(__name__)
 
@@ -63,15 +58,15 @@ def send_followups() -> int:
         order_id = row["order_id"]
         followup_id = row["id"]
         try:
-            send_text(phone, FOLLOWUP_MESSAGE)
+            enqueue_outbox(phone, {"type": "text", "body": FOLLOWUP_MESSAGE})
             execute(
                 "UPDATE follow_ups SET sent = TRUE, sent_at = now() WHERE id = %s",
                 (followup_id,),
             )
             sent_count += 1
-            log.info("follow_up sent phone=%s order_id=%s", phone, order_id)
+            log.info("follow_up queued phone=%s order_id=%s", phone, order_id)
         except Exception:
-            log.exception("follow_up failed phone=%s order_id=%s", phone, order_id)
+            log.exception("follow_up failed to queue phone=%s order_id=%s", phone, order_id)
 
     log.info("follow_up: sent %d messages", sent_count)
     return sent_count

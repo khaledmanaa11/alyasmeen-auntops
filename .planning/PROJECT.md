@@ -14,43 +14,36 @@ A real customer can place an order on the **live** WhatsApp number and the aunt 
 reliably and unattended. If everything else fails, the message-in → order-out → aunt-notified
 spine must work in production.
 
-## Current State (v1.0)
-- **Status**: Production-ready data layer.
+## Current State (v2.0-alpha)
+- **Status**: Transitioning to two-process architecture.
 - **Milestone M1 COMPLETE**: Verified schema, versioned migrations, secure RPC, automated backups, and bounded growth.
+- **Current Milestone**: M2 — FastAPI → prod
 - **Last Shipped**: 2026-06-15 (v1.0)
 
 ## Next Milestone Goals (M2 — FastAPI → prod)
-- **Architecture**: Move to a two-process split (web + worker).
-- **Resilience**: Implement DB-backed inbox/outbox for async processing.
-- **Reliability**: Webhook signature verification and Meta `wamid` idempotency.
+- **Architecture**: Move to a two-process split (web + worker) with a durable inbox/outbox.
+- **Transport**: Real Meta-envelope parsing and HMAC signature verification.
+- **Reliability**: Template-based messaging for out-of-window follow-ups and reports.
+- **Operations**: Health checks, structured logging, and Meta onboarding tracking.
 
 ## Requirements
 
 ### Validated
 
-<!-- Existing capabilities inferred from the codebase (works in dev/mock today). -->
-
-- ✓ WhatsApp conversation: hard commands (cart/clear/pickup/delivery/confirm/menu/tracking) + agentic AI fallback with 4 tools — existing
-- ✓ Cart → order flow: `confirm` writes order + lines to Supabase, clears session, messages customer — existing
-- ✓ New-order notification to the aunt on every confirm (`AUNT_PHONE`) — existing
-- ✓ Web dashboard: login, orders, dashboard stats, product management, broadcast (5 templates) — existing
-- ✓ Products live in Supabase `products` table (catalog.json retired) with live cache invalidation — existing
-- ✓ Supabase access via HTTPS RPC (`run_query`/`run_exec`) through a single DB adapter with retry + circuit breaker — existing
-- ✓ PDF invoice generated and sent to customer on status → done — existing
-- ✓ Scheduler: follow-ups (6h), monthly report (1st @ 08:00), retry queue (15m) — existing
-- ✓ Eval dataset foundation: 75 labeled customer messages (`tests/data/whatsapp_agent_dataset.json`) — existing
+- ✓ M1 — Supabase → prod: complete schema, migration discipline, secure the RPC/key surface, data-loss insurance, retention/cleanup — Phase 6 COMPLETE (2026-06-15)
 
 ### Active
 
-<!-- The production-readiness program. Five milestones, each its own GSD milestone cycle,
-     planned from the real current state when we reach it. M1 is the current focus. -->
+**Strategy**: Infrastructure hardening — isolate request latency and ensure message delivery durability before expanding agent capabilities.
 
-**Strategy:** Smoke-thread first (vertical MVP) — prove the real spine lives before hardening
-layers underneath it.
-
-- [ ] **M0/M1 spine (current):** one real Meta-format WhatsApp message → parsed → order created → aunt notified, against live Supabase
-- [ ] **M1 — Supabase → prod:** complete schema (add missing `monthly_snapshots`), migration discipline, secure the RPC/key surface (not cargo-culted RLS), data-loss insurance (scripted export now → Pro PITR ~July 2026), retention/cleanup for unbounded tables
-- [ ] **M2 — FastAPI → prod:** **web+worker two-process split** (web acks webhook fast → durable **inbox/outbox** tables → worker processes Claude calls async), webhook signature verification, real Meta-envelope parsing, **idempotency** (dedupe on Meta `wamid`), rate limiting, health checks, structured logging (structlog), deploy hardening
+- [ ] **M2 — FastAPI → prod:**
+    - **Web+Worker Split**: Dedicated processes for webhook ingestion and slow async processing (AI, PDF, Send).
+    - **Durable Messaging**: `webhook_events` (inbox) and `outbox_jobs` (outbox) tables to survive crashes and retries.
+    - **Meta Transport**: Verify `X-Hub-Signature-256`, parse full Meta batches, and dedupe on `wamid`.
+    - **Template Integration**: Implement `send_template` and migrate follow-ups/reports to approved Meta templates.
+    - **Observability**: Structured JSON logging (`structlog`), correlation IDs, and `/livez`/`/readyz` endpoints.
+    - **Onboarding**: Document and track Meta WABA registration, display name, and template approval status.
+    - **Deploy Hardening**: Migrate to FastAPI Lifespan, Railway pre-deploy migrations, and release metadata.
 - [ ] **M3 — Agent → prod:** AI reliability + fallbacks, Claude cost control, eval harness over the labeled dataset, knowledge base (`app/data/knowledge/`), **deterministic policy gate** before any AI-proposed action, **human handoff** for risky/uncertain messages (voice notes, images, payments, complaints, custom requests) with auto-replies paused during handoff (**hybrid autonomy**)
 - [ ] **M4 — UI → prod (lean):** kill insecure defaults, `secure` cookie, login rate-limiting, input validation — sized for a single trusted operator, not a hostile multi-user app
 - [ ] **M5 — Go-live:** end-to-end test, monitoring/alerting, Meta WABA approval, SSL/custom domain, cutover to real customers

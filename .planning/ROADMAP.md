@@ -5,25 +5,25 @@
 
 ## Active Roadmap: M2 — FastAPI → Production
 
-### Phase 07: Inbox/Outbox Schema & Core Transport (M2-P1)
+### Phase 07: Inbox/Outbox Schema & Core Transport (M2-P1) [COMPLETE]
 **Goal**: Implement the durable data structures and basic signature verification.
 **Plans:** 1 plan
-- [ ] 07-01-PLAN.md — Implement durable inbox/outbox schema and Meta transport security.
+- [x] 07-01-PLAN.md — Implement durable inbox/outbox schema and Meta transport security.
 
-### Phase 08: Worker Process & Durable Loops (M2-P2)
+### Phase 08: Worker Process & Durable Loops (M2-P2) [COMPLETE]
 **Goal**: Move processing logic out of the request loop and into a dedicated worker.
-**Plans:** 4 plans
-- [ ] 08-01-PLAN.md — Create worker.py entry point with event/job claiming loops.
-- [ ] 08-02-PLAN.md — Migrate AI processing logic to worker claim handlers.
-- [ ] 08-03-PLAN.md — Standardize on Outbox Jobs and migrate PDF generation.
-- [ ] 08-04-PLAN.md — Move APScheduler from main.py to worker.py and wire scheduled jobs to outbox.
+**Plans:** 4/4 plans executed
+- [x] 08-01-PLAN.md — Create worker.py entry point with event/job claiming loops.
+- [x] 08-02-PLAN.md — Migrate AI processing logic to worker claim handlers.
+- [x] 08-03-PLAN.md — Standardize on Outbox Jobs and migrate PDF generation.
+- [x] 08-04-PLAN.md — Move APScheduler from main.py to worker.py and wire scheduled jobs to outbox.
 
 ### Phase 09: Template Integration & Service Migration (M2-P3)
 **Goal**: Fix the out-of-window messaging risk and finalize transport.
-- [ ] **09-01-TEMPLATES**: Implement `send_template` in `whatsapp_meta.py`.
-- [ ] **09-02-FOLLOWUP**: Update follow-up service to use outbox + templates.
-- [ ] **09-03-REPORTS**: Update monthly report service to use outbox + templates.
-- [ ] **09-04-ONBOARDING**: Document asset state in `docs/META_ONBOARDING.md` and verify real-number transport.
+**Plans:** 3 plans
+- [ ] 09-01-PLAN.md — Implement template transport layer in services and worker.
+- [ ] 09-02-PLAN.md — Migrate Follow-up and Monthly Report services to templates.
+- [ ] 09-03-PLAN.md — Create onboarding docs and verify real-number transport.
 
 ### Phase 10: Observability & Production Readiness (M2-P4)
 **Goal**: Hardening, logging, and deployment.
@@ -33,8 +33,8 @@
 - [ ] **10-04-DEPLOY**: Update `Procfile` and Railway config for web+worker split.
 
 ## Success Criteria
-- [ ] Real Meta webhook acknowledged in < 1s.
-- [ ] AI processing occurs in worker without blocking webhook.
+- [x] Real Meta webhook acknowledged in < 1s.
+- [x] AI processing occurs in worker without blocking webhook.
 - [ ] Follow-ups sent via templates succeed outside 24h window.
-- [ ] No duplicate orders on message replay.
+- [x] No duplicate orders on message replay.
 - [ ] Web and Worker logs correlated by `wamid`.
