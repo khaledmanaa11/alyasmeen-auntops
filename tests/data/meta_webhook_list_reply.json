@@ -1,0 +1,23 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [{
+    "id": "WABA_ID",
+    "changes": [{
+      "field": "messages",
+      "value": {
+        "messaging_product": "whatsapp",
+        "contacts": [{ "profile": { "name": "فاطمة" }, "wa_id": "972599123456" }],
+        "messages": [{
+          "from": "972599123456",
+          "id": "wamid.HBgM...",
+          "timestamp": "1718450050",
+          "type": "interactive",
+          "interactive": {
+            "type": "list_reply",
+            "list_reply": { "id": "prod_1", "title": "كريم اليدين", "description": "25₪" }
+          }
+        }]
+      }
+    }]
+  }]
+}
