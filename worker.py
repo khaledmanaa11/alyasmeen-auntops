@@ -5,8 +5,10 @@ import signal
 import sys
 from typing import NoReturn
 
-from app.services import worker_utils, worker_tasks
+from app.services import worker_utils, worker_tasks, whatsapp_meta, pdf_invoice
+from app.services.config import Config
 from app.db import database
+from app.routers.whatsapp_helpers import get_customer_name, get_latest_order
 
 # Configure logging
 logging.basicConfig(
@@ -49,6 +51,65 @@ async def inbox_loop() -> None:
             log.error("Error in inbox_loop: %s", e)
             await asyncio.sleep(5)
 
+async def execute_outbox_job(job: dict) -> None:
+    """Execute a single outbox job based on its transport and payload."""
+    transport = job.get("transport")
+    recipient = job.get("recipient")
+    payload = job.get("payload") or {}
+    
+    if transport == "whatsapp_meta":
+        msg_type = payload.get("type", "text")
+        if msg_type == "text":
+            whatsapp_meta.send_text(recipient, payload.get("body", ""))
+        elif msg_type == "buttons":
+            whatsapp_meta.send_buttons(recipient, payload.get("body", ""), payload.get("buttons", []))
+        elif msg_type == "document":
+            if "url" in payload:
+                whatsapp_meta.send_document(
+                    recipient, 
+                    payload["url"], 
+                    payload.get("filename", "document.pdf"), 
+                    payload.get("caption")
+                )
+            else:
+                log.warning("whatsapp_meta document job %s missing URL", job.get("id"))
+    
+    elif transport == "pdf_generation":
+        order_id = payload.get("order_id")
+        if not order_id:
+            raise ValueError("pdf_generation job missing order_id in payload")
+            
+        log.info("Generating PDF for order %s (recipient: %s)", order_id, recipient)
+        
+        # 1. Fetch order details
+        order_rows = database.query("SELECT * FROM orders WHERE id = %s", (order_id,))
+        if not order_rows:
+            raise ValueError(f"Order {order_id} not found for PDF generation")
+        order = order_rows[0]
+        
+        # 2. Fetch order lines
+        lines = database.query("SELECT * FROM order_lines WHERE order_id = %s", (order_id,))
+        
+        # 3. Generate PDF
+        customer_name = get_customer_name(recipient) or recipient
+        pdf_bytes = pdf_invoice.generate_invoice_pdf(
+            order_id=order_id,
+            customer_name=customer_name,
+            order_date=str(order["created_at"])[:10],
+            lines=lines,
+            total=float(order["total"])
+        )
+        
+        # 4. Send PDF via WhatsApp
+        whatsapp_meta.send_document_bytes(
+            to=recipient,
+            pdf_bytes=pdf_bytes,
+            filename=f"invoice-ORD-{order_id:04d}.pdf",
+            caption="إليك فاتورة طلبك من الياسمين ✨"
+        )
+    else:
+        log.warning("Unknown transport type: %s", transport)
+
 async def outbox_loop() -> None:
     """Process outgoing jobs from the 'outbox_jobs' table."""
     log.info("Starting outbox loop...")
@@ -59,11 +120,14 @@ async def outbox_loop() -> None:
                 job_id = job["id"]
                 log.info("Processing outbox job %s (transport: %s)", job_id, job.get("transport"))
                 
-                # TODO: Implement actual sending logic (Phase 08 Wave 3+)
-                # For now, we just mark it as sent.
+                try:
+                    await execute_outbox_job(job)
+                    worker_utils.update_job_status("outbox_jobs", job_id, "sent")
+                    log.info("Successfully processed outbox job %s", job_id)
+                except Exception as e:
+                    log.error("Failed to process outbox job %s: %s", job_id, e)
+                    worker_utils.update_job_status("outbox_jobs", job_id, "failed", error=str(e))
                 
-                worker_utils.update_job_status("outbox_jobs", job_id, "sent")
-                log.info("Successfully processed outbox job %s", job_id)
                 continue # Check for more jobs immediately
             
             await asyncio.sleep(1)
@@ -100,6 +164,29 @@ async def main() -> None:
                 worker_utils.update_job_status("webhook_events", event["id"], "failed")
         else:
             log.error("Test-inbox: Failed to claim the mock event.")
+        return
+
+    if "--test-outbox" in sys.argv:
+        log.info("Test-outbox requested. Simulating an outbox job...")
+        database.validate_schema()
+        mock_recipient = "972591234567"
+        mock_payload = {"type": "text", "body": "This is a test outbox message."}
+        database.execute(
+            "INSERT INTO outbox_jobs (transport, recipient, payload, status) VALUES ('whatsapp_meta', %s, %s, 'pending')",
+            (mock_recipient, json.dumps(mock_payload))
+        )
+        # Run one iteration of outbox_loop logic manually
+        job = worker_utils.claim_outbox_job()
+        if job:
+            try:
+                await execute_outbox_job(job)
+                worker_utils.update_job_status("outbox_jobs", job["id"], "sent")
+                log.info("Test-outbox: Successfully processed mock job.")
+            except Exception as e:
+                log.error("Test-outbox: Failed to process mock job: %s", e)
+                worker_utils.update_job_status("outbox_jobs", job["id"], "failed", error=str(e))
+        else:
+            log.error("Test-outbox: Failed to claim the mock job.")
         return
 
     log.info("AuntOps Worker starting...")
