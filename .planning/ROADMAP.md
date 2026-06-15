@@ -39,7 +39,9 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. An order placed from that real WhatsApp message is written to the live Supabase `orders` + `order_lines` tables and is visible in the dashboard `/orders` page
   3. The aunt receives the new-order WhatsApp notification for that order (`AUNT_PHONE`), proven against the live path — not mock
   4. The parser is minimal (proves the path only); full webhook hardening/signature verification is explicitly left to M2
-**Plans**: TBD
+**Plans**: 2 plans
+  - [ ] 01-01-PLAN.md — Meta-envelope parse seam fix + fixtures + parser/flow tests (SPINE-01, SPINE-02 automated)
+  - [ ] 01-02-PLAN.md — D-02 Meta token prerequisite + D-01 live proof + D-07 cleanup (SPINE-02 live, human-gated)
 
 ### Phase 2: Schema Correctness & Integrity
 **Goal**: Make `schema.sql` the single, complete, verified source of truth for the live database, and make any schema drift fail loudly at startup instead of crashing mid-operation.
@@ -103,7 +105,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Spine Smoke-Thread | 0/TBD | Not started | - |
+| 1. Spine Smoke-Thread | 0/2 | Planned | - |
 | 2. Schema Correctness & Integrity | 0/TBD | Not started | - |
 | 3. Versioned Migrations | 0/TBD | Not started | - |
 | 4. Database Security Surface | 0/TBD | Not started | - |
