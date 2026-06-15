@@ -139,6 +139,41 @@ def _make_tool_executor(phone: str, st: dict, cart: list, ran_flag: list[bool]):
     return executor
 
 
+def handle_inbox_event(event: dict):
+    """
+    Worker task: Processes a single inbox event.
+    Extracts phone/text and calls _handle_message.
+    """
+    payload = event.get("payload") or {}
+    
+    # 1. Extract phone (from for Meta, from_number for mock)
+    phone = payload.get("from") or payload.get("from_number")
+    
+    # 2. Extract text (handling Meta types)
+    msg_type = payload.get("type")
+    text = ""
+    if msg_type == "text":
+        text = payload.get("text", {}).get("body", "")
+    elif msg_type == "interactive":
+        interactive = payload.get("interactive", {})
+        itype = interactive.get("type")
+        if itype == "button_reply":
+            text = interactive.get("button_reply", {}).get("id", "")
+        elif itype == "list_reply":
+            text = interactive.get("list_reply", {}).get("id", "")
+    else:
+        # Fallback for mock/flat shape
+        text = str(payload.get("text") or "")
+        
+    wa_name = payload.get("wa_name")  # profile name (available in mock, or later from Meta contacts)
+    
+    if not phone:
+        log.warning("Inbox event %s missing phone/from number", event.get("id", "unknown"))
+        return
+
+    _handle_message(phone, text, wa_name)
+
+
 def _handle_message(phone: str, text: str, wa_name: str | None = None):
     """Verbatim handler logic extracted from webhook_post."""
     text = (text or "").strip()
