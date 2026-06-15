@@ -38,15 +38,23 @@ def mock_db(monkeypatch):
     def fake_execute(sql, params=()):
         pass  # no-op: order_lines inserts, order_name update, session deletes, etc.
 
-    monkeypatch.setattr(wa, "load_session", fake_load_session)
-    monkeypatch.setattr(wa, "save_session", fake_save_session)
-    monkeypatch.setattr(wa, "clear_session", fake_clear_session)
-    monkeypatch.setattr(wa, "load_history", fake_load_history)
-    monkeypatch.setattr(wa, "append_history", fake_append_history)
+    def fake_search_products(query=None, category=None):
+        return [
+            {"sku": "1", "name": "كريم اليدين", "price": 25.0},
+            {"sku": "2", "name": "لوشن الجسم", "price": 40.0},
+        ]
+
+    monkeypatch.setattr(wa, "load_session", fake_load_session)     
+    monkeypatch.setattr(wa, "save_session", fake_save_session)     
+    monkeypatch.setattr(wa, "clear_session", fake_clear_session)   
+    monkeypatch.setattr(wa, "load_history", fake_load_history)     
+    monkeypatch.setattr(wa, "append_history", fake_append_history) 
     monkeypatch.setattr(wa, "upsert_customer", lambda phone, name="": False)
-    monkeypatch.setattr(wa, "get_customer_name", lambda phone: "")
-    monkeypatch.setattr(wa, "get_saved_address", lambda phone: "")
+    monkeypatch.setattr(wa, "get_customer_name", lambda phone: "") 
+    monkeypatch.setattr(wa, "get_saved_address", lambda phone: "") 
     monkeypatch.setattr(wa, "save_customer_address", lambda phone, address: None)
     monkeypatch.setattr(wa, "get_latest_order", lambda phone: None)
     monkeypatch.setattr(wa, "execute_returning", fake_execute_returning)
     monkeypatch.setattr(wa, "execute", fake_execute)
+    monkeypatch.setattr(wa, "search_products", fake_search_products)
+

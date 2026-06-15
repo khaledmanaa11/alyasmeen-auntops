@@ -34,7 +34,7 @@ def _phone():
 
 @pytest.fixture()
 def client(monkeypatch):
-    monkeypatch.setattr(wa, "_CATALOG", FAKE_CATALOG)
+    monkeypatch.setattr(wa, "catalog", lambda: FAKE_CATALOG)
     return TestClient(app)
 
 
@@ -115,7 +115,9 @@ class TestFullDeliveryOrderFlow:
             json={"from_number": phone, "text": "شارع النصر، رام الله"},
         )
         assert r_addr.status_code == 200
-        assert "confirm" in r_addr.json().get("text", "")
+        # Check if "confirm" is in buttons since we use send_buttons now
+        buttons = r_addr.json().get("buttons", [])
+        assert any(b.get("id") == "confirm" for b in buttons)
 
         # Confirm
         r_confirm = client.post(
@@ -227,3 +229,55 @@ class TestAIFallback:
         assert r.status_code == 200
         # Should return some text (AI fallback message)
         assert r.json().get("text") or r.json().get("ok") is not None
+
+
+class TestMetaEnvelopeFlow:
+    def test_meta_envelope_confirm_flow(self, client, monkeypatch):
+        """
+        Prove a Meta button_reply confirm returns 200 (not 422)
+        AND the aunt number appears in captured send_text recipients.
+        """
+        import app.services.config as config_mod
+        monkeypatch.setattr(config_mod.Config, "AUNT_PHONE", "972591111111")
+
+        sent_to = []
+        def capture_send(to, msg):
+            sent_to.append(to)
+            return {"dev": True}
+        monkeypatch.setattr(wa, "send_text", capture_send)
+
+        phone = "972599123456"
+
+        # Step 1: Seed cart via flat shape
+        client.post("/whatsapp/webhook", json={"from_number": phone, "text": "menu"})
+        client.post("/whatsapp/webhook", json={"from_number": phone, "text": "1"})
+        client.post("/whatsapp/webhook", json={"from_number": phone, "text": "pickup"})
+
+        # Step 2: Confirm via real Meta envelope
+        meta_confirm = {
+            "object": "whatsapp_business_account",
+            "entry": [{
+                "changes": [{
+                    "field": "messages",
+                    "value": {
+                        "messaging_product": "whatsapp",
+                        "contacts": [{"profile": {"name": "فاطمة"}, "wa_id": phone}],
+                        "messages": [{
+                            "from": phone,
+                            "type": "interactive",
+                            "interactive": {
+                                "type": "button_reply",
+                                "button_reply": {"id": "confirm", "title": "✅ تأكيد الطلب"}
+                            }
+                        }]
+                    }
+                }]
+            }]
+        }
+
+        r = client.post("/whatsapp/webhook", json=meta_confirm)
+        assert r.status_code == 200
+        assert r.json() == {"ok": True}
+
+        # Aunt phone should be in recipients
+        assert "972591111111" in sent_to
