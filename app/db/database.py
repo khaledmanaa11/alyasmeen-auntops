@@ -156,7 +156,14 @@ REQUIRED_SCHEMA = {
         "id", "action", "order_id", "phone", "payload", "attempts",
         "max_attempts", "last_error", "next_retry_at", "resolved", "created_at"
     },
-    "monthly_snapshots": {"year", "month", "data", "created_at"}
+    "monthly_snapshots": {"year", "month", "data", "created_at"},
+    "webhook_events": {
+        "id", "wamid", "payload", "status", "error", "created_at", "processed_at"
+    },
+    "outbox_jobs": {
+        "id", "transport", "recipient", "payload", "status",
+        "attempts", "max_attempts", "error", "created_at", "processed_at"
+    }
 }
 
 
