@@ -14,6 +14,16 @@ A real customer can place an order on the **live** WhatsApp number and the aunt 
 reliably and unattended. If everything else fails, the message-in → order-out → aunt-notified
 spine must work in production.
 
+## Current State (v1.0)
+- **Status**: Production-ready data layer.
+- **Milestone M1 COMPLETE**: Verified schema, versioned migrations, secure RPC, automated backups, and bounded growth.
+- **Last Shipped**: 2026-06-15 (v1.0)
+
+## Next Milestone Goals (M2 — FastAPI → prod)
+- **Architecture**: Move to a two-process split (web + worker).
+- **Resilience**: Implement DB-backed inbox/outbox for async processing.
+- **Reliability**: Webhook signature verification and Meta `wamid` idempotency.
+
 ## Requirements
 
 ### Validated
@@ -79,7 +89,7 @@ layers underneath it.
 |----------|-----------|---------|
 | Smoke-thread first (vertical MVP), then harden layers | A real order doesn't flow until M5 under pure layering — prove the spine in week one to de-risk the whole program | — Pending |
 | Supabase free tier now → upgrade to Pro for backups + 7-day PITR ~July 2026 | Honest budget staging; script a nightly export now as cheap insurance until real orders justify the spend | — Pending |
-| Secure the RPC/key surface, not cargo-culted RLS | Access is server-side only via arbitrary-SQL `run_query`/`run_exec`; classic row-level policies buy little, the real risk is key leak → full DB compromise | — Pending |
+| Secure the RPC/key surface, not cargo-culted RLS | Access is server-side only via arbitrary-SQL `run_query`/`run_exec`; classic row-level policies buy little, the real risk is key leak → full DB compromise | Done (Phase 4) |
 | Keep M4 (UI auth) lean | Single trusted operator on one device; heavy multi-user auth infra is wasted effort — fix insecure defaults + secure cookie + rate-limit only | — Pending |
 | 5 milestones = 5 GSD milestone cycles, each planned from the current point | User wants to discuss/challenge each milestone freshly rather than pre-plan M2–M5 blind | — Pending |
 | Website is a separate future project | Productionizing ≠ new build; keep scope clean | — Pending |

@@ -2,41 +2,41 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Phase 1 context gathered
-last_updated: "2026-06-15T13:02:19.185Z"
-last_activity: 2026-06-15 -- Phase 1 planning complete
+status: complete
+stopped_at: Phase 6 complete (M1 COMPLETE)
+last_updated: "2026-06-15T23:55:00.000Z"
+last_activity: 2026-06-15 -- Phase 6 COMPLETE (Bounded Growth); M1 Milestone COMPLETE
 progress:
   total_phases: 6
-  completed_phases: 0
-  total_plans: 2
-  completed_plans: 0
-  percent: 0
+  completed_phases: 6
+  total_plans: 8
+  completed_plans: 8
+  percent: 100
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-14)
+See: .planning/PROJECT.md (updated 2026-06-15)
 
 **Core value:** A real customer can place an order on the live WhatsApp number and the aunt can fulfill it — reliably and unattended.
-**Current focus:** Phase 1 — Spine Smoke-Thread
+**Current focus:** Milestone M1 Complete
 
 ## Current Position
 
-Phase: 1 of 6 (Spine Smoke-Thread)
-Plan: 0 of TBD in current phase
-Status: Ready to execute
-Last activity: 2026-06-15 -- Phase 1 planning complete
+Phase: 6 of 6 (Bounded Growth (Retention))
+Plan: 1 of 1 in current phase
+Status: Complete
+Last activity: 2026-06-15 -- Phase 6 COMPLETE (Bounded Growth); M1 Milestone COMPLETE
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 0
+- Total plans completed: 5
 - Average duration: — min
 - Total execution time: 0.0 hours
 
@@ -44,12 +44,17 @@ Progress: [░░░░░░░░░░] 0%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 1 | 2 | — | — |
+| 2 | 2 | — | — |
+| 3 | 1 | — | — |
+| 4 | 1 | — | — |
+| 5 | 1 | — | — |
+| 6 | 1 | — | — |
 
 **Recent Trend:**
 
-- Last 5 plans: —
-- Trend: —
+- Last 5 plans: 03-01, 04-01, 05-01, 06-01
+- Trend: M1 Milestone COMPLETE. Data layer production-ready.
 
 *Updated after each plan completion*
 
@@ -66,13 +71,14 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-None yet.
+- 02-01: Idempotent schema.sql hardening + validate_schema() core
+- 02-02: FastAPI lifespan integration + unit/integration validation tests
 
 ### Blockers/Concerns
 
 Carried from .planning/codebase/CONCERNS.md (drive M1 work):
 
-- 🔴 Webhook POST cannot parse real Meta payloads — addressed in Phase 1
+- ✅ Webhook POST cannot parse real Meta payloads — FIXED in Phase 1
 - 🔴 `monthly_snapshots` table queried but missing from schema — addressed in Phase 2
 - 🟡 `chat_history` / `retry_queue` grow unbounded — addressed in Phase 6
 
@@ -102,6 +108,7 @@ Junk (safe to delete): `copilot/vscode-mpshk5w7-eqtp` (2026-05-30) — stale con
 
 ## Session Continuity
 
-Last session: 2026-06-14T20:16:57.928Z
-Stopped at: Phase 1 context gathered
-Resume file: .planning/phases/01-spine-smoke-thread/01-CONTEXT.md
+Last session: 2026-06-15T15:00:00.000Z
+Stopped at: Phase 2 PLANNED
+Resume file: .planning/phases/02-schema-correctness-integrity/02-01-PLAN.md
+
