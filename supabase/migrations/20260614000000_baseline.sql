@@ -1,7 +1,5 @@
 -- ============================================================
--- ALYASMEEN AuntOps — Database Schema
--- Run this once against your Supabase project to set up all tables.
--- Safe to re-run (CREATE TABLE IF NOT EXISTS).
+-- ALYASMEEN AuntOps — Database Schema Baseline
 -- ============================================================
 
 -- Products (managed via /products dashboard page)
@@ -60,7 +58,6 @@ CREATE TABLE IF NOT EXISTS sessions (
   fulfillment    TEXT,
   menu_products  JSONB DEFAULT '[]'::jsonb,
   address        TEXT DEFAULT '',
-  paused         BOOLEAN DEFAULT FALSE,
   created_at     TIMESTAMPTZ DEFAULT now(),
   updated_at     TIMESTAMPTZ DEFAULT now()
 );

@@ -95,7 +95,7 @@ def _retry_cfg() -> dict[str, Any]:
     }
 
 
-def _call(rpc_name: str, final_sql: str, retryable: bool) -> list[dict[str, Any]]:
+def _call(rpc_name: str, rpc_params: dict[str, Any], retryable: bool) -> list[dict[str, Any]]:
     """Run one Supabase RPC with a circuit breaker and optional retry.
 
     Reads (retryable=True) are retried with exponential backoff because they are
@@ -118,7 +118,7 @@ def _call(rpc_name: str, final_sql: str, retryable: bool) -> list[dict[str, Any]
     last_exc: Exception | None = None
     for attempt in range(attempts):
         try:
-            result = _get_client().rpc(rpc_name, {"sql": final_sql}).execute()
+            result = _get_client().rpc(rpc_name, rpc_params).execute()
             _consecutive_failures = 0
             return result.data or []
         except Exception as exc:
@@ -135,19 +135,24 @@ def _call(rpc_name: str, final_sql: str, retryable: bool) -> list[dict[str, Any]
 
 
 # ---------------------------------------------------------------------------
-# Public API  (same interface as the old psycopg2 version)
+# Public API
 # ---------------------------------------------------------------------------
+
+def rpc(name: str, params: dict[str, Any] = {}, retryable: bool = False) -> list[dict[str, Any]]:
+    """Call a specific Supabase RPC (stored procedure) with parameters."""
+    return _call(name, params, retryable=retryable)
+
 
 def query(sql: str, params: tuple = ()) -> list[dict[str, Any]]:
     """Run a SELECT.  Returns a list of row dicts.  Retried on transient failure."""
     final = _build(sql, params)
-    return _call("run_query", final, retryable=True)
+    return _call("run_query", {"sql": final}, retryable=True)
 
 
 def execute(sql: str, params: tuple = ()) -> None:
     """Run INSERT / UPDATE / DELETE.  Not retried (writes are non-idempotent)."""
     final = _build(sql, params)
-    _call("run_exec", final, retryable=False)
+    _call("run_exec", {"sql": final}, retryable=False)
 
 
 def execute_returning(sql: str, params: tuple = ()) -> dict[str, Any] | None:
@@ -157,7 +162,7 @@ def execute_returning(sql: str, params: tuple = ()) -> dict[str, Any] | None:
     double-apply.
     """
     final = _build(sql, params)
-    rows = _call("run_query", final, retryable=False)
+    rows = _call("run_query", {"sql": final}, retryable=False)
     return rows[0] if rows else None
 
 
