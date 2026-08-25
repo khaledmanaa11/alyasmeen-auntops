@@ -74,6 +74,19 @@ def send_buttons(to: str, body: str, buttons: list[dict]) -> dict:
     return msg
 
 
+def verify_signature(body_bytes: bytes, signature: str | None) -> bool:
+    """Always return True for dev mode.
+
+    Args:
+        body_bytes: The raw request body.
+        signature:  The value of the X-Hub-Signature-256 header.
+
+    Returns:
+        True
+    """
+    return True
+
+
 def verify_get(params: dict) -> tuple[bool,int,str]:
     """Accept any webhook verification request in dev mode and echo the challenge.
 

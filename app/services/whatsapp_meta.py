@@ -155,33 +155,51 @@ def send_document(to: str, url: str, filename: str, caption: str | None = None) 
         data = {"status": r.status_code, "text": r.text}
     return {"status": r.status_code, "resp": data}
 
-def verify_get(params: dict, headers: dict|None=None, body_bytes: bytes|None=None) -> tuple[bool,int,str]:
-    """Verify a Meta webhook GET request and optionally verify a POST signature.
-
-    For GET: checks hub.mode == "subscribe" and hub.verify_token matches config.
-    For POST: if headers, body_bytes, and WA_META_APP_SECRET are all provided,
-    validates the X-Hub-Signature-256 HMAC header.
+def verify_signature(body_bytes: bytes, signature: str | None) -> bool:
+    """Verify that the payload was sent by Meta using HMAC-SHA256.
 
     Args:
-        params:     Query parameters from the webhook GET request.
-        headers:    Request headers (used for POST signature verification).
-        body_bytes: Raw request body bytes (used for POST signature verification).
+        body_bytes: The raw request body.
+        signature:  The value of the X-Hub-Signature-256 header.
+
+    Returns:
+        True if the signature is valid, False otherwise.
+    """
+    if not Config.WA_META_APP_SECRET:
+        # If secret is not configured, we can't verify, so we skip (or fail)
+        # For production readiness, we should probably fail, but if the user
+        # hasn't set it up, we might want to allow it? 
+        # The plan says "rejects requests with invalid HMAC signatures".
+        return False
+
+    if not signature or not signature.startswith("sha256="):
+        return False
+
+    expected_signature = hmac.new(
+        Config.WA_META_APP_SECRET.encode(),
+        body_bytes,
+        hashlib.sha256
+    ).hexdigest()
+
+    return hmac.compare_digest(signature, f"sha256={expected_signature}")
+
+
+def verify_get(params: dict) -> tuple[bool, int, str]:
+    """Verify a Meta webhook GET request.
+
+    Checks hub.mode == "subscribe" and hub.verify_token matches config.
+
+    Args:
+        params: Query parameters from the webhook GET request.
 
     Returns:
         Tuple of (success, http_status_code, response_body_string).
     """
-    # GET verification (Meta calls with hub.* params)
     mode = params.get("hub.mode")
     token = params.get("hub.verify_token")
     challenge = params.get("hub.challenge", "")
+
     if mode == "subscribe" and token == Config.WA_META_VERIFY_TOKEN:
         return True, 200, challenge
 
-    # Optional: verify POST signature
-    if headers and body_bytes and Config.WA_META_APP_SECRET:
-        their = headers.get("X-Hub-Signature-256")
-        mac = hmac.new(Config.WA_META_APP_SECRET.encode(), body_bytes, hashlib.sha256)
-        ours = "sha256=" + mac.hexdigest()
-        if not their or their != ours:
-            return False, 403, "Invalid signature"
     return False, 403, "Forbidden"

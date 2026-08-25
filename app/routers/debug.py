@@ -1,20 +1,28 @@
 """debug.py — Development-only endpoints for ALYASMEEN AuntOps.
 
-Provides a POST /dev/test_order endpoint that creates a synthetic order
-in the database without going through the WhatsApp bot flow. Used for
-local testing of the dashboard, order status updates, and notifications.
-These routes are registered by main.py and should not be exposed in production.
+Provides:
+  - POST /dev/test_order — creates a synthetic order in the database without
+    going through the WhatsApp bot flow. Used for local testing of the
+    dashboard, order status updates, and notifications.
+  - GET  /dev/chat        — a browser chat UI that talks to the bot brain
+    (app.services.processor.handle_message) directly, for local testing
+    without a real WhatsApp number.
+  - POST /dev/chat/message — the synchronous endpoint the chat UI above
+    posts to.
+
+These routes are registered by main.py only when Config.USE_MOCK_WHATSAPP is
+truthy (dev mode) and should never be reachable in production.
 """
 from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
-from app.db.database import execute, execute_returning
-from app.routers.whatsapp import catalog
+from app.db.database import execute, rpc
+from app.routers.whatsapp_helpers import catalog
 
 log = logging.getLogger(__name__)
 
@@ -45,9 +53,10 @@ class CreateTestOrder(BaseModel):
 def create_test_order(p: CreateTestOrder):
     """Create a synthetic test order directly in the database.
 
-    Inserts a customer (if not already present), an order row, and order line
-    items based on the provided cart. Useful for exercising the dashboard and
-    status-update flows without sending a real WhatsApp message.
+    Inserts a customer (if not already present) and an order (with its line
+    items) via the same create_order_atomic RPC the real bot flow uses.
+    Useful for exercising the dashboard and status-update flows without
+    sending a real WhatsApp message.
 
     Args:
         p: CreateTestOrder payload — phone, items, fulfillment, address, note.
@@ -95,24 +104,29 @@ def create_test_order(p: CreateTestOrder):
         (p.phone, "Test Customer"),
     )
 
-    # Insert into PostgreSQL
-    order_row = execute_returning(
-        """
-        INSERT INTO orders (phone, fulfillment, address, total, status, channel, created_at, updated_at)
-        VALUES (%s, %s, %s, %s, 'to_do', 'whatsapp', now(), now())
-        RETURNING id
-        """,
-        (p.phone, p.fulfillment, p.address, total),
-    )
-    order_id = order_row["id"]
-    order_name = f"ORD-{order_id:04d}"
-    execute("UPDATE orders SET order_name = %s WHERE id = %s", (order_name, order_id))
+    # Create the order atomically (order + order_lines + audit log), the same
+    # RPC the real confirm flow uses (app.services.processor._handle_confirm).
+    items_payload = [
+        {
+            "product_name": it["name"],
+            "qty": it["qty"],
+            "unit_price": it["price"],
+            "line_total": it["qty"] * it["price"]
+        }
+        for it in cart
+    ]
 
-    for it in cart:
-        execute(
-            "INSERT INTO order_lines (order_id, product_name, qty, unit_price, line_total) VALUES (%s, %s, %s, %s, %s)",
-            (order_id, it["name"], it["qty"], it["price"], it["qty"] * it["price"]),
-        )
+    rows = rpc("create_order_atomic", {
+        "p_phone": p.phone,
+        "p_fulfillment": p.fulfillment,
+        "p_address": p.address,
+        "p_total": total,
+        "p_items": items_payload
+    })
+    # rpc() returns a list of row dicts; a scalar-returning function like
+    # create_order_atomic comes back as [{"create_order_atomic": <id>}].
+    order_id = rows[0]["create_order_atomic"]
+    order_name = f"ORD-{order_id:04d}"
 
     return {
         "ok": True,
@@ -126,6 +140,50 @@ def create_test_order(p: CreateTestOrder):
 def chat_ui():
     """Simple chat interface to test the WhatsApp bot without real WhatsApp."""
     return HTMLResponse(content=_CHAT_HTML)
+
+
+@router.post("/chat/message")
+def chat_send_message(payload: dict):
+    """Dev-only: run one message through the bot brain synchronously and
+    return what it would have sent back.
+
+    The real webhook (POST /whatsapp/webhook) only persists the event to the
+    durable inbox and returns immediately — the actual reply is produced
+    later, out-of-band, by the worker's process_webhook_events() loop. That
+    async round trip has nothing for this simple test page to display, so
+    this endpoint instead calls app.services.processor.handle_message()
+    directly (the same bot logic) and temporarily captures whatever it sends
+    via send_text/send_buttons, so the chat UI can show the reply inline.
+    """
+    phone = (payload.get("from_number") or payload.get("phone") or "+972500000001").strip()
+    text = (payload.get("text") or "").strip()
+    name = payload.get("wa_name", "")
+    if not text:
+        raise HTTPException(status_code=400, detail="text is required")
+
+    import app.services.processor as processor
+
+    captured: list[dict] = []
+
+    def _capture_send_text(to, body):
+        captured.append({"dev": True, "to": to, "text": body})
+        return captured[-1]
+
+    def _capture_send_buttons(to, body, buttons):
+        captured.append({"dev": True, "to": to, "text": body, "buttons": buttons})
+        return captured[-1]
+
+    original_send_text = processor.send_text
+    original_send_buttons = processor.send_buttons
+    processor.send_text = _capture_send_text
+    processor.send_buttons = _capture_send_buttons
+    try:
+        processor.handle_message(phone, text, name)
+    finally:
+        processor.send_text = original_send_text
+        processor.send_buttons = original_send_buttons
+
+    return captured[-1] if captured else {"text": ""}
 
 
 _CHAT_HTML = """<!DOCTYPE html>
@@ -373,7 +431,10 @@ _CHAT_HTML = """<!DOCTYPE html>
     messagesEl.scrollTop = messagesEl.scrollHeight;
 
     try {
-      const res = await fetch('/whatsapp/webhook', {
+      // Talks directly to the bot brain (see /dev/chat/message docstring) —
+      // the real /whatsapp/webhook only queues the event for the worker and
+      // has no synchronous reply to show here.
+      const res = await fetch('/dev/chat/message', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ from_number: phone, text: text, wa_name: 'عميل اختبار' })
@@ -382,12 +443,8 @@ _CHAT_HTML = """<!DOCTYPE html>
 
       typingEl.classList.remove('show');
 
-      // send_text returns {dev:true, to:..., text:...}
-      // confirm returns {ok:true, order_id:..., order_name:...}
       if (data.text) {
         addBubble(data.text, 'bot', data.buttons || null);
-      } else if (data.ok && data.order_name) {
-        addBubble('✅ تم إنشاء الطلب! رقم طلبك ' + data.order_name, 'bot');
       } else {
         addSys('استجابة: ' + JSON.stringify(data));
       }
