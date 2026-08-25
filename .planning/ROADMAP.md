@@ -65,7 +65,14 @@ This roadmap transitions ALYASMEEN AuntOps from a development implementation to 
   3. The worker's APScheduler job store is persistent in production (`DATABASE_URL` set on Railway) and survives a worker restart, verified.
   4. Dead-lettered `webhook_events` rows and `status='failed'` outbox jobs are visible on the dashboard with a one-click retry, so a stuck message is an operator decision, not a silent loss.
   5. The backup restore drill in `docs/BACKUP_DRILL.md` has been executed once for real and its Drill Log records a successful result.
-**Plans**: TBD (run `/gsd:plan-phase 4`)
+**Plans**: 7 plans in 4 waves
+- [ ] 04-01-PLAN.md — Outbox migration: followup/monthly_report/ui_api enqueue + pdf_invoice job kind
+- [ ] 04-02-PLAN.md — Gatekeeper: synchronous rewrite + wiring into Claude/Meta calls
+- [ ] 04-03-PLAN.md — Scheduler persistence proof (SQLAlchemyJobStore) + DATABASE_URL docs
+- [ ] 04-04-PLAN.md — Retire retry_queue.py/retry_actions.py + retirement migration
+- [ ] 04-05-PLAN.md — Dead-letter dashboard: /api/alerts backend
+- [ ] 04-06-PLAN.md — Dead-letter dashboard: Alerts UI tab
+- [ ] 04-07-PLAN.md — Live rollout: service_role switch, migrations, backup drill (checkpoints)
 
 ### Phase 5: Operator Security & UX (M5)
 **Goal**: Secure and operator-friendly dashboard with MFA and handoff management.
@@ -96,6 +103,6 @@ This roadmap transitions ALYASMEEN AuntOps from a development implementation to 
 | 1. Database Foundation | 3/3 | ✅ Completed | 2026-06-14 |
 | 2. Application Hardening | 2/2 | ✅ Completed | 2026-06-14 |
 | 3. Agent Dependability | 0/3 | 🏗️ In Progress | - |
-| 4. Reliability & Ops Completion | 0/? | Partially delivered outside GSD (2026-08-25) — needs planning | - |
+| 4. Reliability & Ops Completion | 0/7 | 🏗️ Planned (2026-08-25) — ready to execute | - |
 | 5. Operator Security | 0/1 | Not started | - |
 | 6. Production Go-Live | 0/1 | Not started | - |
