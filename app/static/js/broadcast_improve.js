@@ -206,10 +206,10 @@
         submitBtn.disabled = true;
 
         try {
-            const response = await fetch("/broadcast/send", {
+            const response = await fetch("/api/broadcast/send", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ message: draft, segment: segment }),
+                body: JSON.stringify({ message: draft, filter: segment }),
             });
 
             if (!response.ok) {

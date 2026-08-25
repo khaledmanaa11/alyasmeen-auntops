@@ -170,8 +170,8 @@ async def api_update_status(order_id: int, request: Request):
             send_document_bytes(
                 phone,
                 pdf_bytes,
-                filename=f"חשבונית-{order_id}.pdf",
-                caption=f"🧾 החשבונית שלך להזמנה מספר {order_id}",
+                filename=f"فاتورة-{order_id}.pdf",
+                caption=f"🧾 فاتورتك لطلب رقم {order_id}",
             )
         except Exception:
             logger.warning("pdf_invoice failed order_id=%s", order_id)

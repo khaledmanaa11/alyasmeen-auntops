@@ -64,7 +64,13 @@ async def login_page(request: Request):
 async def login_submit(request: Request, password: str = Form(...)):
     if password == Config.DASHBOARD_PASSWORD:
         resp = RedirectResponse(url="/orders", status_code=303)
-        resp.set_cookie(COOKIE_NAME, _session_token(), httponly=True, samesite="lax")
+        resp.set_cookie(
+            COOKIE_NAME,
+            _session_token(),
+            httponly=True,
+            samesite="lax",
+            secure=not Config.USE_MOCK_WHATSAPP,
+        )
         return resp
     return templates.TemplateResponse(
         request, "login.html", {"error": "كلمة المرور غير صحيحة"}, status_code=401
