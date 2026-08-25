@@ -250,39 +250,33 @@ class TestSendDocumentMocked:
         assert result["status"] == 200
 
 
-class TestVerifyGetSignature:
+class TestVerifySignature:
     def test_valid_signature(self, monkeypatch):
         import hashlib
         import hmac as hmac_mod
-
         import app.services.config as cfg
         import app.services.whatsapp_meta as meta
 
-        monkeypatch.setattr(cfg.Config, "WA_META_VERIFY_TOKEN", "tok")
         monkeypatch.setattr(cfg.Config, "WA_META_APP_SECRET", "secret")
 
         body = b'{"test": 1}'
         mac = hmac_mod.new(b"secret", body, hashlib.sha256)
         sig = "sha256=" + mac.hexdigest()
 
-        ok, code, _ = meta.verify_get(
-            {"hub.mode": "unsubscribe", "hub.verify_token": "tok"},
-            headers={"X-Hub-Signature-256": sig},
-            body_bytes=body,
-        )
-        assert code == 403  # mode != subscribe so still 403, but sig branch ran
+        assert meta.verify_signature(body, sig) is True
 
-    def test_invalid_signature_returns_403(self, monkeypatch):
+    def test_invalid_signature_returns_false(self, monkeypatch):
         import app.services.config as cfg
         import app.services.whatsapp_meta as meta
 
-        monkeypatch.setattr(cfg.Config, "WA_META_VERIFY_TOKEN", "tok")
         monkeypatch.setattr(cfg.Config, "WA_META_APP_SECRET", "secret")
 
-        ok, code, _ = meta.verify_get(
-            {"hub.mode": "unsubscribe", "hub.verify_token": "tok"},
-            headers={"X-Hub-Signature-256": "sha256=wrong"},
-            body_bytes=b"body",
-        )
-        assert ok is False
-        assert code == 403
+        assert meta.verify_signature(b"body", "sha256=wrong") is False
+
+    def test_missing_secret_returns_false(self, monkeypatch):
+        import app.services.config as cfg
+        import app.services.whatsapp_meta as meta
+
+        monkeypatch.setattr(cfg.Config, "WA_META_APP_SECRET", None)
+
+        assert meta.verify_signature(b"body", "sha256=abc") is False

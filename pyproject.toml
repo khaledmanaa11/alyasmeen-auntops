@@ -19,6 +19,10 @@ dependencies = [
     "aiofiles>=23.0.0",
     "fpdf2>=2.7.0",
     "python-bidi>=0.6.0",
+    "structlog>=24.1.0",
+    "orjson>=3.10.0",
+    "sqlalchemy>=2.0.0",
+    "psycopg2-binary>=2.9.0",
 ]
 
 [tool.ruff]
@@ -37,4 +41,16 @@ omit = ["app/main.py", "*/tests/*"]
 fail_under = 85
 
 [tool.pytest.ini_options]
+# Consolidated from pytest.ini (deleted) — pytest.ini silently took priority
+# over this file whenever both existed, so options set only here (like
+# testpaths) were never actually the effective config. This is now the one
+# source of truth.
 testpaths = ["tests"]
+python_files = ["test_*.py"]
+norecursedirs = ["scripts", ".venv", ".git", "__pycache__"]
+addopts = '-m "not integration"'
+markers = [
+    "integration: marks tests that hit real external services (use with caution)",
+]
+# Coverage gate available but not enabled today: `pytest --cov=app --cov-report=term-missing`
+# uses [tool.coverage.report] fail_under = 85 below once opted into via --cov.
