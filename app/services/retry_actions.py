@@ -67,8 +67,8 @@ def execute_action(action: str, order_id: int, phone: str) -> None:
         send_document_bytes(
             phone,
             pdf_bytes,
-            filename=f"חשבונית-{order_id}.pdf",
-            caption=f"🧾 החשבונית שלך להזמנה מספר {order_id}",
+            filename=f"فاتورة-{order_id}.pdf",
+            caption=f"🧾 فاتورتك لطلب رقم {order_id}",
         )
         log.info("retry_actions pdf_invoice sent phone=%s order_id=%s", phone, order_id)
 
