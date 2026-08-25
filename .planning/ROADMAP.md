@@ -7,8 +7,9 @@ This roadmap transitions ALYASMEEN AuntOps from a development implementation to 
 - [x] **Phase 1: Database Foundation (M1)** - Establish a reproducible and recoverable data foundation.
 - [x] **Phase 2: Application Hardening (M2)** - Secure and durable application boundary with separate web/worker roles.
 - [ ] **Phase 3: Agent Dependability & Safety (M3)** - Safe, autonomous customer service with deterministic policy and human fallbacks.
-- [ ] **Phase 4: Operator Security & UX (M4)** - Secure and operator-friendly dashboard with MFA and handoff management.
-- [ ] **Phase 5: Production Go-Live (M5)** - Integrated system validation, pilot operation, and final cutover.
+- [ ] **Phase 4: Reliability & Operations Completion (M4)** - Finish the reliability story: no dead code claiming to run, live-DB verification, operator-visible failures.
+- [ ] **Phase 5: Operator Security & UX (M5)** - Secure and operator-friendly dashboard with MFA and handoff management.
+- [ ] **Phase 6: Production Go-Live (M6)** - Integrated system validation, pilot operation, and final cutover.
 
 ## Phase Details
 
@@ -53,7 +54,20 @@ This roadmap transitions ALYASMEEN AuntOps from a development implementation to 
 - [ ] 03-02-PLAN.md — Integration & Triggers
 - [ ] 03-03-PLAN.md — Evaluation & Resilience
 
-### Phase 4: Operator Security & UX (M4)
+### Phase 4: Reliability & Operations Completion (M4)
+**Goal**: Every reliability mechanism either genuinely works in production or is deleted — no dead code that claims to run, no failure invisible to the operator.
+**Depends on**: Phase 3 (can run in parallel — no shared files except dashboard templates)
+**Context**: The 2026-08-25 hardening session (branch `fix/production-hardening`) already delivered part of this phase outside GSD: webhook poison-pill dead-lettering, the outbox wired as the single send path for the bot pipeline (`queue_text`/`queue_buttons` in `app/services/processor.py`), and `whatsapp_meta.py` senders raising `WhatsAppSendError` on failure.
+**Requirements**: REQ-prod-outbox (done), REQ-prod-backup-restore, REQ-prod-metrics, REQ-nfr-uptime
+**Success Criteria** (what must be TRUE):
+  1. `retry_queue.py` and `gatekeeper.py` are each either wired into a real call path or deleted — nothing in the repo claims to provide a guarantee it does not provide.
+  2. All `supabase/migrations/*.sql` are applied to the live Supabase project and the deployed app is verified working end-to-end against it with the key it actually ships with (anon vs service_role decided and documented).
+  3. The worker's APScheduler job store is persistent in production (`DATABASE_URL` set on Railway) and survives a worker restart, verified.
+  4. Dead-lettered `webhook_events` rows and `status='failed'` outbox jobs are visible on the dashboard with a one-click retry, so a stuck message is an operator decision, not a silent loss.
+  5. The backup restore drill in `docs/BACKUP_DRILL.md` has been executed once for real and its Drill Log records a successful result.
+**Plans**: TBD (run `/gsd:plan-phase 4`)
+
+### Phase 5: Operator Security & UX (M5)
 **Goal**: Secure and operator-friendly dashboard with MFA and handoff management.
 **Depends on**: Phase 3
 **Requirements**: REQ-prod-auth-mfa, REQ-prod-session-opaque, REQ-prod-csrf, REQ-prod-sec-headers, REQ-dash-login, REQ-dash-orders-list, REQ-dash-orders-filter, REQ-dash-status-update, REQ-dash-products-crud
@@ -64,9 +78,9 @@ This roadmap transitions ALYASMEEN AuntOps from a development implementation to 
   4. The operator can clearly see and recover from failed communications or dead-letter jobs.
 **Plans**: TBD
 
-### Phase 5: Production Go-Live (M5)
+### Phase 6: Production Go-Live (M6)
 **Goal**: Integrated system validation, pilot operation, and final cutover.
-**Depends on**: Phase 4
+**Depends on**: Phase 5
 **Requirements**: REQ-nfr-test-coverage, Meta WABA registration, Staged pilot, Training
 **Success Criteria** (what must be TRUE):
   1. Real Meta WABA number is receiving and sending messages in production environment.
@@ -82,5 +96,6 @@ This roadmap transitions ALYASMEEN AuntOps from a development implementation to 
 | 1. Database Foundation | 3/3 | ✅ Completed | 2026-06-14 |
 | 2. Application Hardening | 2/2 | ✅ Completed | 2026-06-14 |
 | 3. Agent Dependability | 0/3 | 🏗️ In Progress | - |
-| 4. Operator Security | 0/1 | Not started | - |
-| 5. Production Go-Live | 0/1 | Not started | - |
+| 4. Reliability & Ops Completion | 0/? | Partially delivered outside GSD (2026-08-25) — needs planning | - |
+| 5. Operator Security | 0/1 | Not started | - |
+| 6. Production Go-Live | 0/1 | Not started | - |
