@@ -2,6 +2,7 @@
 # retriever.py
 from __future__ import annotations
 
+import time
 import unicodedata
 
 
@@ -15,12 +16,25 @@ def _normalize(s: str) -> str:
     s = unicodedata.normalize("NFKD", s or "")
     return "".join(ch for ch in s if not unicodedata.combining(ch)).lower().strip()
 
+# Catalog is cached per-process; a background worker process never sees
+# invalidate_catalog() (it only fires in the web process), so it needs its
+# own time-based expiry to pick up product changes.
+CATALOG_TTL_SECONDS = 60
+
 _CATALOG = None
+_CATALOG_LOADED_AT: float = 0.0
 
 def invalidate_catalog() -> None:
-    """Call this after any product create/update/delete so the bot picks up changes."""
-    global _CATALOG
+    """Call this after any product create/update/delete so the bot picks up changes.
+
+    Clearing _CATALOG is what actually forces the next _catalog() call to
+    reload — resetting the timestamp here just keeps the TTL clock in sync
+    (e.g. for anything that repopulates _CATALOG without going through
+    _load_catalog(), such as tests).
+    """
+    global _CATALOG, _CATALOG_LOADED_AT
     _CATALOG = None
+    _CATALOG_LOADED_AT = time.monotonic()
 
 def _load_catalog() -> list[dict]:
     """Load active products from the Supabase products table.
@@ -47,12 +61,15 @@ def _load_catalog() -> list[dict]:
 def _catalog() -> list[dict]:
     """Return the cached product catalog, loading it from Supabase on first call.
 
-    Subsequent calls return the module-level cache. Call invalidate_catalog()
-    to force a fresh load on the next access.
+    Subsequent calls return the module-level cache until it is older than
+    CATALOG_TTL_SECONDS, at which point it is refreshed automatically — this
+    keeps a long-lived worker process from selling stale prices/products
+    forever. Call invalidate_catalog() to force an immediate refresh sooner.
     """
-    global _CATALOG
-    if _CATALOG is None:
+    global _CATALOG, _CATALOG_LOADED_AT
+    if _CATALOG is None or (time.monotonic() - _CATALOG_LOADED_AT) > CATALOG_TTL_SECONDS:
         _CATALOG = _load_catalog()
+        _CATALOG_LOADED_AT = time.monotonic()
     return _CATALOG
 
 def search_products(query: str | None, category: str | None) -> list[dict]:

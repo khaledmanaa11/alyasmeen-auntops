@@ -352,10 +352,7 @@ def generate_reply(
     Returns the assistant's reply as a plain string.
     """
     if not ai_available():
-        return (
-            "ميزة الذكاء الاصطناعي غير مفعّلة حالياً. "
-            "أضف CLAUDE_API_KEY في ملف .env لتفعيلها ✨"
-        )
+        return "عذرًا، الخدمة غير متاحة حالياً. جرّب مرة ثانية بعد قليل 🙏"
 
     know = _relevant_knowledge(user_message)
     system = _SYSTEM_PROMPT
@@ -388,7 +385,7 @@ def generate_reply(
         )
 
     try:
-        client = Anthropic(api_key=Config.CLAUDE_API_KEY)  # type: ignore
+        client = Anthropic(api_key=Config.CLAUDE_API_KEY, timeout=30.0)  # type: ignore
         messages = _build_messages(user_message, previous_messages)
 
         create_kwargs: dict = dict(
@@ -428,8 +425,12 @@ def generate_reply(
             messages.append({"role": "assistant", "content": resp.content})
             messages.append({"role": "user", "content": tool_results})
 
-            # Second call — Claude now knows the tool results and writes the reply
-            resp = client.messages.create(**{**create_kwargs, "messages": messages})
+            # Second call — force a text reply (tool_choice="none") so that if
+            # Claude tries to call another tool here, it writes a reply instead;
+            # this stays a fixed 2-call loop, not a multi-round agentic loop.
+            resp = client.messages.create(
+                **{**create_kwargs, "messages": messages, "tool_choice": {"type": "none"}}
+            )
 
         parts = [
             block.text
@@ -437,9 +438,9 @@ def generate_reply(
             if getattr(block, "text", None)
         ]
         return "\n".join(parts).strip() or "(no reply)"
-    except Exception as e:
+    except Exception:
         log.exception("Claude API error")
-        return f"عذرًا، صار خلل مؤقت. جرّب مرة ثانية. ({e})"
+        return "عذرًا، صار خلل مؤقت. جرّب مرة ثانية 🙏"
 
 
 # ---------------------------------------------------------------------------
@@ -487,7 +488,7 @@ def improve_message(draft: str) -> dict:
             "- Return only the improved message with no explanation or preamble."
         )
 
-    client = Anthropic(api_key=Config.CLAUDE_API_KEY)  # type: ignore
+    client = Anthropic(api_key=Config.CLAUDE_API_KEY, timeout=30.0)  # type: ignore
     response = client.messages.create(
         model=Config.CLAUDE_MODEL,
         max_tokens=Config.BROADCAST_IMPROVEMENT_MAX_TOKENS,
