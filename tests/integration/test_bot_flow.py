@@ -3,14 +3,17 @@ test_bot_flow.py — Integration tests for the full WhatsApp bot conversation
 flow, end-to-end through the durable-inbox webhook pipeline: POST
 /whatsapp/webhook (persists to webhook_events) -> process_webhook_events()
 (the worker's poll loop, run synchronously here) -> process_event() ->
-processor.handle_message().
+processor.handle_message() -> outbox_jobs -> process_outbox_jobs() (the
+worker's other poll loop, also run synchronously here).
 
 Tests the complete order lifecycle: new customer -> menu -> add to cart ->
 choose fulfillment -> confirm -> notification to aunt. All DB access and
 WhatsApp sends are mocked via the conftest.py fixtures (fake_db,
-sent_messages) — handle_message calls send_text/send_buttons directly
-(there is no outbox_jobs hop in this flow), so outbound replies are read
-back from the sent_messages fixture rather than a DB table.
+sent_messages). handle_message() no longer calls send_text/send_buttons
+directly — it enqueues into outbox_jobs via queue_text/queue_buttons, and
+only process_outbox_jobs() (driven by process_job()) actually sends — so
+_process_all() below drains both poll loops before a test reads
+sent_messages back.
 """
 import random
 
@@ -18,6 +21,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from tests.conftest import drain_outbox_jobs
 
 FAKE_CATALOG = [
     {"id": 1, "name": "كريم اليدين", "list_price": 25.0, "description_sale": "كريم مرطب"},
@@ -40,9 +44,13 @@ def client(monkeypatch):
 
 def _process_all():
     """Drain the durable inbox synchronously — stands in for the worker's
-    process_webhook_events poll loop (app/worker.py runs it every 3s)."""
+    process_webhook_events poll loop (app/worker.py runs it every 3s) — then
+    drains the outbox poller too (a separate 2s job in worker.py, see
+    drain_outbox_jobs) so the resulting customer-facing reply actually lands
+    in sent_messages instead of sitting in outbox_jobs as 'pending'."""
     from app.services.processor import process_webhook_events
     process_webhook_events()
+    drain_outbox_jobs()
 
 
 def _last_message_to(sent_messages, phone):

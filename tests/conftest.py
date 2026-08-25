@@ -36,8 +36,10 @@ class FakeDB:
         self.history: dict[str, list[dict]] = {}
         self.orders: list[dict] = []
         self.webhook_events: list[dict] = []
+        self.outbox_jobs: list[dict] = []
         self._order_seq = itertools.count(1)
         self._event_seq = itertools.count(1)
+        self._outbox_seq = itertools.count(1)
 
     # -- reads -----------------------------------------------------------
 
@@ -63,6 +65,13 @@ class FakeDB:
             pending = [e for e in self.webhook_events if not e["processed"]]
             pending.sort(key=lambda e: e["created_at"])
             return pending[:10]
+        if "FROM OUTBOX_JOBS" in s:
+            eligible = [
+                j for j in self.outbox_jobs
+                if j["status"] in ("pending", "failed") and j["attempts"] < j["max_attempts"]
+            ]
+            eligible.sort(key=lambda j: j["created_at"])
+            return eligible[:10]
         return []
 
     # -- writes ------------------------------------------------------------
@@ -153,8 +162,51 @@ class FakeDB:
                 return
             return
 
-        # outbox_jobs and anything else: no-op stub (not exercised by
-        # handle_message, which sends synchronously via send_text/send_buttons).
+        if "INSERT INTO OUTBOX_JOBS" in s:
+            kind, phone, payload = params
+            self.outbox_jobs.append({
+                "id": next(self._outbox_seq),
+                "kind": kind,
+                "phone": phone,
+                "payload": payload,
+                "status": "pending",
+                "attempts": 0,
+                "max_attempts": 3,
+                "last_error": None,
+                "created_at": len(self.outbox_jobs),
+                "updated_at": None,
+                "processed_at": None,
+            })
+            return
+
+        if "UPDATE OUTBOX_JOBS" in s:
+            # Order matters: check the more specific patterns first.
+            if "STATUS = 'PROCESSING'" in s:
+                job_id, = params
+                job = self._outbox_job(job_id)
+                if job:
+                    job["status"] = "processing"
+                    job["attempts"] += 1
+                    job["updated_at"] = "now"
+                return
+            if "STATUS = 'SENT'" in s:
+                job_id, = params
+                job = self._outbox_job(job_id)
+                if job:
+                    job["status"] = "sent"
+                    job["processed_at"] = "now"
+                return
+            if "STATUS = 'FAILED'" in s:
+                last_error, job_id = params
+                job = self._outbox_job(job_id)
+                if job:
+                    job["status"] = "failed"
+                    job["last_error"] = last_error
+                    job["updated_at"] = "now"
+                return
+            return
+
+        # anything else: no-op stub.
         return
 
     def execute_returning(self, sql: str, params: tuple = ()) -> dict | None:
@@ -179,6 +231,9 @@ class FakeDB:
 
     def _webhook_event(self, event_id) -> dict | None:
         return next((e for e in self.webhook_events if e["id"] == event_id), None)
+
+    def _outbox_job(self, job_id) -> dict | None:
+        return next((j for j in self.outbox_jobs if j["id"] == job_id), None)
 
 
 @pytest.fixture()
@@ -222,3 +277,42 @@ def mock_db(monkeypatch, fake_db: FakeDB, sent_messages: list[dict]):
     monkeypatch.setattr(processor, "send_buttons", _capture_send_buttons)
 
     return fake_db
+
+
+def drain_outbox_jobs() -> None:
+    """Repeatedly call app.services.processor.process_outbox_jobs() until no
+    eligible outbox_jobs row remains (a single call only pulls up to 10 rows
+    at a time, mirroring the real poller's LIMIT 10 — see process_outbox_jobs).
+
+    processor.handle_message()/process_webhook_events() no longer send
+    WhatsApp messages directly — they enqueue rows into outbox_jobs via
+    queue_text()/queue_buttons(), and only process_job() (driven by
+    process_outbox_jobs()) actually calls send_text/send_buttons. In
+    production these are two separate scheduled jobs (see app/worker.py:
+    process_webhook_events every 3s, process_outbox_jobs every 2s) — this
+    helper stands in for the second one so tests can flush it explicitly
+    before asserting on sent_messages.
+    """
+    import app.services.processor as processor
+
+    while processor.query(
+        "SELECT id, kind, phone, payload, attempts FROM outbox_jobs "
+        "WHERE status IN ('pending', 'failed') AND attempts < max_attempts "
+        "ORDER BY created_at ASC LIMIT 10"
+    ):
+        processor.process_outbox_jobs()
+
+
+@pytest.fixture()
+def flush_outbox():
+    """Drain the outbox poller synchronously. Usage:
+
+        processor.handle_message(phone, "cart", "Test")
+        flush_outbox()
+        assert "..." in _last_text(sent_messages, phone)
+
+    Returns the drain_outbox_jobs() callable (rather than draining once
+    itself) so it reads the same way at every call site regardless of how
+    many outbox rows the preceding step queued.
+    """
+    return drain_outbox_jobs
