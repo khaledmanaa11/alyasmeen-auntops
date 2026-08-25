@@ -72,7 +72,7 @@ This roadmap transitions ALYASMEEN AuntOps from a development implementation to 
 - [ ] 04-04-PLAN.md — Retire retry_queue.py/retry_actions.py + retirement migration
 - [ ] 04-05-PLAN.md — Dead-letter dashboard: /api/alerts backend
 - [ ] 04-06-PLAN.md — Dead-letter dashboard: Alerts UI tab
-- [ ] 04-07-PLAN.md — Live rollout: service_role switch, migrations, backup drill (checkpoints)
+- [ ] 04-07-PLAN.md — Live rollout: DATABASE_URL persistence, service_role switch, migrations, backup drill (checkpoints)
 
 ### Phase 5: Operator Security & UX (M5)
 **Goal**: Secure and operator-friendly dashboard with MFA and handoff management.
