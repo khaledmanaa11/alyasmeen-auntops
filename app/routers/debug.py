@@ -152,8 +152,9 @@ def chat_send_message(payload: dict):
     later, out-of-band, by the worker's process_webhook_events() loop. That
     async round trip has nothing for this simple test page to display, so
     this endpoint instead calls app.services.processor.handle_message()
-    directly (the same bot logic) and temporarily captures whatever it sends
-    via send_text/send_buttons, so the chat UI can show the reply inline.
+    directly (the same bot logic), drains the outbox it enqueued into, and
+    captures what process_job() sends via send_text/send_buttons, so the
+    chat UI can show the reply inline.
     """
     phone = (payload.get("from_number") or payload.get("phone") or "+972500000001").strip()
     text = (payload.get("text") or "").strip()
@@ -179,6 +180,14 @@ def chat_send_message(payload: dict):
     processor.send_buttons = _capture_send_buttons
     try:
         processor.handle_message(phone, text, name)
+        # Replies are queued in outbox_jobs now — drain them here so
+        # process_job() delivers into the patched senders above. Bounded:
+        # one message yields at most a couple of jobs per poll of 10.
+        for _ in range(3):
+            before = len(captured)
+            processor.process_outbox_jobs()
+            if len(captured) == before:
+                break
     finally:
         processor.send_text = original_send_text
         processor.send_buttons = original_send_buttons

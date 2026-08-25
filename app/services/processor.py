@@ -43,6 +43,32 @@ AI_FALLBACK_REPLY = "عذرًا، في مشكلة تقنية مؤقتة، جرب
 
 
 # ---------------------------------------------------------------------------
+# Outbox enqueue — the durable-send seam
+#
+# All customer-facing sends from the message pipeline go through outbox_jobs
+# instead of calling the WhatsApp API inline: a send failure then retries in
+# the outbox poller (bounded by max_attempts) without failing — and therefore
+# re-running — the webhook event that produced it. Only process_job() and the
+# standalone scheduler services call send_text/send_buttons directly.
+# ---------------------------------------------------------------------------
+
+def queue_text(phone: str, text: str) -> None:
+    """Queue an outbound text message for the outbox poller."""
+    execute(
+        "INSERT INTO outbox_jobs (kind, phone, payload) VALUES (%s, %s, %s)",
+        ("whatsapp_message", phone, {"text": text}),
+    )
+
+
+def queue_buttons(phone: str, body: str, buttons: list) -> None:
+    """Queue an outbound interactive-buttons message for the outbox poller."""
+    execute(
+        "INSERT INTO outbox_jobs (kind, phone, payload) VALUES (%s, %s, %s)",
+        ("whatsapp_buttons", phone, {"body": body, "buttons": buttons}),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Polling Loops
 # ---------------------------------------------------------------------------
 
@@ -201,7 +227,7 @@ def handle_message(phone: str, text: str, name: str = ""):
     if cmd in ("clear", "فرغ", "افرغ السلة", "مسح"):
         st["cart"] = []
         save_session(phone, st)
-        send_text(phone, "تم إفراغ السلة 🗑️")
+        queue_text(phone, "تم إفراغ السلة 🗑️")
         return
 
     if cmd in ("confirm", "تأكيد", "اكد", "أكد", "تم") and cart:
@@ -219,7 +245,7 @@ def handle_message(phone: str, text: str, name: str = ""):
         st["fulfillment"] = "delivery"
         st["stage"] = "address"
         save_session(phone, st)
-        send_text(phone, "ممتاز! لمين وبأي عنوان التوصيل؟ (اكتبي المدينة والحي والشارع لو سمحتِ 🙏)")
+        queue_text(phone, "ممتاز! لمين وبأي عنوان التوصيل؟ (اكتبي المدينة والحي والشارع لو سمحتِ 🙏)")
         return
 
     # 4. Handle stage-based inputs
@@ -238,7 +264,7 @@ def handle_message(phone: str, text: str, name: str = ""):
             p = menu_items[idx]
             _tool_add_to_cart(st, cart, p["name"], 1)
             save_session(phone, st)
-            send_text(phone, f"أبشري! أضفت {p['name']} للسلة 🛒 بدك تضيفي كمان شي ولا نتمم الطلب؟")
+            queue_text(phone, f"أبشري! أضفت {p['name']} للسلة 🛒 بدك تضيفي كمان شي ولا نتمم الطلب؟")
             return
 
     # 6. Fallback to AI
@@ -260,7 +286,7 @@ def handle_message(phone: str, text: str, name: str = ""):
         reply = AI_FALLBACK_REPLY
 
     append_history(phone, "assistant", reply)
-    send_text(phone, reply)
+    queue_text(phone, reply)
     
     # Session might have been updated by tools
     save_session(phone, st)
@@ -363,7 +389,7 @@ def _tool_show_menu(phone: str, category: str, st: dict) -> str:
     # then overwrite, reverting menu_products right after it was set.
     st["menu_products"] = menu_data
 
-    send_text(phone, text)
+    queue_text(phone, text)
     return "تم عرض القائمة للزبون."
 
 
@@ -390,7 +416,7 @@ def _tool_save_address(phone: str, st: dict, address: str) -> str:
 
 def _show_cart(phone: str, cart: list):
     if not cart:
-        send_text(phone, "سلتك فارغة حالياً. شو حابة تشوفي من منتجاتنا؟")
+        queue_text(phone, "سلتك فارغة حالياً. شو حابة تشوفي من منتجاتنا؟")
         return
 
     lines = ["🛒 *سلة المشتريات:*"]
@@ -405,7 +431,7 @@ def _show_cart(phone: str, cart: list):
     st = load_session(phone)
     if not st.get("fulfillment"):
         # Ask for fulfillment
-        send_buttons(
+        queue_buttons(
             phone,
             "\n".join(lines) + "\n\nكيف بتحبي تستلمي الطلب؟",
             [
@@ -419,7 +445,7 @@ def _show_cart(phone: str, cart: list):
             lines.append(f"*العنوان:* {st['address']}")
         
         lines.append("\nلتأكيد الطلب اكتبي 'confirm' ✅")
-        send_text(phone, "\n".join(lines))
+        queue_text(phone, "\n".join(lines))
 
 
 def _handle_confirm(phone: str, st: dict, cart: list):
@@ -430,7 +456,7 @@ def _handle_confirm(phone: str, st: dict, cart: list):
     if st.get("fulfillment") == "delivery" and not st.get("address"):
         st["stage"] = "address"
         save_session(phone, st)
-        send_text(phone, "قبل التأكيد، لمين وبأي عنوان التوصيل؟ (اكتبي المدينة والحي والشارع لو سمحتِ 🙏)")
+        queue_text(phone, "قبل التأكيد، لمين وبأي عنوان التوصيل؟ (اكتبي المدينة والحي والشارع لو سمحتِ 🙏)")
         return
 
     total = sum(item["qty"] * item["price"] for item in cart)
@@ -463,14 +489,14 @@ def _handle_confirm(phone: str, st: dict, cart: list):
 
         order_name = f"ORD-{order_id:04d}"
         
-        send_text(phone, f"تم تأكيد طلبك بنجاح! 🎉\nرقم الطلب: {order_name}\nرح نتواصل معك قريباً لتأكيد الموعد. شكراً لثقتك بالياسمين 🌿")
+        queue_text(phone, f"تم تأكيد طلبك بنجاح! 🎉\nرقم الطلب: {order_name}\nرح نتواصل معك قريباً لتأكيد الموعد. شكراً لثقتك بالياسمين 🌿")
         
         # Notify Aunt if configured
         if Config.AUNT_PHONE:
-            send_text(Config.AUNT_PHONE, f"طلب جديد! 🔔\nمن: {phone}\nرقم الطلب: {order_name}\nالقيمة: {total}₪")
+            queue_text(Config.AUNT_PHONE, f"طلب جديد! 🔔\nمن: {phone}\nرقم الطلب: {order_name}\nالقيمة: {total}₪")
             
         clear_session(phone)
         
     except Exception as e:
         log.error("order_confirmation_failed", error=str(e), phone=phone)
-        send_text(phone, "عذراً، صار خلل أثناء تأكيد الطلب. بنحاول مرة ثانية، أو تواصلي معنا مباشرة.")
+        queue_text(phone, "عذراً، صار خلل أثناء تأكيد الطلب. بنحاول مرة ثانية، أو تواصلي معنا مباشرة.")

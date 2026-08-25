@@ -7,6 +7,20 @@ import requests
 from app.services.config import Config
 
 
+class WhatsAppSendError(RuntimeError):
+    """Raised when the Meta Cloud API rejects an outbound message.
+
+    Senders must raise on failure so callers (the outbox poller, the retry
+    queue) can retry — a silently swallowed error is an undeliverable message
+    nobody ever hears about.
+    """
+
+
+def _check_response(r, data) -> None:
+    if not (200 <= r.status_code < 300):
+        raise WhatsAppSendError(f"meta api status={r.status_code} resp={data}")
+
+
 def send_text(to: str, text: str) -> dict:
     """Send a text message via the Meta Cloud API.
 
@@ -36,6 +50,7 @@ def send_text(to: str, text: str) -> dict:
         data = r.json()
     except Exception:
         data = {"status": r.status_code, "text": r.text}
+    _check_response(r, data)
     return {"status": r.status_code, "resp": data}
 
 def send_buttons(to: str, body: str, buttons: list[dict]) -> dict:
@@ -75,6 +90,7 @@ def send_buttons(to: str, body: str, buttons: list[dict]) -> dict:
         data = r.json()
     except Exception:
         data = {"status": r.status_code, "text": r.text}
+    _check_response(r, data)
     return {"status": r.status_code, "resp": data}
 
 
@@ -114,6 +130,7 @@ def send_document_bytes(to: str, pdf_bytes: bytes, filename: str, caption: str |
         data = r.json()
     except Exception:
         data = {"status": r.status_code, "text": r.text}
+    _check_response(r, data)
     return {"status": r.status_code, "resp": data}
 
 
@@ -153,6 +170,7 @@ def send_document(to: str, url: str, filename: str, caption: str | None = None) 
         data = r.json()
     except Exception:
         data = {"status": r.status_code, "text": r.text}
+    _check_response(r, data)
     return {"status": r.status_code, "resp": data}
 
 def verify_signature(body_bytes: bytes, signature: str | None) -> bool:
