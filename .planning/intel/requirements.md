@@ -1,10 +1,11 @@
 # Requirements (synthesized intel)
 
-Extracted from the two PRD-typed docs. Where the two PRDs diverge on the same scope, **both variants are preserved** and flagged in `INGEST-CONFLICTS.md` (competing-variants). Synthesis does NOT pick a winner.
+Extracted from the two PRD-typed docs and production readiness research.
 
 Source PRDs:
 - `docs/PRD.md` (baseline, 2026-03-27, Status: Active)
 - `docs/PRD_PROMPT_ENGINEERING.md` (2026-04-05, Status: Implemented)
+- `.planning/research/ARCHITECTURE.md` (Production Requirements)
 
 ---
 
@@ -24,7 +25,7 @@ Source PRDs:
   - acceptance (US-07): fires within seconds on every confirm; never blocks order save if it fails.
 - REQ-bot-fulfillment — Support both pickup and delivery (BOT-13).
 
-## AI Conversation (source: docs/PRD.md §3.2) — see competing variants below
+## AI Conversation (source: docs/PRD.md §3.2)
 - REQ-ai-model — Claude Haiku as sole AI model (AI-01).
 - REQ-ai-persona — System prompt positions AI as "عمة ALYASMEEN" (AI-02).
 - REQ-ai-no-hallucination — Suggest only Supabase-catalog products, no hallucinated products (AI-03).
@@ -49,7 +50,7 @@ Source PRDs:
 - REQ-dash-charts — 30-day daily bar chart + status donut + top-5 products (DASH-08..10).
 - REQ-dash-products-crud — Products list/create/edit/toggle/delete (DASH-11..15, US-09).
 - REQ-dash-broadcast — Compose + send WhatsApp to a segment; segments all / active-30d / top-10 (DASH-16, DASH-17).
-- REQ-dash-pdf-invoice — On status → `done`: generate PDF invoice and send to customer (DASH-18). [see invoice discrepancy in conflicts]
+- REQ-dash-pdf-invoice — On status → `done`: generate PDF invoice and send to customer (DASH-18).
 
 ## Background Scheduler (source: docs/PRD.md §3.4)
 - REQ-sched-followup — Every 6h, follow-up to customers delivered 3+ days ago (SCHED-01).
@@ -69,60 +70,39 @@ Source PRDs:
 
 ## Prompt-Engineering Requirements (source: docs/PRD_PROMPT_ENGINEERING.md)
 
-### Product Retrieval (§5.1)
-- REQ-ret-tags-match — `search_products(query, category)` matches category against `tags` (comma-text), not a `category` column (RET-01).
-- REQ-ret-default-8 — When query+category both None, return first 8 active products (RET-02).
-- REQ-ret-category-filter — Category filter = substring match on tags, case-insensitive, diacritic-normalized (RET-03).
+- REQ-ret-tags-match — `search_products(query, category)` matches category against `tags` (RET-01).
 - REQ-ret-haystack — Search haystack includes name, description, sku, and new `aliases` (RET-04).
-- REQ-ret-load-aliases — Load `aliases` from Supabase alongside name/price/description/tags (RET-05).
-
-### Catalog Injection (§5.2) — COMPETING with REQ-ai-* AI-05 (see conflicts)
-- REQ-cat-full-injection — All active products always injected into system prompt as `<catalog>` XML, regardless of message (CAT-01).
-- REQ-cat-line-format — `<catalog>` line includes name, price, tags, description≤100 chars (CAT-02).
-- REQ-cat-remove-per-message — Remove per-message `_product_context`; replace with `_full_catalog_context()` (CAT-03).
-- REQ-cat-append-system — Catalog appended to dynamic `system` string after static `_SYSTEM_PROMPT` (CAT-04).
-- REQ-cat-empty-omit — Omit block silently if no active products (CAT-05).
-
-### System Prompt Structure (§5.3)
+- REQ-cat-full-injection — All active products always injected into system prompt as `<catalog>` XML (CAT-01).
 - REQ-prompt-xml — XML sections: `<role>`, `<catalog_grounding>`, `<tool_rules>`, `<examples>`, `<reply_rules>` (PROMPT-01).
-- REQ-prompt-decision-tree — `<tool_rules>` contains `<decision_tree>` with 6 named intent patterns (PROMPT-02).
-- REQ-prompt-examples — ≥5 few-shot examples (category browse, English add, open menu, price objection no-tool, multi-item) (PROMPT-03).
-- REQ-prompt-price-objection — Price-objection example explicitly shows "no tool call" (PROMPT-04).
-- REQ-prompt-reply-rules — Max 3 paragraphs, language mirroring, code-switch handling, name greeting (PROMPT-05).
-
-### Tool Descriptions (§5.4)
-- REQ-tool-add-cart-desc — `add_to_cart`: add on buying verb, never without buying intent, accept Arabic-Indic numerals; pick closest match when ambiguous (TOOL-01, TOOL-02).
-- REQ-tool-show-menu-desc — `show_menu`: explicit AR/EN category triggers; filter via tags (TOOL-03, TOOL-04).
-- REQ-tool-save-address-desc — `save_address`: only call if ≥15 chars (city+neighborhood); else ask for more detail (TOOL-05).
-
-### Knowledge Base (§5.5) — variant of REQ-ai-knowledge-base / supersedes TODO.md KB
-- REQ-kb-five-files — Five files exist: store_info, shipping_policy, returns_policy, ingredients_faq, skin_advice (KB-01).
-- REQ-kb-triggers-line — Each file begins with `# triggers: word1, word2` (AR+EN keywords) (KB-02).
-- REQ-kb-selective-inject — Loader injects a file only when a trigger appears in the current message (KB-03).
-- REQ-kb-always-on-fallback — Fall back to no-triggers (always-on) files when nothing matches (KB-04). [audit: added `about_store.md`]
-- REQ-kb-char-cap — Total injected knowledge ≤ 20,000 chars (KB-05).
-- REQ-kb-colloquial — Files written in Palestinian colloquial Arabic, not MSA (KB-06).
-
-### Token Budget (§5.6) — COMPETING with REQ-ai-* AI-09 (see conflicts)
+- REQ-kb-five-files — Five knowledge files with trigger-based selective injection (KB-01..03).
 - REQ-tok-split — `max_tokens=600` when tools enabled, `400` when not (TOK-01).
-- REQ-tok-temperature — Temperature stays 0.3 (TOK-02).
-- REQ-tok-history — History window stays 6 turns (TOK-03).
 
-### Database (§5.7)
-- REQ-db-aliases-column — `products.aliases` column `TEXT DEFAULT ''` (DB-01).
-- REQ-db-aliases-format — `aliases` stores comma-separated synonyms (DB-02).
-- REQ-db-schema-doc — `app/db/schema.sql` reflects the new column with a comment (DB-03).
+---
 
-### Acceptance scenarios (§8) — manual via GET /dev/chat
-1. "بدي كريمات" → `show_menu(category="كريمات")`, filtered list (not empty).
-2. "بدي اطلب" → `show_menu()` no filter, full list, no guessed names.
-3. "الكريم غالي شوي" → conversational reply, NO tool call.
-4. "بدي الكريم والشمعة" → `add_to_cart` twice.
-5. "شو المكونات؟" → answer from ingredients_faq.md.
-6. "I want hand cream" (alias set) → product found + added.
-7. "وين بوصل طلبي؟" → shipping_policy.md content + delivery timing.
+## Production Readiness Requirements (source: .planning/research/ARCHITECTURE.md)
 
-### Data-entry standards (§7, aunt's responsibility — not code reqs)
-- Description template: problem-first → benefit → ingredients → usage timing.
-- Tag taxonomy (underscores, max 6): category (كريمات|لوشن|شموع|عناية_جسم|عناية_وجه|عناية_يدين), skin concern, occasion.
-- Aliases: comma-separated AR+EN synonyms per product.
+### Reliability and Idempotency
+- REQ-prod-inbox — Durable Webhook Inbox persistence before response (M2).
+- REQ-prod-outbox — Durable Outbox for messages and side effects (M2).
+- REQ-prod-atomic-orders — Atomic transaction for order creation and status transitions (M1).
+- REQ-prod-idempotency — Every side effect must have a stable idempotency key (M2).
+
+### Security
+- REQ-prod-auth-mfa — Replace shared password with Supabase Auth + TOTP MFA (M4).
+- REQ-prod-session-opaque — Use opaque server-side sessions, not client-side signed cookies (M4).
+- REQ-prod-csrf — Implement CSRF protection for all mutating dashboard routes (M4).
+- REQ-prod-sec-headers — Add CSP, HSTS, and other security headers (M4).
+- REQ-prod-raw-hmac — Verify Meta X-Hub-Signature-256 over raw request body (M2).
+
+### AI Governance
+- REQ-prod-policy-gate — Deterministic application policy validates all AI-proposed actions (M3).
+- REQ-prod-pinned-model — Use pinned model snapshots instead of floating aliases (M2).
+- REQ-prod-handoff — Explicit human-handoff state and operator inbox (M3, M4).
+- REQ-prod-eval-gate — Pytest-based evaluation release gates for model behavior (M3).
+
+### Observability and Operations
+- REQ-prod-struct-log — JSON structured logging with correlation IDs (M2).
+- REQ-prod-metrics — Application-level metrics (latency, error rates, cost) and alerts (M2).
+- REQ-prod-backup-restore — Automated off-site backups and quarterly restore drills (M1).
+- REQ-prod-migrations — Versioned Supabase CLI migrations; no direct dashboard edits (M1).
+- REQ-prod-cicd — GitHub Actions for CI/CD with release approvals and rollback (M2).

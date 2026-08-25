@@ -66,3 +66,26 @@ Architecture decisions extracted from the ingested docs. No doc in this set is t
 - scope: bilingual product retrieval
 - decision: Add `aliases TEXT DEFAULT ''` to the `products` table; aunt registers synonyms; retriever does exact substring match against aliases. Rejected Levenshtein/phonetic matching.
 - rationale: explicit + deterministic, zero false positives; fuzzy matching is non-deterministic and error-prone in Arabic.
+
+---
+
+## [PROPOSED] ADR-RES-001 — Web/Worker process split for production
+- source: .planning/research/ARCHITECTURE.md
+- status: Proposed
+- scope: production process management
+- decision: Split the modular monolith into two operational roles: a **Web process** for synchronous HTTP work (webhooks, UI) and a **Worker process** for asynchronous/slow work (AI, Meta Send, Invoices).
+- rationale: decouples webhook latency from Claude/Meta response times; prevents duplicate scheduling across replicas; provides a durable boundary for failure recovery.
+
+## [PROPOSED] ADR-RES-002 — Durable Inbox/Outbox pattern
+- source: .planning/research/ARCHITECTURE.md
+- status: Proposed
+- scope: reliability and idempotency
+- decision: Webhooks are persisted to a `webhook_events` table (Inbox) before acknowledgment. Side effects and outbound messages are committed to `outbox_jobs` in the same transaction as business state changes.
+- rationale: guarantees no work is lost during crashes; enables safe retries and prevents duplicate orders.
+
+## [PROPOSED] ADR-RES-003 — Pinned Claude Haiku 4.5 Snapshot
+- source: .planning/research/STACK.md
+- status: Proposed
+- scope: AI model reliability
+- decision: Pin a specific model snapshot (e.g., `claude-haiku-4-5-20251001`) rather than using floating aliases.
+- rationale: prevents silent behavior changes from provider-side model updates; critical for stable tool-use and grounding.

@@ -1,0 +1,50 @@
+{
+  "_meta": {
+    "updated_at": "2026-06-14T00:00:00Z",
+    "version": 1
+  },
+  "entries": {
+    "POST /whatsapp/webhook": {
+      "method": "POST",
+      "path": "/whatsapp/webhook",
+      "params": [],
+      "file": "app/routers/whatsapp.py",
+      "description": "WhatsApp Meta Cloud API webhook for messages and statuses"
+    },
+    "GET /whatsapp/webhook": {
+      "method": "GET",
+      "path": "/whatsapp/webhook",
+      "params": ["hub.mode", "hub.verify_token", "hub.challenge"],
+      "file": "app/routers/whatsapp.py",
+      "description": "WhatsApp Meta Cloud API webhook verification"
+    },
+    "GET /dashboard": {
+      "method": "GET",
+      "path": "/dashboard",
+      "params": [],
+      "file": "app/routers/ui.py",
+      "description": "AuntOps main dashboard"
+    },
+    "GET /orders": {
+      "method": "GET",
+      "path": "/orders",
+      "params": [],
+      "file": "app/routers/ui.py",
+      "description": "Orders management page"
+    },
+    "GET /products": {
+      "method": "GET",
+      "path": "/products",
+      "params": [],
+      "file": "app/routers/ui.py",
+      "description": "Products catalog management"
+    },
+    "POST /api/broadcast": {
+      "method": "POST",
+      "path": "/api/broadcast",
+      "params": [],
+      "file": "app/routers/broadcast.py",
+      "description": "Send broadcast messages to customers"
+    }
+  }
+}

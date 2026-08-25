@@ -1,0 +1,68 @@
+{
+  "_meta": {
+    "updated_at": "2026-06-14T00:00:00Z",
+    "version": 1
+  },
+  "entries": {
+    "fastapi": {
+      "version": ">=0.115.0",
+      "type": "production",
+      "used_by": ["app/main.py", "app/routers/"],
+      "invocation": "implicit"
+    },
+    "starlette": {
+      "version": ">=0.27.0",
+      "type": "production",
+      "used_by": ["fastapi"],
+      "invocation": "implicit"
+    },
+    "uvicorn": {
+      "version": ">=0.22",
+      "type": "production",
+      "used_by": ["Procfile"],
+      "invocation": "uvicorn app.main:app"
+    },
+    "pydantic": {
+      "version": ">=2.0",
+      "type": "production",
+      "used_by": ["app/services/ai_service.py", "app/routers/whatsapp_helpers.py"],
+      "invocation": "require"
+    },
+    "supabase": {
+      "version": ">=2.0.0",
+      "type": "production",
+      "used_by": ["app/db/database.py"],
+      "invocation": "require"
+    },
+    "anthropic": {
+      "version": ">=0.25.0",
+      "type": "production",
+      "used_by": ["app/services/ai_service.py"],
+      "invocation": "require"
+    },
+    "apscheduler": {
+      "version": ">=3.10.0",
+      "type": "production",
+      "used_by": ["app/main.py"],
+      "invocation": "require"
+    },
+    "jinja2": {
+      "version": "==3.1.5",
+      "type": "production",
+      "used_by": ["app/routers/ui.py"],
+      "invocation": "require"
+    },
+    "fpdf2": {
+      "version": ">=2.7.0",
+      "type": "production",
+      "used_by": ["app/services/pdf_invoice.py"],
+      "invocation": "require"
+    },
+    "pytest": {
+      "version": "latest",
+      "type": "development",
+      "used_by": ["tests/"],
+      "invocation": "pytest"
+    }
+  }
+}

@@ -34,3 +34,10 @@ Running notes from DOC-typed sources, appended with provenance. These are backgr
 - Verification backlog (manual via `/dev/chat`): V-1..V-10 (category menu, open-order intent, price objection no-tool, multi-item, ingredients FAQ, bilingual alias match, delivery question, short-address rejection, English add-to-cart, mention-without-buying-intent). All currently unchecked.
 - Pending data tasks (aunt/Khaled, no code): rewrite descriptions problem-first; standardize tags to taxonomy; fill aliases; fill real knowledge-file content (currently placeholders).
 - Deferred (not scheduled): fuzzy matching, semantic/vector search, multi-turn consultation flow, prompt A/B testing, auto-tag suggestions.
+
+## Topic: Production Readiness Research (Paused)
+- source: .planning/research/ (ARCHITECTURE.md, STACK.md, FEATURES.md, PITFALLS.md)
+- Date: 2026-06-14 (Paused at 6/9 per commit history)
+- Status: Phase 1 (Ingestion) complete. Phase 2 (Research) started but incomplete.
+- Key findings: Recommendation to move to a Web/Worker split modular monolith. Transition to Supabase migrations and typed RPCs. Implement durable inbox/outbox. Shift to Claude Haiku 4.5 pinned snapshot.
+- Blockers: ROADMAP.md and STATE.md are missing. Research tasks remain for finalization before roadmapping.
