@@ -163,3 +163,106 @@ class TestKeywordHandoff:
         flush_outbox()
 
         assert _last_text(sent_messages, phone) == processor.AI_FALLBACK_REPLY
+
+
+# ---------------------------------------------------------------------------
+# Unsupported media
+# ---------------------------------------------------------------------------
+
+def _media_payload(msg_type: str, name: str = "Test") -> dict:
+    """A realistic Meta webhook payload for a non-text message —
+    entry[0].changes[0].value.messages[0] with the given `type`."""
+    return {
+        "entry": [{
+            "changes": [{
+                "value": {
+                    "messages": [{"type": msg_type}],
+                    "contacts": [{"profile": {"name": name}}],
+                }
+            }]
+        }]
+    }
+
+
+def _seed_webhook_event(fake_db, event_id, phone, payload):
+    fake_db.webhook_events.append({
+        "id": event_id, "phone": phone, "payload": payload,
+        "wamid": None, "processed": False, "attempts": 0, "error": None,
+        "created_at": len(fake_db.webhook_events),
+    })
+
+
+class TestUnsupportedMedia:
+    def test_voice_note_gets_a_reply_and_a_handoff(self, sent_messages, fake_db, flush_outbox):
+        phone = _phone()
+        _seed_webhook_event(fake_db, 1, phone, _media_payload("audio"))
+
+        processor.process_event(1, phone, _media_payload("audio"))
+        flush_outbox()
+
+        assert _last_text(sent_messages, phone) == processor.UNSUPPORTED_MEDIA_REPLY
+        row = last_handoff(fake_db, phone)
+        assert row is not None
+        assert row["reason"] == "unsupported_media"
+        assert fake_db.sessions[phone]["paused"] is True
+
+    @pytest.mark.parametrize(
+        "msg_type", ["audio", "image", "sticker", "document", "video", "location"]
+    )
+    def test_image_sticker_document_all_handled(self, sent_messages, fake_db, flush_outbox, msg_type):
+        phone = _phone()
+        _seed_webhook_event(fake_db, 1, phone, _media_payload(msg_type))
+
+        processor.process_event(1, phone, _media_payload(msg_type))
+        flush_outbox()
+
+        assert _last_text(sent_messages, phone) == processor.UNSUPPORTED_MEDIA_REPLY
+        row = last_handoff(fake_db, phone)
+        assert row is not None
+        assert row["reason"] == "unsupported_media"
+        assert row["metadata"]["msg_type"] == msg_type
+
+    def test_customer_row_is_created_for_a_first_contact_voice_note(self, fake_db, flush_outbox):
+        phone = _phone()
+        assert phone not in fake_db.customers
+
+        processor.process_event(1, phone, _media_payload("audio", name="سارة"))
+        flush_outbox()
+
+        assert phone in fake_db.customers
+
+    def test_event_is_still_marked_processed(self, fake_db, flush_outbox):
+        phone = _phone()
+        _seed_webhook_event(fake_db, 7, phone, _media_payload("sticker"))
+
+        processor.process_event(7, phone, _media_payload("sticker"))
+        flush_outbox()
+
+        ev = fake_db.webhook_events[0]
+        assert ev["processed"] is True
+        assert ev["error"] is None
+
+    def test_media_during_active_handoff_does_not_resend_the_apology(self, sent_messages, fake_db, flush_outbox):
+        phone = _phone()
+        _seed_paused_session(fake_db, phone)
+
+        processor.process_event(1, phone, _media_payload("audio"))
+        processor.process_event(2, phone, _media_payload("image"))
+        flush_outbox()
+
+        assert len(sent_messages) <= 1
+
+    def test_text_message_path_is_unchanged(self, sent_messages, fake_db, flush_outbox):
+        phone = _phone()
+        text_payload = {
+            "entry": [{"changes": [{"value": {"messages": [{
+                "type": "text", "text": {"body": "cart"},
+            }]}}]}]
+        }
+        _seed_webhook_event(fake_db, 1, phone, text_payload)
+
+        processor.process_event(1, phone, text_payload)
+        flush_outbox()
+
+        assert "فارغة" in _last_text(sent_messages, phone)
+        assert last_handoff(fake_db, phone) is None

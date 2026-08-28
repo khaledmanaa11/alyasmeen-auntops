@@ -226,13 +226,20 @@ def process_event(event_id: str, phone: str, payload: dict):
                 text = msg.get("text", {}).get("body", "").strip()
                 if text:
                     handle_message(phone, text, name)
+                else:
+                    log.info("empty_text_message", phone=phone)
             elif msg_type == "interactive":
                 # Handle button clicks
                 interactive = msg.get("interactive", {})
                 if interactive.get("type") == "button_reply":
                     text = interactive.get("button_reply", {}).get("id", "").strip()
                     handle_message(phone, text, name)
-            
+            else:
+                # Voice note, image, sticker, document, video, location,
+                # contacts, ... — anything this bot cannot read. Previously
+                # silently dropped (processed=TRUE, no reply, no trace).
+                handle_unsupported_media(phone, msg_type or "unknown", name)
+
         # Handle statuses (read receipts, etc.) - currently just logged
         statuses = value.get("statuses", [])
         if statuses:
@@ -436,9 +443,55 @@ def handle_message(phone: str, text: str, name: str = ""):
 
     append_history(phone, "assistant", reply)
     queue_text(phone, reply)
-    
+
     # Session might have been updated by tools
     save_session(phone, st)
+
+
+# WhatsApp message types this bot cannot read, mapped to the plain-Arabic
+# noun used in the customer-facing reply and in the chat_history placeholder
+# (mirrors how the eval dataset itself represents these inputs, e.g.
+# "[رسالة صوتية - 0:43]", "[ملصق]").
+MEDIA_TYPE_LABELS = {
+    "audio": "صوتية", "voice": "صوتية", "image": "صورة", "sticker": "ملصق",
+    "document": "ملف", "video": "فيديو", "location": "موقع", "contacts": "جهة اتصال",
+}
+
+
+def handle_unsupported_media(phone: str, msg_type: str, name: str = "") -> None:
+    """A voice note / image / sticker / document / video / location /
+    contacts message arrived. The bot cannot read it, so: acknowledge it in
+    chat_history (so the aunt sees what the customer actually sent), reply
+    with a polite apology, and open a handoff so a human follows up — instead
+    of process_event's previous silent drop (processed=TRUE, no reply, no
+    trace).
+
+    Unlike handle_message, this path is reached directly from process_event
+    without any prior upsert_customer() call, so it does its own —
+    handoffs.phone has a live FK to customers(phone); a brand-new customer
+    whose very first message is a voice note would otherwise fail that FK.
+    """
+    upsert_customer(phone, name)
+
+    # Same rule as the text path's paused gate: if a human already owns this
+    # conversation, don't re-send the apology or open a second handoff for
+    # every subsequent voice note/photo — just log the placeholder.
+    if load_session(phone).get("paused"):
+        label = MEDIA_TYPE_LABELS.get(msg_type, msg_type)
+        append_history(phone, "user", f"[رسالة {label}]")
+        return
+
+    label = MEDIA_TYPE_LABELS.get(msg_type, msg_type)
+    append_history(phone, "user", f"[رسالة {label}]")
+
+    # Reply is queued before the handoff so a handoff failure can never cost
+    # the customer her reply.
+    queue_text(phone, UNSUPPORTED_MEDIA_REPLY)
+    append_history(phone, "assistant", UNSUPPORTED_MEDIA_REPLY)
+
+    _open_handoff(phone, "unsupported_media", {"msg_type": msg_type})
+
+    log.info("unsupported_media", phone=phone, msg_type=msg_type)
 
 
 # ---------------------------------------------------------------------------
