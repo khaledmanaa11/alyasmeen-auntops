@@ -47,6 +47,7 @@ auntops_fixed/
 | WhatsApp send (mock) | `app/services/whatsapp_dev.py` |
 | Invoice PDF | `app/services/pdf_invoice.py` |
 | AI knowledge base | `app/data/knowledge/*.md` |
+| Operator session/device/pending-login CRUD (Phase 5) | `app/services/sessions.py` (opaque token store — `operator_sessions`/`trusted_devices`/`pending_logins`) |
 
 ## Module Breakdown
 
@@ -65,6 +66,7 @@ auntops_fixed/
 - `retry_actions.py` — concrete retryable actions (WhatsApp/invoice)
 - `pdf_invoice.py` — fpdf2 + python-bidi invoice generation
 - `whatsapp_meta.py` / `whatsapp_dev.py` — interchangeable sender implementations
+- `sessions.py` (Phase 5) — opaque operator-session store: `create_session`/`lookup_session`/`revoke_session`/`revoke_all_for_user`/`list_sessions_for_user`/`list_active_sessions` (operator_sessions), `find_trusted_device`/`remember_device` (trusted_devices, 30-day MFA remember-device), `create_pending_login`/`consume_pending_login`/`purge_expired` (pending_logins, single-use AAL1->AAL2 bridge). Only `sha256(raw_token)` ever reaches the DB.
 
 ### `app/db/`
 - `database.py` — `query` / `execute` / `execute_returning` / `ping` via Supabase RPC
