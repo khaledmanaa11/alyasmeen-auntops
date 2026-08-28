@@ -33,7 +33,8 @@ from app.services.sessions import Operator
 
 class FakeDB:
     """A tiny in-memory stand-in for the Supabase-backed tables the bot
-    touches (sessions, chat_history, customers, orders, webhook_events).
+    touches (sessions, chat_history, customers, orders, webhook_events,
+    handoffs).
 
     Routes by keyword-matching the raw SQL text (before %s substitution) —
     good enough to exercise real behavior without a real database.
@@ -46,9 +47,20 @@ class FakeDB:
         self.orders: list[dict] = []
         self.webhook_events: list[dict] = []
         self.outbox_jobs: list[dict] = []
+        self.handoffs: list[dict] = []
         self._order_seq = itertools.count(1)
         self._event_seq = itertools.count(1)
         self._outbox_seq = itertools.count(1)
+        self._handoff_seq = itertools.count(1)
+
+    @staticmethod
+    def _default_session() -> dict:
+        """Shape of a brand-new sessions row — mirrors
+        whatsapp_helpers.load_session()'s own default dict, plus `paused`."""
+        return {
+            "stage": "root", "cart": [], "fulfillment": None,
+            "menu_products": [], "address": "", "paused": False,
+        }
 
     # -- reads -----------------------------------------------------------
 
@@ -81,12 +93,40 @@ class FakeDB:
             ]
             eligible.sort(key=lambda j: j["created_at"])
             return eligible[:10]
+        if "FROM HANDOFFS" in s:
+            # Serves handoff.trigger()'s idempotency read:
+            # "SELECT id FROM handoffs WHERE phone = %s AND status = 'active' ..."
+            # — the only query against `handoffs` this pipeline issues today.
+            phone = params[0]
+            actives = [h for h in self.handoffs if h["phone"] == phone and h["status"] == "active"]
+            if not actives:
+                return []
+            newest = sorted(actives, key=lambda h: h["created_at"])[-1]
+            return [{"id": newest["id"]}]
         return []
 
     # -- writes ------------------------------------------------------------
 
     def execute(self, sql: str, params: tuple = ()) -> None:
         s = sql.upper()
+
+        # More specific "INSERT INTO SESSIONS ... PAUSED" pattern MUST be
+        # checked before the generic "INSERT INTO SESSIONS" branch below:
+        # handoff.trigger()'s pause upsert
+        # ("INSERT INTO sessions (phone, paused) VALUES (%s, TRUE) ON
+        # CONFLICT (phone) DO UPDATE SET paused = TRUE, ...") passes a single
+        # `(phone,)` param tuple, while the generic branch unpacks 6 — that
+        # would raise ValueError if checked first.
+        if "INSERT INTO SESSIONS" in s and "PAUSED" in s:
+            (phone,) = params
+            self.sessions.setdefault(phone, self._default_session())["paused"] = True
+            return
+
+        # handoff.resolve()'s "return to bot" half.
+        if "UPDATE SESSIONS SET PAUSED = FALSE" in s:
+            (phone,) = params
+            self.sessions.setdefault(phone, self._default_session())["paused"] = False
+            return
 
         if "INSERT INTO SESSIONS" in s:
             phone, stage, cart, fulfillment, menu, address = params
@@ -96,6 +136,12 @@ class FakeDB:
                 "fulfillment": fulfillment,
                 "menu_products": json.loads(menu) if isinstance(menu, str) else (menu or []),
                 "address": address,
+                # save_session()'s real SQL (ON CONFLICT DO UPDATE SET ...)
+                # deliberately never lists `paused` — only handoff.trigger()
+                # (TRUE) and handoff.resolve() (FALSE) own that column. A
+                # save must therefore PRESERVE whatever pause state already
+                # existed for this phone, never reset it to False.
+                "paused": self.sessions.get(phone, {}).get("paused", False),
             }
             return
 
@@ -219,6 +265,24 @@ class FakeDB:
         return
 
     def execute_returning(self, sql: str, params: tuple = ()) -> dict | None:
+        s = sql.upper()
+        if "INSERT INTO HANDOFFS" in s:
+            # Mirrors handoff.trigger()'s literal INSERT:
+            # "INSERT INTO handoffs (phone, reason, status, assigned_to,
+            #  metadata) VALUES (%s, %s, 'active', %s, %s) RETURNING id"
+            phone, reason, assigned_to, metadata = params
+            handoff_id = f"h-{next(self._handoff_seq)}"
+            self.handoffs.append({
+                "id": handoff_id,
+                "phone": phone,
+                "reason": reason,
+                "status": "active",
+                "assigned_to": assigned_to,
+                "metadata": metadata,
+                "resolved_at": None,
+                "created_at": len(self.handoffs),
+            })
+            return {"id": handoff_id}
         return None
 
     def rpc(self, name: str, params: dict | None = None, retryable: bool = False) -> list[dict]:
@@ -312,10 +376,29 @@ def mock_db(monkeypatch, fake_db: FakeDB, sent_messages: list[dict]):
     are already covered for wh/processor above, rather than requiring every
     test file that happens to exercise an audited code path to remember its
     own per-test patch.
+
+    app.services.handoff is included here (03-04): the moment
+    processor.handle_message() started calling handoff.trigger() (keyword/
+    media handoffs) and processor's tool executor started calling it too
+    (03-05, tool-call escalation), every existing test that drives a message
+    through handle_message()/process_webhook_events() reaches handoff.py's
+    query/execute/execute_returning. Before this, handoff.py was only ever
+    exercised by its own dedicated test files (test_handoff_trigger.py,
+    test_handoff_resolve.py) with their own local, self-contained fake DBs —
+    that pattern still works and is unaffected by this addition. This entry
+    just means the *shared* fake_db (sessions/customers/handoffs) is now also
+    the one every processor-level test sees when a handoff fires mid-flow,
+    exactly the same treatment `audit` already got in 05-09 and for the
+    identical reason: an unpatched call here would not fail loudly, it would
+    silently reach the live production Supabase project.
+
+    app.services.policy deliberately needs NO patching here — it performs no
+    I/O at all, by design (03-02); nobody should "helpfully" add it later.
     """
     import app.routers.whatsapp as wa
     import app.routers.whatsapp_helpers as wh
     import app.services.audit as audit
+    import app.services.handoff as handoff
     import app.services.processor as processor
 
     def _capture_send_text(to, text):
@@ -326,9 +409,11 @@ def mock_db(monkeypatch, fake_db: FakeDB, sent_messages: list[dict]):
         sent_messages.append({"to": to, "text": body, "buttons": buttons})
         return {"dev": True, "to": to, "text": body, "buttons": buttons}
 
-    for mod in (wh, processor, audit):
+    for mod in (wh, processor, audit, handoff):
         monkeypatch.setattr(mod, "query", fake_db.query)
         monkeypatch.setattr(mod, "execute", fake_db.execute)
+
+    monkeypatch.setattr(handoff, "execute_returning", fake_db.execute_returning)
 
     monkeypatch.setattr(wa, "execute", fake_db.execute)
     monkeypatch.setattr(processor, "rpc", fake_db.rpc)
@@ -450,3 +535,11 @@ def flush_outbox():
     many outbox rows the preceding step queued.
     """
     return drain_outbox_jobs
+
+
+def last_handoff(fake_db: "FakeDB", phone: str) -> dict | None:
+    """The most recently created handoffs row for `phone` (active or not),
+    or None — a small helper so test files stop reaching into
+    fake_db.handoffs and filtering/sorting by hand."""
+    matches = [h for h in fake_db.handoffs if h["phone"] == phone]
+    return matches[-1] if matches else None
