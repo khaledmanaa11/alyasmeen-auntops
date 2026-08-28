@@ -114,5 +114,5 @@ This roadmap transitions ALYASMEEN AuntOps from a development implementation to 
 | 2. Application Hardening | 2/2 | ✅ Completed | 2026-06-14 |
 | 3. Agent Dependability | 0/3 | 🏗️ In Progress | - |
 | 4. Reliability & Ops Completion | 7/7 | Complete    | 2026-08-28 |
-| 5. Operator Security | 0/10 | 📋 Planned | - |
+| 5. Operator Security | 3/10 | 🏗️ In Progress | - |
 | 6. Production Go-Live | 0/1 | Not started | - |
