@@ -110,5 +110,6 @@ def test_list_operator_actions_excludes_customer_generated_rows(fake_audit_db):
     assert "handoff_resolved" in actions
 
 
-def test_operator_actions_has_eighteen_entries():
-    assert len(audit.OPERATOR_ACTIONS) == 18
+def test_operator_actions_has_nineteen_entries():
+    # 18 as of 05-05, +1 ("password_reset_completed") added by 05-09.
+    assert len(audit.OPERATOR_ACTIONS) == 19

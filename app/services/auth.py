@@ -272,3 +272,43 @@ def send_password_reset(email: str) -> None:
         )
     except Exception as exc:  # noqa: BLE001
         raise _to_auth_error(exc) from exc
+
+
+def exchange_code_for_session(code: str) -> tuple[str, str]:
+    """Redeems the PKCE `?code=` query param from the password-reset landing URL
+    (05-09's `GET /login/reset`) for a fresh AAL1 access/refresh token pair.
+
+    Honest caveat for whoever debugs this against the real project: PKCE's
+    code_verifier is normally generated and held by whichever client STARTED the
+    flow, so it can be supplied again here to prove possession. Both ends of this
+    flow run server-side in this app (send_password_reset() above, and this
+    function), each on its own fresh, unauthenticated client (see _anon_client()'s
+    docstring — never shared/cached across requests), so no verifier was ever
+    generated or stored anywhere to pass back in. This call therefore omits
+    code_verifier entirely and relies on the auth_code alone. If the live project's
+    Auth flow settings ever reject that, this is the seam to revisit — flagged for
+    plan 05-10's live walkthrough to actually exercise against the real project."""
+    client = _anon_client()
+    try:
+        resp = client.auth.exchange_code_for_session({"auth_code": code})
+    except Exception as exc:  # noqa: BLE001
+        raise _to_auth_error(exc) from exc
+
+    session = resp.session
+    if session is None:
+        raise AuthError("Code exchange did not return a session")
+    return session.access_token, session.refresh_token
+
+
+def update_password(access_token: str, refresh_token: str, new_password: str) -> tuple[str, str]:
+    """Sets a new password for the operator behind the given AAL1 token pair (as
+    returned by exchange_code_for_session above). Returns (user_id, email) so the
+    caller can revoke that user's app sessions and write the audit row without a
+    second round trip."""
+    client = _anon_client()
+    try:
+        client.auth.set_session(access_token, refresh_token)
+        resp = client.auth.update_user({"password": new_password})
+    except Exception as exc:  # noqa: BLE001
+        raise _to_auth_error(exc) from exc
+    return resp.user.id, resp.user.email or ""

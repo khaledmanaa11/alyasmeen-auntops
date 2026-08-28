@@ -344,10 +344,165 @@ async def logout(op: Operator | None = Depends(optional_operator)):
     return resp
 
 
+def _logout_all(op: Operator) -> None:
+    """Shared by the form-POST /logout-all (05-03) and the JSON
+    POST /api/account/logout-all (05-09) below — one place that revokes
+    every session for an operator and audits it, instead of duplicating the
+    two-line body in both routes."""
+    sessions.revoke_all_for_user(op.user_id)
+    audit.log_action(op.email, "logout_all", {})
+
+
 @router.post("/logout-all")
 async def logout_all(op: Operator = Depends(require_operator)):
     """Log out everywhere — revokes every active session for this operator."""
-    sessions.revoke_all_for_user(op.user_id)
+    _logout_all(op)
     resp = RedirectResponse(url="/login", status_code=303)
     resp.delete_cookie(SESSION_COOKIE_NAME)
     return resp
+
+
+# ---------------------------------------------------------------------------
+# Account — session visibility + control (REQ-prod-session-opaque)
+# ---------------------------------------------------------------------------
+
+@router.get("/api/account/sessions")
+async def account_sessions_list(op: Operator = Depends(require_operator)):
+    return {"sessions": sessions.list_sessions_for_user(op.user_id), "current": op.session_id}
+
+
+@router.post("/api/account/sessions/{session_id}/revoke")
+async def account_session_revoke(session_id: str, op: Operator = Depends(require_operator)):
+    owned = any(s["id"] == session_id for s in sessions.list_sessions_for_user(op.user_id))
+    if not owned:
+        # Same response whether the id belongs to someone else or doesn't
+        # exist at all — otherwise any operator could revoke any session id
+        # they guess, or learn which ids are real by the response shape.
+        raise HTTPException(status_code=404)
+    sessions.revoke_session(session_id)
+    audit.log_action(op.email, "session_revoked", {"session_id": session_id})
+    return {"ok": True}
+
+
+@router.post("/api/account/logout-all")
+async def account_logout_all_json(op: Operator = Depends(require_operator)):
+    """JSON twin of POST /logout-all above (05-03) — the account page uses
+    fetch(), not a form POST, so it needs a JSON response instead of a
+    redirect; the client itself sends the user to /login on success."""
+    _logout_all(op)
+    return {"ok": True}
+
+
+@router.get("/api/admin/sessions")
+async def admin_sessions_list(op: Operator = Depends(require_admin)):  # noqa: ARG001
+    """The lost-or-stolen-phone lever CONTEXT locks for the admin account:
+    every operator's active sessions, in one list. A non-admin never reaches
+    here — require_admin 403s first."""
+    return {"sessions": sessions.list_active_sessions()}
+
+
+@router.post("/api/admin/sessions/{session_id}/revoke")
+async def admin_session_revoke(session_id: str, op: Operator = Depends(require_admin)):
+    # Look the target up BEFORE revoking — list_active_sessions() only
+    # returns un-revoked rows, so the target email would be unrecoverable
+    # for the audit row if read after revoke_session() below.
+    target = next((s for s in sessions.list_active_sessions() if s["id"] == session_id), None)
+    sessions.revoke_session(session_id)
+    audit.log_action(
+        op.email,
+        "session_revoked",
+        {"session_id": session_id, "target_email": target["email"] if target else None},
+    )
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Password reset — PKCE landing flow (REQ-dash-login)
+#
+# The installed client defaults to the PKCE auth flow, so the reset email's
+# link lands here with a `?code=` query param a server-rendered page can
+# actually read — the implicit flow's URL fragment never reaches the server
+# at all. See app/services/auth.py's exchange_code_for_session() docstring
+# for the honest caveat about this app initiating password resets itself
+# (server-side), rather than a browser SDK that would hold a matching PKCE
+# code_verifier.
+# ---------------------------------------------------------------------------
+
+@router.get("/login/reset-request", response_class=HTMLResponse)
+async def reset_request_page(request: Request):
+    return templates.TemplateResponse(
+        request, "reset_password.html", {"mode": "request", "error": None, "sent": False}
+    )
+
+
+@router.post("/login/reset-request")
+async def reset_request_submit(request: Request, email: str = Form(...)):
+    try:
+        auth_service.send_password_reset(email)
+    except AuthError as exc:
+        if exc.code == "over_email_send_rate_limit":
+            return templates.TemplateResponse(
+                request,
+                "reset_password.html",
+                {
+                    "mode": "request",
+                    "error": "جرّبي بعد شوي — في حد أقصى لعدد الرسائل بالساعة",
+                    "sent": False,
+                },
+            )
+        # Any other failure still gets the SAME neutral confirmation as a
+        # real success below — never reveal whether the email exists.
+        logger.warning("password_reset_request_failed", exc_info=True)
+
+    audit.log_action(email, "password_reset_requested", {})
+    return templates.TemplateResponse(
+        request, "reset_password.html", {"mode": "request", "error": None, "sent": True}
+    )
+
+
+@router.get("/login/reset", response_class=HTMLResponse)
+async def reset_landing_page(request: Request, code: str = ""):
+    return templates.TemplateResponse(
+        request, "reset_password.html", {"mode": "reset", "code": code, "error": None}
+    )
+
+
+@router.post("/login/reset")
+async def reset_submit(
+    request: Request,
+    code: str = Form(...),
+    password: str = Form(...),
+    password_confirm: str = Form(...),
+):
+    if password != password_confirm or len(password) < 8:
+        return templates.TemplateResponse(
+            request,
+            "reset_password.html",
+            {
+                "mode": "reset",
+                "code": code,
+                "error": "الكلمتان غير متطابقتين أو أقصر من ٨ أحرف",
+            },
+            status_code=400,
+        )
+
+    try:
+        access_token, refresh_token = auth_service.exchange_code_for_session(code)
+        user_id, email = auth_service.update_password(access_token, refresh_token, password)
+    except AuthError:
+        return templates.TemplateResponse(
+            request,
+            "reset_password.html",
+            {
+                "mode": "reset",
+                "code": code,
+                "error": "الرابط غير صالح أو منتهي الصلاحية، اطلبي رابطاً جديداً",
+            },
+            status_code=400,
+        )
+
+    # A password reset revokes EVERY session for that user, no exception —
+    # the person resetting may not be the person holding the old sessions.
+    sessions.revoke_all_for_user(user_id)
+    audit.log_action(email or user_id, "password_reset_completed", {})
+    return RedirectResponse(url="/login?reset=success", status_code=303)

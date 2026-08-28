@@ -24,6 +24,7 @@ log = structlog.get_logger(__name__)
 OPERATOR_ACTIONS = (
     "login_success", "login_failed", "logout", "logout_all",
     "session_revoked", "mfa_enrolled", "mfa_reset", "password_reset_requested",
+    "password_reset_completed",
     "order_status_changed", "order_status_conflict_override",
     "product_created", "product_updated", "product_toggled", "product_deleted",
     "broadcast_sent", "handoff_resolved",
