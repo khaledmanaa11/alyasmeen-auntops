@@ -10,6 +10,7 @@ from app.services.ai_service import generate_reply
 from app.services.config import Config
 from app.services.pdf_invoice import generate_invoice_pdf
 from app.services import handoff, policy
+from app.services.policy import MAX_CART_QTY, MIN_CART_QTY
 from app.routers.whatsapp_helpers import (
     load_session,
     save_session,
@@ -37,8 +38,12 @@ else:
 MAX_WEBHOOK_EVENT_ATTEMPTS = 3
 
 # AI-supplied cart quantities are clamped to this range before being applied.
-MIN_CART_QTY = 1
-MAX_CART_QTY = 50
+# Canonical values now live in policy.py (imported above) so the gate and the
+# execution agree on one source; the module-level names MIN_CART_QTY/
+# MAX_CART_QTY stay valid here (processor.MIN_CART_QTY still works) because
+# _tool_add_to_cart's own clamp is ALSO needed: the numeric menu-pick path
+# (handle_message step 5) calls _tool_add_to_cart directly, bypassing the AI
+# and therefore policy.validate() entirely, so both layers must clamp.
 
 # Fallback reply sent to the customer when the AI call itself fails.
 AI_FALLBACK_REPLY = "عذرًا، في مشكلة تقنية مؤقتة، جرب كمان شوي 🙏"
@@ -501,21 +506,58 @@ def handle_unsupported_media(phone: str, msg_type: str, name: str = "") -> None:
 def _make_tool_executor(phone: str, st: dict, cart: list) -> Callable[[str, dict], str]:
     def executor(name: str, args: dict) -> str:
         log.info("tool_call", name=name, args=args, phone=phone)
-        
+
+        # The deterministic gate (REQ-prod-policy-gate): every AI-proposed
+        # tool call passes through policy.validate() before its
+        # implementation runs — no dispatch below this point sees an
+        # un-validated argument. catalog() is already imported above and is
+        # patched by every existing test (test_processor.py's autouse
+        # _catalog fixture patches processor.catalog) — passing it in from
+        # here is exactly why policy.py was kept I/O-free.
+        decision = policy.validate(name, args, {
+            "phone": phone,
+            "paused": bool(st.get("paused")),
+            "cart": cart,
+            "catalog": catalog(),
+            # Called by policy ONLY for order-scoped tools — none exist
+            # today, so the gate costs zero extra database reads on the hot
+            # path. Must stay a lambda, not an eagerly-evaluated value: this
+            # closure runs inside the worker's BlockingScheduler loop, and
+            # eagerly calling get_latest_order() here would add a DB round
+            # trip to every single tool call regardless of tool.
+            "order_status_provider": lambda: (get_latest_order(phone) or {}).get("status"),
+        })
+
+        if not decision.allowed:
+            log.warning("tool_denied", name=name, code=decision.code, phone=phone)
+            if decision.escalate and _open_handoff(
+                phone, "policy_denied", {"tool": name, "code": decision.code}
+            ):
+                st["handoff_pending"] = True
+            # The denial becomes the tool result. ai_service.py's agentic
+            # loop feeds this string back to Claude as a tool_result, and
+            # Claude writes the conversational reply around it — the
+            # customer sees a natural sentence, not an error code.
+            return decision.message
+
+        args = decision.args
+
         if name == "add_to_cart":
             return _tool_add_to_cart(st, cart, args.get("product_name", ""), args.get("qty", 1))
-        
+
         if name == "show_menu":
             return _tool_show_menu(phone, args.get("category", ""), st)
-            
+
         if name == "get_order_status":
             return _tool_get_order_status(phone)
-            
+
         if name == "save_address":
             return _tool_save_address(phone, st, args.get("address", ""))
-            
+
+        # Dead-code defence: policy's unknown_tool rule already denies any
+        # name not in TOOL_SCOPES before this point is ever reached.
         return f"Tool {name} not found"
-    
+
     return executor
 
 
