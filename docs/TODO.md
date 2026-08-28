@@ -12,7 +12,7 @@
 - [ ] Set all required environment variables on the hosting platform:
   - `SUPABASE_URL`
   - `SUPABASE_KEY`
-  - `DASHBOARD_PASSWORD`
+  - `SUPABASE_ANON_KEY`
   - `SECRET_KEY`
   - `AUNT_PHONE`
   - `CLAUDE_API_KEY`

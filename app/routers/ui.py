@@ -1,18 +1,21 @@
 from __future__ import annotations
 
-import hashlib
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-from app.services.config import Config
+from app.routers.auth_deps import require_operator_page
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["ui"])
+# Auth (GET/POST /login, POST /login/mfa, GET /logout, POST /logout-all) now
+# lives in auth_routes.py, registered signed-out. Every route in THIS router
+# requires a live operator session — the router-level dependency below 303s
+# an unauthenticated request to /login, so no per-handler guard is needed.
+router = APIRouter(tags=["ui"], dependencies=[Depends(require_operator_page)])
 
 templates = Jinja2Templates(
     directory=str(Path(__file__).parent.parent / "templates")
@@ -37,52 +40,6 @@ class _NoCache:
 
 templates.env.cache = _NoCache()
 
-COOKIE_NAME = "alyasmeen_session"
-
-
-def _session_token() -> str:
-    raw = f"{Config.SECRET_KEY}:{Config.DASHBOARD_PASSWORD}"
-    return hashlib.sha256(raw.encode()).hexdigest()
-
-
-def _is_authenticated(request: Request) -> bool:
-    return request.cookies.get(COOKIE_NAME) == _session_token()
-
-
-# ---------------------------------------------------------------------------
-# Auth
-# ---------------------------------------------------------------------------
-
-@router.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request):
-    if _is_authenticated(request):
-        return RedirectResponse(url="/orders", status_code=303)
-    return templates.TemplateResponse(request, "login.html", {"error": None})
-
-
-@router.post("/login")
-async def login_submit(request: Request, password: str = Form(...)):
-    if password == Config.DASHBOARD_PASSWORD:
-        resp = RedirectResponse(url="/orders", status_code=303)
-        resp.set_cookie(
-            COOKIE_NAME,
-            _session_token(),
-            httponly=True,
-            samesite="lax",
-            secure=not Config.USE_MOCK_WHATSAPP,
-        )
-        return resp
-    return templates.TemplateResponse(
-        request, "login.html", {"error": "كلمة المرور غير صحيحة"}, status_code=401
-    )
-
-
-@router.get("/logout")
-async def logout():
-    resp = RedirectResponse(url="/login", status_code=303)
-    resp.delete_cookie(COOKIE_NAME)
-    return resp
-
 
 # ---------------------------------------------------------------------------
 # Pages
@@ -90,34 +47,24 @@ async def logout():
 
 @router.get("/orders", response_class=HTMLResponse)
 async def orders_page(request: Request):
-    if not _is_authenticated(request):
-        return RedirectResponse(url="/login", status_code=303)
     return templates.TemplateResponse(request, "orders.html")
 
 
 @router.get("/dashboard", response_class=HTMLResponse)
 async def dashboard_page(request: Request):
-    if not _is_authenticated(request):
-        return RedirectResponse(url="/login", status_code=303)
     return templates.TemplateResponse(request, "dashboard.html")
 
 
 @router.get("/products", response_class=HTMLResponse)
 async def products_page(request: Request):
-    if not _is_authenticated(request):
-        return RedirectResponse(url="/login", status_code=303)
     return templates.TemplateResponse(request, "products.html")
 
 
 @router.get("/broadcast", response_class=HTMLResponse)
 async def broadcast_page(request: Request):
-    if not _is_authenticated(request):
-        return RedirectResponse(url="/login", status_code=303)
     return templates.TemplateResponse(request, "broadcast.html")
 
 
 @router.get("/alerts", response_class=HTMLResponse)
 async def alerts_page(request: Request):
-    if not _is_authenticated(request):
-        return RedirectResponse(url="/login", status_code=303)
     return templates.TemplateResponse(request, "alerts.html")

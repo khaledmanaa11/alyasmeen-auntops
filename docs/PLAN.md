@@ -108,7 +108,8 @@ Key design: commands are checked as simple string matches or regex patterns befo
 ### `app/routers/ui.py`
 
 The web dashboard. Handles:
-- Auth: cookie-based session using SHA-256 of `SECRET_KEY:DASHBOARD_PASSWORD`
+- Auth: per-operator email+password (Supabase Auth) + TOTP MFA, resolved to an opaque
+  server-side session (see `app/routers/auth_routes.py`, `app/routers/auth_deps.py`)
 - HTML pages rendered via Jinja2 templates
 - JSON APIs consumed by those pages via JavaScript fetch calls
 - Broadcast messaging: audience count preview + bulk send

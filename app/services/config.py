@@ -43,8 +43,10 @@ class Config:
     CLAUDE_MODEL   = os.getenv("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
 
     # Web Dashboard
-    DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD")
-    SECRET_KEY         = os.getenv("SECRET_KEY")
+    # Operator login is email+password via Supabase Auth (app/services/auth.py)
+    # plus TOTP MFA — see docs/OPERATOR_ACCOUNTS.md. There is no shared
+    # dashboard password anymore.
+    SECRET_KEY = os.getenv("SECRET_KEY")
 
     # Aunt (monthly report + new-order notifications)
     AUNT_PHONE = os.getenv("AUNT_PHONE")  # e.g. 972591234567
@@ -89,11 +91,9 @@ Config.APP_CONFIG = _load_json_config("config/setup.json")
 if not Config.CLAUDE_MODEL:
     raise ValueError("CLAUDE_MODEL is required")
 
-# DASHBOARD_PASSWORD / SECRET_KEY must never fall back to a hardcoded value —
-# skip the hard-fail under pytest so the test suite doesn't need real secrets.
+# SECRET_KEY must never fall back to a hardcoded value — skip the hard-fail
+# under pytest so the test suite doesn't need real secrets.
 _RUNNING_UNDER_PYTEST = "PYTEST_CURRENT_TEST" in os.environ or "pytest" in sys.modules
 if not _RUNNING_UNDER_PYTEST:
-    if not Config.DASHBOARD_PASSWORD:
-        raise ValueError("DASHBOARD_PASSWORD is required — set it in your environment/.env")
     if not Config.SECRET_KEY:
         raise ValueError("SECRET_KEY is required — set it in your environment/.env")

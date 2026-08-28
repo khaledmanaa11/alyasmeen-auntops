@@ -57,12 +57,15 @@ ALYASMEEN AuntOps is a complete order management system built for a small Palest
 
    ```
    SUPABASE_URL=https://your-project.supabase.co
-   SUPABASE_KEY=your_anon_key
-   DASHBOARD_PASSWORD=any_password_you_choose
+   SUPABASE_KEY=your_service_role_key
+   SUPABASE_ANON_KEY=your_anon_key
    SECRET_KEY=a_long_random_string
    CLAUDE_API_KEY=sk-ant-...
    USE_MOCK_WHATSAPP=1
    ```
+
+   Dashboard login is per-operator email+password (+ TOTP MFA), created with
+   `python scripts/manage_operators.py create` — see `docs/OPERATOR_ACCOUNTS.md`.
 
    With `USE_MOCK_WHATSAPP=1`, all WhatsApp messages are printed to the console — no Meta account needed for local dev.
 
@@ -134,7 +137,7 @@ When Claude uses a tool, **two API calls** are made: one for Claude to decide th
 
 ## Dashboard
 
-Log in at [http://localhost:8000/login](http://localhost:8000/login) with your `DASHBOARD_PASSWORD`.
+Log in at [http://localhost:8000/login](http://localhost:8000/login) with your operator email + password (see `docs/OPERATOR_ACCOUNTS.md`).
 
 ### Pages
 
@@ -172,8 +175,8 @@ The `/broadcast` page allows sending a custom WhatsApp message to:
 | Variable | Required | Purpose |
 |----------|----------|---------|
 | `SUPABASE_URL` | Yes | Supabase project URL (`https://xxx.supabase.co`) |
-| `SUPABASE_KEY` | Yes | Supabase anon key (from Project Settings -> API) |
-| `DASHBOARD_PASSWORD` | Yes | Web dashboard login password |
+| `SUPABASE_KEY` | Yes | Supabase service_role key (from Project Settings -> API) |
+| `SUPABASE_ANON_KEY` | Yes | Supabase anon key — used by operator sign-in/MFA |
 | `SECRET_KEY` | Yes | Session cookie signing — use a long random string |
 | `AUNT_PHONE` | Yes | Owner's WhatsApp number for order alerts and monthly report (format: `972591234567`) |
 | `CLAUDE_API_KEY` | Yes | Anthropic API key for AI replies |
@@ -199,7 +202,7 @@ The `/broadcast` page allows sending a custom WhatsApp message to:
 2. **Create a new service** on Railway or Render, pointing to your GitHub repo.
 
 3. **Set environment variables** in the platform dashboard:
-   - Minimum: `SUPABASE_URL`, `SUPABASE_KEY`, `DASHBOARD_PASSWORD`, `SECRET_KEY`, `AUNT_PHONE`, `CLAUDE_API_KEY`
+   - Minimum: `SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_ANON_KEY`, `SECRET_KEY`, `AUNT_PHONE`, `CLAUDE_API_KEY`
    - Set `USE_MOCK_WHATSAPP=0` for production
 
 4. **Set WhatsApp variables:**

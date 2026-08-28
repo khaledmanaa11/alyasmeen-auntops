@@ -1,33 +1,26 @@
 """
 ui_api.py — All /api/* route handlers for the ALYASMEEN dashboard.
 Extracted from ui.py to keep the page-route file under 150 lines.
+
+Every route in this router requires a live operator session — the
+router-level dependency below 401s an unauthenticated request, so no
+per-handler guard is needed (see app/routers/auth_deps.py).
 """
 from __future__ import annotations
 
-import hashlib
 import logging
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from app.db.database import execute, execute_returning, query
+from app.routers.auth_deps import require_operator
 from app.services.config import Config
 from app.services.processor import queue_text, queue_pdf_invoice
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(tags=["ui"])
-
-COOKIE_NAME = "alyasmeen_session"
-
-
-def _session_token() -> str:
-    raw = f"{Config.SECRET_KEY}:{Config.DASHBOARD_PASSWORD}"
-    return hashlib.sha256(raw.encode()).hexdigest()
-
-
-def _is_authenticated(request: Request) -> bool:
-    return request.cookies.get(COOKIE_NAME) == _session_token()
+router = APIRouter(tags=["ui"], dependencies=[Depends(require_operator)])
 
 
 # ---------------------------------------------------------------------------
@@ -44,10 +37,7 @@ def _invalidate():
 # ---------------------------------------------------------------------------
 
 @router.get("/api/orders")
-async def api_orders(request: Request, status: str | None = None):
-    if not _is_authenticated(request):
-        raise HTTPException(status_code=401)
-
+async def api_orders(status: str | None = None):
     sql = """
         SELECT o.id, o.phone, o.fulfillment, o.address,
                o.total, o.status, o.created_at, o.order_name,
@@ -71,9 +61,7 @@ async def api_orders(request: Request, status: str | None = None):
 
 
 @router.get("/api/orders/{order_id}/lines")
-async def api_order_lines(order_id: int, request: Request):
-    if not _is_authenticated(request):
-        raise HTTPException(status_code=401)
+async def api_order_lines(order_id: int):
     rows = query(
         "SELECT product_name, qty, unit_price, line_total FROM order_lines WHERE order_id = %s",
         (order_id,),
@@ -83,9 +71,6 @@ async def api_order_lines(order_id: int, request: Request):
 
 @router.post("/api/orders/{order_id}/status")
 async def api_update_status(order_id: int, request: Request):
-    if not _is_authenticated(request):
-        raise HTTPException(status_code=401)
-
     body = await request.json()
     new_status = (body.get("status") or "").strip().lower()
 
@@ -154,10 +139,8 @@ async def api_update_status(order_id: int, request: Request):
 # ---------------------------------------------------------------------------
 
 @router.get("/api/reports/months")
-async def api_reports_months(request: Request):
+async def api_reports_months():
     """List all saved monthly snapshots (newest first)."""
-    if not _is_authenticated(request):
-        raise HTTPException(status_code=401)
     rows = query(
         "SELECT year, month FROM monthly_snapshots ORDER BY year DESC, month DESC"
     )
@@ -169,10 +152,7 @@ async def api_reports_months(request: Request):
 # ---------------------------------------------------------------------------
 
 @router.get("/api/dashboard/stats")
-async def api_dashboard_stats(request: Request, month: str | None = None):
-    if not _is_authenticated(request):
-        raise HTTPException(status_code=401)
-
+async def api_dashboard_stats(month: str | None = None):
     # Historical snapshot requested (format: "YYYY-MM")
     if month:
         try:
@@ -264,9 +244,7 @@ async def api_dashboard_stats(request: Request, month: str | None = None):
 # ---------------------------------------------------------------------------
 
 @router.get("/api/products")
-async def api_list_products(request: Request):
-    if not _is_authenticated(request):
-        raise HTTPException(status_code=401)
+async def api_list_products():
     rows = query("SELECT id, name, price, description, tags, active FROM products ORDER BY id")
     return JSONResponse(content={"products": [
         {
@@ -283,8 +261,6 @@ async def api_list_products(request: Request):
 
 @router.post("/api/products")
 async def api_create_product(request: Request):
-    if not _is_authenticated(request):
-        raise HTTPException(status_code=401)
     body = await request.json()
     name = (body.get("name") or "").strip()
     if not name:
@@ -311,8 +287,6 @@ async def api_create_product(request: Request):
 
 @router.post("/api/products/{product_id}")
 async def api_update_product(product_id: int, request: Request):
-    if not _is_authenticated(request):
-        raise HTTPException(status_code=401)
     rows = query("SELECT id FROM products WHERE id = %s", (product_id,))
     if not rows:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -337,9 +311,7 @@ async def api_update_product(product_id: int, request: Request):
 
 
 @router.post("/api/products/{product_id}/toggle")
-async def api_toggle_product(product_id: int, request: Request):
-    if not _is_authenticated(request):
-        raise HTTPException(status_code=401)
+async def api_toggle_product(product_id: int):
     rows = query("SELECT id, active FROM products WHERE id = %s", (product_id,))
     if not rows:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -350,9 +322,7 @@ async def api_toggle_product(product_id: int, request: Request):
 
 
 @router.post("/api/products/{product_id}/delete")
-async def api_delete_product(product_id: int, request: Request):
-    if not _is_authenticated(request):
-        raise HTTPException(status_code=401)
+async def api_delete_product(product_id: int):
     rows = query("SELECT id FROM products WHERE id = %s", (product_id,))
     if not rows:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -366,9 +336,7 @@ async def api_delete_product(product_id: int, request: Request):
 # ---------------------------------------------------------------------------
 
 @router.get("/api/alerts")
-async def api_alerts(request: Request):
-    if not _is_authenticated(request):
-        raise HTTPException(status_code=401)
+async def api_alerts():
     dead_events = query(
         "SELECT id, phone, payload, error, attempts, created_at FROM webhook_events "
         "WHERE processed = TRUE AND error LIKE %s ORDER BY created_at DESC LIMIT 100",
@@ -386,9 +354,7 @@ async def api_alerts(request: Request):
 
 
 @router.post("/api/alerts/webhook_events/{event_id}/retry")
-async def api_retry_webhook_event(event_id: str, request: Request):
-    if not _is_authenticated(request):
-        raise HTTPException(status_code=401)
+async def api_retry_webhook_event(event_id: str):
     execute(
         "UPDATE webhook_events SET processed = FALSE, attempts = 0, error = NULL WHERE id = %s",
         (event_id,),
@@ -397,9 +363,7 @@ async def api_retry_webhook_event(event_id: str, request: Request):
 
 
 @router.post("/api/alerts/outbox_jobs/{job_id}/retry")
-async def api_retry_outbox_job(job_id: str, request: Request):
-    if not _is_authenticated(request):
-        raise HTTPException(status_code=401)
+async def api_retry_outbox_job(job_id: str):
     execute(
         "UPDATE outbox_jobs SET status = 'pending', attempts = 0, last_error = NULL, "
         "updated_at = now() WHERE id = %s",
@@ -439,9 +403,7 @@ def _broadcast_phones(filter: str) -> list:
 
 
 @router.get("/api/broadcast/audience")
-async def api_broadcast_audience(request: Request, filter: str = "all"):
-    if not _is_authenticated(request):
-        raise HTTPException(status_code=401)
+async def api_broadcast_audience(filter: str = "all"):
     if filter not in {"all", "month", "top"}:
         raise HTTPException(status_code=400, detail="filter must be all|month|top")
     phones = _broadcast_phones(filter)
@@ -450,9 +412,6 @@ async def api_broadcast_audience(request: Request, filter: str = "all"):
 
 @router.post("/api/broadcast/send")
 async def api_broadcast_send(request: Request):
-    if not _is_authenticated(request):
-        raise HTTPException(status_code=401)
-
     body = await request.json()
     message = (body.get("message") or "").strip()
     filter = (body.get("filter") or "all").strip()

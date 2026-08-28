@@ -7,8 +7,8 @@ are both evaluated once at import time, so the only reliable way to test
 both branches of the gate is a fresh interpreter per branch (a reload-in-
 process approach would race with whichever value another test module
 already imported Config with). Each subprocess sets the env vars app.main
-needs (Config hard-fails outside pytest if DASHBOARD_PASSWORD/SECRET_KEY are
-unset) and reports back whether app.main.debug_router ended up registered.
+needs (Config hard-fails outside pytest if SECRET_KEY is unset) and reports
+back whether app.main.debug_router ended up registered.
 """
 import subprocess
 import sys
@@ -24,7 +24,6 @@ _CHECK_SCRIPT = (
 )
 
 _BASE_ENV = {
-    "DASHBOARD_PASSWORD": "test-password",
     "SECRET_KEY": "test-secret",
     "CLAUDE_MODEL": "claude-haiku-4-5-20251001",
     "SUPABASE_URL": "https://example.supabase.co",

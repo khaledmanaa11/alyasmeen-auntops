@@ -170,11 +170,11 @@ sent to any client-side/browser code and is never shipped to the dashboard's HTM
 
 | URL | What it does |
 |-----|-------------|
-| `/login` | Password login (Arabic UI) |
+| `/login` | Email+password login (Arabic UI); TOTP challenge at `/login/mfa` when MFA is enrolled and the device isn't remembered |
 | `/orders` | Orders list — customer name, inline products, WhatsApp link, big action button |
 | `/dashboard` | Monthly stats, 30-day chart, status donut, top 5 products |
 | `/products` | Product management — add, edit, toggle active/inactive, delete |
-| `/logout` | Clear session |
+| `/logout` | Clear this session only (other signed-in devices stay signed in) |
 
 **JSON APIs:**
 | Endpoint | Purpose |
@@ -189,7 +189,9 @@ sent to any client-side/browser code and is never shipped to the dashboard's HTM
 | `POST /api/products/{id}/toggle` | Toggle active/inactive |
 | `POST /api/products/{id}/delete` | Delete product |
 
-**Auth:** Cookie — SHA-256 of `SECRET_KEY:DASHBOARD_PASSWORD`.
+**Auth:** Per-operator email+password (Supabase Auth) + TOTP MFA, resolved to an opaque
+server-side session cookie (`app/routers/auth_routes.py` + `app/routers/auth_deps.py` +
+`app/services/sessions.py`). See `docs/OPERATOR_ACCOUNTS.md` for account management.
 
 **Orders page labels (Arabic):**
 - `to_do` → يجب التجهيز
@@ -291,7 +293,7 @@ Only fires if `AUNT_PHONE` is set. Wrapped in try/except — order never fails i
 | `SUPABASE_URL` | ✅ | Supabase project URL |
 | `SUPABASE_KEY` | ✅ | Supabase **service_role** key (server-side only — never expose to the dashboard's client-side code) |
 | `DATABASE_URL` | prod | Postgres Session Pooler connection string — persists the APScheduler job store across worker restarts (see .env.example for the exact shape) |
-| `DASHBOARD_PASSWORD` | ✅ | Web dashboard login |
+| `SUPABASE_ANON_KEY` | ✅ | Operator sign-in/MFA via Supabase Auth (`app/services/auth.py`) |
 | `SECRET_KEY` | ✅ | Session cookie signing |
 | `AUNT_PHONE` | ✅ | New-order alerts + monthly report |
 | `CLAUDE_API_KEY` | ✅ | AI replies |
@@ -315,7 +317,7 @@ uvicorn app.main:app --reload --port 8000
 
 ## Deployment Checklist (Railway / Render)
 1. Push to GitHub
-2. Set env vars (see table above) — minimum: `SUPABASE_URL`, `SUPABASE_KEY`, `DASHBOARD_PASSWORD`, `SECRET_KEY`, `AUNT_PHONE`, `CLAUDE_API_KEY`
+2. Set env vars (see table above) — minimum: `SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_ANON_KEY`, `SECRET_KEY`, `AUNT_PHONE`, `CLAUDE_API_KEY`
 3. Set `USE_MOCK_WHATSAPP=0`
 4. Set WhatsApp webhook: `https://your-app-url/whatsapp/webhook`
 5. Add real products via `/products` dashboard page (products live in the Supabase `products` table)

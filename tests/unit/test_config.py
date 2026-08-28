@@ -45,11 +45,6 @@ class TestConfigEnvVars:
         assert Config.CLAUDE_MODEL  # not empty
         assert "haiku" in Config.CLAUDE_MODEL or "claude" in Config.CLAUDE_MODEL
 
-    def test_dashboard_password_exists(self):
-        from app.services.config import Config
-
-        assert Config.DASHBOARD_PASSWORD  # not empty
-
     def test_secret_key_exists(self):
         from app.services.config import Config
 
