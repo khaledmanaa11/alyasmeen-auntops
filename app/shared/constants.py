@@ -70,3 +70,28 @@ MONTHLY_REPORT_HOUR: int = 8
 # ---------------------------------------------------------------------------
 
 COOKIE_NAME: str = "alyasmeen_session"
+
+# ---------------------------------------------------------------------------
+# Operator auth / session
+# ---------------------------------------------------------------------------
+# Every Phase 5 auth module imports these instead of re-declaring a literal —
+# COOKIE_NAME above used to be copy-pasted separately in ui.py, ui_api.py AND
+# broadcast.py, which is exactly the duplication this section retires.
+
+# Deliberately the SAME value as COOKIE_NAME: on deploy, every currently-issued
+# shared-password cookie is invalidated because its value no longer resolves
+# to a session row (the app now looks it up in operator_sessions instead of
+# recomputing a deterministic hash).
+SESSION_COOKIE_NAME: str = "alyasmeen_session"
+
+DEVICE_COOKIE_NAME: str = "alyasmeen_device"          # long-lived per-browser remember-MFA token
+PENDING_LOGIN_COOKIE_NAME: str = "alyasmeen_mfa_pending"  # bridges the password step to the TOTP step
+
+SESSION_TTL_DAYS: int = 30            # fixed lifetime, NOT sliding — sign in roughly monthly
+DEVICE_MFA_TTL_DAYS: int = 30         # how long a device stays MFA-trusted
+DEVICE_COOKIE_TTL_DAYS: int = 365     # device cookie outlives the trust window so a returning
+                                       # device is recognised (and re-challenged) rather than
+                                       # looking brand new
+PENDING_LOGIN_TTL_MINUTES: int = 5
+
+OPAQUE_TOKEN_BYTES: int = 32          # argument for secrets.token_urlsafe
