@@ -1,8 +1,16 @@
 # Operator Accounts & MFA Runbook
 
-**Status:** Identity layer only (`app/services/auth.py` + `scripts/manage_operators.py`).
-The login/MFA-challenge routes and `/account` enrollment page ship in plan 05-03/05-09 —
-until then this runbook documents the account lifecycle, not the day-to-day login flow.
+**Status (2026-08-28):** the full identity stack is BUILT and merged on
+`fix/production-hardening` — login + TOTP challenge (05-03), CSRF/security headers (05-04),
+and the `/account` enrollment/session page (05-09). The `operator_auth` migration
+(`20260828000000` — `operator_sessions`/`trusted_devices`/`pending_logins`) is **applied to
+the live Supabase project** and verified reachable (three zero counts). `SUPABASE_ANON_KEY`
+and `DASHBOARD_BASE_URL` are set in the local `.env`; `DASHBOARD_PASSWORD` is deleted locally.
+
+**Still pending (human, plan 05-10):** the two real operator accounts (emails must come from
+Khaled), `ADMIN_PHONE` locally, the three env vars + `DASHBOARD_PASSWORD` deletion on BOTH
+Railway services, the deploy (do NOT push before the accounts exist — the new auth with zero
+accounts locks the dashboard out), and the assisted TOTP enrollment below.
 
 ## The two-account model
 
