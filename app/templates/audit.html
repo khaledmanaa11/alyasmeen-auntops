@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ALYASMEEN — السجل</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/js/csrf.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+  <style>
+    * { font-family: 'Cairo', sans-serif; }
+    body { background: #f0f7f4; }
+    .material-symbols-outlined {
+      font-family: 'Material Symbols Outlined';
+      font-weight: normal; font-style: normal; font-size: 24px;
+      line-height: 1; letter-spacing: normal; text-transform: none;
+      display: inline-block; white-space: nowrap; direction: ltr;
+      -webkit-font-smoothing: antialiased;
+    }
+    .nav-glass {
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(0,105,72,0.08);
+      box-shadow: 0 1px 16px rgba(0,105,72,0.06);
+    }
+    .nav-active { background: #006948; color: white; }
+    .nav-link   { color: #6b7280; transition: all 0.15s; }
+    .nav-link:hover { background: #f0f7f4; color: #006948; }
+    .audit-row {
+      background: white;
+      border-radius: 20px;
+      border: 1px solid #e8f3ee;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    }
+    .card-enter { animation: slideUp 0.22s ease forwards; }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+<body class="min-h-screen">
+
+  {% include "_nav.html" %}
+
+  <!-- Main (Alpine.js root) -->
+  <div x-data="auditApp()" x-init="init()" class="max-w-5xl mx-auto px-5 py-6">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6 gap-4 flex-wrap">
+      <div>
+        <h1 class="text-2xl font-black text-gray-900">السجل</h1>
+        <p class="text-xs text-gray-400 mt-0.5">كل إجراء تم من لوحة الإدارة، بالترتيب الزمني</p>
+      </div>
+      <div class="relative">
+        <span class="material-symbols-outlined absolute text-gray-300" style="font-size:18px; right:12px; top:9px">search</span>
+        <input type="text" x-model="search" placeholder="بحث بالاسم أو الإجراء..."
+          class="pr-9 pl-4 py-2 rounded-xl border border-gray-200 text-sm w-64 focus:outline-none focus:border-[#006948]">
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div x-show="loading" class="flex items-center justify-center py-20 gap-3 text-gray-400">
+      <div class="w-6 h-6 border-2 border-gray-200 border-t-[#006948] rounded-full animate-spin"></div>
+      <span class="text-sm font-medium">جاري التحميل...</span>
+    </div>
+
+    <!-- Empty state -->
+    <div x-show="!loading && filtered.length === 0" x-cloak
+      class="flex flex-col items-center py-24 text-gray-400 gap-4">
+      <div class="w-24 h-24 rounded-full flex items-center justify-center text-5xl" style="background:#f0f7f4">📋</div>
+      <p class="font-bold text-base text-gray-500" x-text="entries.length === 0 ? 'ما في إجراءات مسجّلة بعد' : 'لا يوجد نتائج مطابقة'"></p>
+    </div>
+
+    <!-- Content -->
+    <div x-show="!loading && filtered.length > 0" x-cloak class="flex flex-col gap-2">
+      <template x-for="(entry, i) in filtered" :key="entry.id">
+        <div class="audit-row card-enter p-3.5" :style="'animation-delay:' + (Math.min(i, 20) * 0.02) + 's'">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style="background:#e6f3ee">
+              <span class="material-symbols-outlined" style="font-size:18px; color:#006948" x-text="iconFor(entry.action)"></span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-bold text-gray-800" x-text="describe(entry)"></p>
+              <p class="text-xs text-gray-400 mt-0.5">
+                <span x-text="entry.actor"></span>
+                <span class="mx-1">·</span>
+                <span x-text="formatDate(entry.created_at)"></span>
+              </p>
+            </div>
+            <button @click="toggled[entry.id] = !toggled[entry.id]"
+              class="text-xs font-bold text-gray-400 hover:text-[#006948] transition-colors shrink-0 px-2 py-1">
+              التفاصيل
+            </button>
+          </div>
+          <div x-show="toggled[entry.id]" x-cloak x-transition class="mt-3 pt-3 border-t border-gray-50">
+            <pre class="text-[11px] text-gray-500 bg-gray-50 rounded-xl p-3 overflow-x-auto" x-text="JSON.stringify(entry.details || {}, null, 2)"></pre>
+          </div>
+        </div>
+      </template>
+    </div>
+
+  </div>
+
+<script>
+function auditApp() {
+  return {
+    entries: [],
+    loading: true,
+    search: '',
+    toggled: {},
+
+    async init() {
+      try {
+        const res = await fetch('/api/audit');
+        const data = await res.json();
+        this.entries = data.entries || [];
+      } catch (e) {
+        this.entries = [];
+      }
+      this.loading = false;
+    },
+
+    get filtered() {
+      const q = this.search.trim().toLowerCase();
+      if (!q) return this.entries;
+      return this.entries.filter(e => {
+        const haystack = ((e.actor || '') + ' ' + this.describe(e)).toLowerCase();
+        return haystack.includes(q);
+      });
+    },
+
+    iconFor(action) {
+      if (!action) return 'history';
+      if (action.startsWith('login') || action.startsWith('logout')) return 'login';
+      if (action.startsWith('order')) return 'receipt_long';
+      if (action.startsWith('product')) return 'inventory_2';
+      if (action.startsWith('broadcast')) return 'campaign';
+      if (action.startsWith('handoff')) return 'forum';
+      if (action.startsWith('alert')) return 'warning';
+      if (action.startsWith('mfa') || action.startsWith('session') || action.startsWith('password')) return 'shield';
+      return 'history';
+    },
+
+    describe(entry) {
+      const a = entry.action;
+      const d = entry.details || {};
+      switch (a) {
+        case 'order_status_changed':
+          return 'غيّرت حالة الطلب #' + d.order_id + ' إلى ' + (d.to || '');
+        case 'order_status_conflict_override':
+          return 'تجاوزت تنبيه البوت وغيّرت حالة الطلب #' + d.order_id;
+        case 'product_created':
+          return 'أضافت المنتج ' + (d.name || '');
+        case 'product_updated':
+          return 'عدّلت المنتج ' + (d.name || '');
+        case 'product_toggled':
+          return (d.active ? 'فعّلت' : 'عطّلت') + ' المنتج ' + (d.name || '');
+        case 'product_deleted':
+          return 'حذفت المنتج ' + (d.name || '');
+        case 'broadcast_sent':
+          return 'أرسلت رسالة جماعية لـ ' + (d.sent || 0) + ' زبونة';
+        case 'handoff_resolved':
+          return 'رجّعت محادثة ' + (d.phone || '') + ' للبوت';
+        case 'login_success':
+          return 'سجّلت الدخول';
+        case 'login_failed':
+          return 'محاولة دخول فاشلة';
+        case 'logout':
+          return 'سجّلت الخروج';
+        case 'logout_all':
+          return 'سجّلت الخروج من كل الأجهزة';
+        case 'session_revoked':
+          return 'ألغت جلسة دخول من جهاز آخر';
+        case 'mfa_enrolled':
+          return 'فعّلت المصادقة الثنائية';
+        case 'mfa_reset':
+          return 'أعادت ضبط المصادقة الثنائية';
+        case 'password_reset_requested':
+          return 'طلبت إعادة تعيين كلمة المرور';
+        case 'password_reset_completed':
+          return 'غيّرت كلمة المرور';
+        case 'alert_retried':
+          return 'أعادت محاولة إرسال رسالة';
+        case 'alert_retry_all':
+          return 'أعادت محاولة كل الرسائل الفاشلة';
+        default:
+          return a || 'إجراء غير معروف';
+      }
+    },
+
+    formatDate(d) {
+      if (!d) return '';
+      try { return new Date(d).toLocaleString('ar-EG'); } catch (e) { return d; }
+    }
+  };
+}
+</script>
+</body>
+</html>
