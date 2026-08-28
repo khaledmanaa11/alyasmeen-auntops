@@ -9,6 +9,7 @@ per-handler guard is needed (see app/routers/auth_deps.py).
 from __future__ import annotations
 
 import logging
+import re
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -382,24 +383,111 @@ async def api_delete_product(product_id: int, op: Operator = Depends(require_ope
 
 # ---------------------------------------------------------------------------
 # Alerts API — dead-lettered webhook_events + permanently-failed outbox_jobs
+#
+# Rewired (05-06) from a raw job dump into action-oriented plain-Arabic cards
+# naming the customer, per CONTEXT: "need your attention now — a message
+# didn't get to X, go continue the conversation" — not job IDs. The raw
+# technical fields (error/payload/attempts) are kept on every item for the
+# details toggle, never removed.
 # ---------------------------------------------------------------------------
+
+# outbox_jobs kinds that reach a real customer — everything else is internal.
+_CUSTOMER_FACING_ALERT_KINDS = {"whatsapp_message", "whatsapp_buttons"}
+
+
+def _wa_link(phone: str) -> str:
+    return f"https://wa.me/{re.sub(r'\\D', '', phone or '')}"
+
+
+def _frame_alert(row: dict, source: str) -> dict:
+    """Turn one raw webhook_events/outbox_jobs row into an action card.
+
+    `source` is "webhook_event" or "outbox_job". Phrasing rules are the
+    aunt's own words (see 05-CONTEXT.md); the customer name always drives
+    the sentence — falling back to the phone number when there is no name,
+    since an empty name must never render into the Arabic text.
+    """
+    phone = row.get("phone") or ""
+    customer_name = row.get("customer_name") or ""
+    label = customer_name or phone
+
+    if source == "outbox_job":
+        kind = row.get("kind")
+        error = row.get("last_error")
+        attempts = row.get("attempts")
+        max_attempts = row.get("max_attempts")
+        if kind in _CUSTOMER_FACING_ALERT_KINDS:
+            severity = "customer_facing"
+            what_happened = f"رسالة لم تصل إلى {label}"
+            what_to_do = "تابعي المحادثة معها في واتساب"
+        elif kind == "pdf_invoice":
+            severity = "customer_facing"
+            what_happened = f"الفاتورة لم تصل إلى {label}"
+            what_to_do = "أعيدي المحاولة أو أرسليها يدوياً"
+        else:
+            severity = "internal"
+            what_happened = f"فشلت عملية داخلية ({kind})"
+            what_to_do = "أعيدي المحاولة، وإذا تكررت راجعي خالد"
+    else:  # webhook_event dead-letter — always customer-facing (a message
+        # from the customer was never read by the system).
+        kind = "inbound_message"
+        error = row.get("error")
+        attempts = row.get("attempts")
+        max_attempts = None
+        severity = "customer_facing"
+        what_happened = f"رسالة من {label} لم تُقرأ من النظام"
+        what_to_do = "افتحي المحادثة وشوفي شو بدها"
+
+    return {
+        "id": row["id"],
+        "source": source,
+        "phone": phone,
+        "customer_name": customer_name,
+        "severity": severity,
+        "headline": "تحتاج انتباهك الآن",
+        "what_happened": what_happened,
+        "what_to_do": what_to_do,
+        "wa_link": _wa_link(phone),
+        "kind": kind,
+        "attempts": attempts,
+        "max_attempts": max_attempts,
+        "error": error,
+        "payload": row.get("payload"),
+        "created_at": row.get("created_at"),
+    }
+
 
 @router.get("/api/alerts")
 async def api_alerts():
     dead_events = query(
-        "SELECT id, phone, payload, error, attempts, created_at FROM webhook_events "
-        "WHERE processed = TRUE AND error LIKE %s ORDER BY created_at DESC LIMIT 100",
+        "SELECT we.id, we.phone, we.payload, we.error, we.attempts, we.created_at, "
+        "COALESCE(c.name, '') AS customer_name "
+        "FROM webhook_events we LEFT JOIN customers c ON c.phone = we.phone "
+        "WHERE we.processed = TRUE AND we.error LIKE %s "
+        "ORDER BY we.created_at DESC LIMIT 100",
         ("dead-letter:%",),
     )
     failed_jobs = query(
-        "SELECT id, kind, phone, payload, last_error, attempts, max_attempts, created_at "
-        "FROM outbox_jobs WHERE status = 'failed' AND attempts >= max_attempts "
-        "ORDER BY created_at DESC LIMIT 100",
+        "SELECT oj.id, oj.kind, oj.phone, oj.payload, oj.last_error, oj.attempts, "
+        "oj.max_attempts, oj.created_at, COALESCE(c.name, '') AS customer_name "
+        "FROM outbox_jobs oj LEFT JOIN customers c ON c.phone = oj.phone "
+        "WHERE oj.status = 'failed' AND oj.attempts >= oj.max_attempts "
+        "ORDER BY oj.created_at DESC LIMIT 100",
     )
     for row in dead_events + failed_jobs:
         if row.get("created_at") and not isinstance(row["created_at"], str):
             row["created_at"] = row["created_at"].isoformat()
-    return JSONResponse(content={"webhook_events": dead_events, "outbox_jobs": failed_jobs})
+
+    alerts = [_frame_alert(row, "webhook_event") for row in dead_events]
+    alerts += [_frame_alert(row, "outbox_job") for row in failed_jobs]
+
+    customer_facing = sum(1 for a in alerts if a["severity"] == "customer_facing")
+    counts = {
+        "total": len(alerts),
+        "customer_facing": customer_facing,
+        "internal": len(alerts) - customer_facing,
+    }
+    return JSONResponse(content={"alerts": alerts, "counts": counts})
 
 
 @router.post("/api/alerts/webhook_events/{event_id}/retry")
@@ -421,6 +509,38 @@ async def api_retry_outbox_job(job_id: str, op: Operator = Depends(require_opera
     )
     audit.log_action(op.email, "alert_retried", {"source": "outbox_job", "id": job_id})
     return {"ok": True}
+
+
+@router.post("/api/alerts/retry_all")
+async def api_retry_all_alerts(op: Operator = Depends(require_operator)):
+    """Post-outage recovery: reset every dead-lettered webhook_events row and
+    every permanently-failed outbox_jobs row back to pollable state in two
+    bulk UPDATEs — never a per-row loop."""
+    webhook_count_rows = query(
+        "SELECT COUNT(*) AS count FROM webhook_events WHERE processed = TRUE AND error LIKE %s",
+        ("dead-letter:%",),
+    )
+    outbox_count_rows = query(
+        "SELECT COUNT(*) AS count FROM outbox_jobs WHERE status = 'failed' AND attempts >= max_attempts",
+    )
+    webhook_count = int(webhook_count_rows[0]["count"]) if webhook_count_rows else 0
+    outbox_count = int(outbox_count_rows[0]["count"]) if outbox_count_rows else 0
+
+    execute(
+        "UPDATE webhook_events SET processed = FALSE, attempts = 0, error = NULL "
+        "WHERE processed = TRUE AND error LIKE %s",
+        ("dead-letter:%",),
+    )
+    execute(
+        "UPDATE outbox_jobs SET status = 'pending', attempts = 0, last_error = NULL, "
+        "updated_at = now() WHERE status = 'failed' AND attempts >= max_attempts",
+    )
+
+    audit.log_action(op.email, "alert_retry_all", {
+        "webhook_events": webhook_count, "outbox_jobs": outbox_count,
+    })
+
+    return {"ok": True, "webhook_events": webhook_count, "outbox_jobs": outbox_count}
 
 
 # ---------------------------------------------------------------------------
