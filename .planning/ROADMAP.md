@@ -92,7 +92,7 @@ This roadmap transitions ALYASMEEN AuntOps from a development implementation to 
 - [ ] 05-06-PLAN.md — Audited mutations, bot-vs-aunt conflict guard, alerts API rework, failure alerts
 - [ ] 05-07-PLAN.md — Handoffs tab (transcript, return-to-bot, live badge) + audit trail page
 - [ ] 05-08-PLAN.md — Alerts page reworked into Arabic action cards + conflict picker on orders
-- [ ] 05-09-PLAN.md — Account page: MFA enrollment, session management, admin session view, password reset
+- [x] 05-09-PLAN.md — Account page: MFA enrollment, session management, admin session view, password reset
 - [ ] 05-10-PLAN.md — Live rollout + assisted TOTP enrollment + operator walkthrough (checkpoints)
 
 ### Phase 6: Production Go-Live (M6)
