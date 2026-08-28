@@ -3,39 +3,19 @@ test_alerts_api.py — Integration tests for the alerts API.
 
 Covers: GET /api/alerts (dead-lettered webhook_events + permanently-failed
 outbox_jobs), and the two one-click retry endpoints that reset either row
-type back to a pollable state. Auth is injected via cookie, same pattern as
+type back to a pollable state. Auth is injected via the operator_client
+fixture (tests/conftest.py) — a FastAPI dependency override, same pattern as
 test_orders_api.py / test_ui_api.py.
 """
-import hashlib
 import os
 import sys
 from pathlib import Path
-
-import pytest
-from fastapi.testclient import TestClient
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 os.environ["USE_MOCK_WHATSAPP"] = "1"
-
-from app.main import app  # noqa: E402
-
-
-@pytest.fixture()
-def client():
-    return TestClient(app)
-
-
-@pytest.fixture()
-def auth_client(client):
-    from app.services.config import Config
-
-    raw = f"{Config.SECRET_KEY}:{Config.DASHBOARD_PASSWORD}"
-    token = hashlib.sha256(raw.encode()).hexdigest()
-    client.cookies.set("alyasmeen_session", token)
-    return client
 
 
 FAKE_DEAD_EVENT = {
@@ -74,7 +54,7 @@ class TestAlertsAuth:
 
 
 class TestAlertsList:
-    def test_api_alerts_returns_both_lists(self, auth_client, monkeypatch):
+    def test_api_alerts_returns_both_lists(self, operator_client, monkeypatch):
         import app.routers.ui_api as ui_api
 
         def fake_query(sql, params=()):
@@ -86,7 +66,7 @@ class TestAlertsList:
 
         monkeypatch.setattr(ui_api, "query", fake_query)
 
-        r = auth_client.get("/api/alerts")
+        r = operator_client.get("/api/alerts")
         assert r.status_code == 200
         data = r.json()
         assert "webhook_events" in data
@@ -98,12 +78,12 @@ class TestAlertsList:
         assert data["outbox_jobs"][0]["id"] == FAKE_FAILED_JOB["id"]
         assert data["outbox_jobs"][0]["last_error"] == FAKE_FAILED_JOB["last_error"]
 
-    def test_api_alerts_empty_when_nothing_dead(self, auth_client, monkeypatch):
+    def test_api_alerts_empty_when_nothing_dead(self, operator_client, monkeypatch):
         import app.routers.ui_api as ui_api
 
         monkeypatch.setattr(ui_api, "query", lambda sql, params=(): [])
 
-        r = auth_client.get("/api/alerts")
+        r = operator_client.get("/api/alerts")
         assert r.status_code == 200
         data = r.json()
         assert data["webhook_events"] == []
@@ -111,7 +91,7 @@ class TestAlertsList:
 
 
 class TestRetryWebhookEvent:
-    def test_retry_webhook_event_resets_row(self, auth_client, monkeypatch):
+    def test_retry_webhook_event_resets_row(self, operator_client, monkeypatch):
         import app.routers.ui_api as ui_api
 
         captured = []
@@ -121,7 +101,7 @@ class TestRetryWebhookEvent:
 
         monkeypatch.setattr(ui_api, "execute", fake_execute)
 
-        r = auth_client.post(
+        r = operator_client.post(
             f"/api/alerts/webhook_events/{FAKE_DEAD_EVENT['id']}/retry"
         )
         assert r.status_code == 200
@@ -133,7 +113,7 @@ class TestRetryWebhookEvent:
 
 
 class TestRetryOutboxJob:
-    def test_retry_outbox_job_resets_row(self, auth_client, monkeypatch):
+    def test_retry_outbox_job_resets_row(self, operator_client, monkeypatch):
         import app.routers.ui_api as ui_api
 
         captured = []
@@ -143,7 +123,7 @@ class TestRetryOutboxJob:
 
         monkeypatch.setattr(ui_api, "execute", fake_execute)
 
-        r = auth_client.post(
+        r = operator_client.post(
             f"/api/alerts/outbox_jobs/{FAKE_FAILED_JOB['id']}/retry"
         )
         assert r.status_code == 200

@@ -4,43 +4,21 @@ test_orders_api.py — Integration tests for the orders API.
 Tests the order status update flow end-to-end with a mocked Supabase client.
 Covers: status transitions (to_do → ready → delivered → done), auth guard,
 WhatsApp notification on status change, and PDF invoice on done.
+
+Auth is injected via the operator_client fixture (tests/conftest.py) — a
+FastAPI dependency override, not a forged session cookie.
 """
 import os
 import sys
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 os.environ["USE_MOCK_WHATSAPP"] = "1"
-
-from app.main import app  # noqa: E402
-
-
-@pytest.fixture()
-def client():
-    return TestClient(app)
-
-
-@pytest.fixture()
-def auth_client(client):
-    """Return a client with a valid session cookie injected directly.
-
-    Computing the token ourselves avoids redirect/cookie propagation issues
-    with TestClient and doesn't require a real DB call.
-    """
-    import hashlib
-
-    from app.services.config import Config
-
-    raw = f"{Config.SECRET_KEY}:{Config.DASHBOARD_PASSWORD}"
-    token = hashlib.sha256(raw.encode()).hexdigest()
-    client.cookies.set("alyasmeen_session", token)
-    return client
 
 
 @pytest.fixture()
@@ -115,8 +93,8 @@ def _outbox_inserts(execute_calls, kind=None):
 
 
 class TestOrderStatusUpdate:
-    def test_update_to_ready_succeeds(self, auth_client, mock_order):
-        r = auth_client.post(
+    def test_update_to_ready_succeeds(self, operator_client, mock_order):
+        r = operator_client.post(
             f"/api/orders/{mock_order['id']}/status",
             json={"status": "ready"},
         )
@@ -127,12 +105,12 @@ class TestOrderStatusUpdate:
         inserts = _outbox_inserts(mock_order["execute_calls"], kind="whatsapp_message")
         assert len(inserts) == 1
 
-    def test_update_to_delivered_succeeds(self, auth_client, mock_order, monkeypatch):
+    def test_update_to_delivered_succeeds(self, operator_client, mock_order, monkeypatch):
         # Mock record_delivery
         from app.services import followup
         monkeypatch.setattr(followup, "record_delivery", lambda phone, oid: None)
 
-        r = auth_client.post(
+        r = operator_client.post(
             f"/api/orders/{mock_order['id']}/status",
             json={"status": "delivered"},
         )
@@ -141,12 +119,12 @@ class TestOrderStatusUpdate:
         inserts = _outbox_inserts(mock_order["execute_calls"], kind="whatsapp_message")
         assert len(inserts) == 1
 
-    def test_update_to_done_succeeds(self, auth_client, mock_order):
+    def test_update_to_done_succeeds(self, operator_client, mock_order):
         """New coverage: marking an order 'done' must queue TWO outbox jobs —
         the thank-you text and the pdf_invoice regeneration+send — instead of
         sending the WhatsApp message and generating/sending the PDF inline in
         the HTTP request."""
-        r = auth_client.post(
+        r = operator_client.post(
             f"/api/orders/{mock_order['id']}/status",
             json={"status": "done"},
         )
@@ -161,25 +139,25 @@ class TestOrderStatusUpdate:
         assert len(pdf_inserts) == 1
         assert pdf_inserts[0][2] == {"order_id": mock_order["id"]}
 
-    def test_invalid_status_returns_400(self, auth_client, mock_order):
-        r = auth_client.post(
+    def test_invalid_status_returns_400(self, operator_client, mock_order):
+        r = operator_client.post(
             f"/api/orders/{mock_order['id']}/status",
             json={"status": "invalid_status"},
         )
         assert r.status_code == 400
 
-    def test_missing_order_returns_404(self, auth_client, monkeypatch):
+    def test_missing_order_returns_404(self, operator_client, monkeypatch):
         import app.routers.ui_api as ui_api
 
         monkeypatch.setattr(ui_api, "query", lambda sql, params=(): [])
         monkeypatch.setattr(ui_api, "execute", lambda sql, params=(): None)
 
-        r = auth_client.post("/api/orders/9999/status", json={"status": "ready"})
+        r = operator_client.post("/api/orders/9999/status", json={"status": "ready"})
         assert r.status_code == 404
 
 
 class TestDashboardStats:
-    def test_dashboard_stats_returns_expected_keys(self, auth_client, monkeypatch):
+    def test_dashboard_stats_returns_expected_keys(self, operator_client, monkeypatch):
         import app.routers.ui_api as ui_api
 
         def fake_query(sql, params=()):
@@ -199,7 +177,7 @@ class TestDashboardStats:
 
         monkeypatch.setattr(ui_api, "query", fake_query)
 
-        r = auth_client.get("/api/dashboard/stats")
+        r = operator_client.get("/api/dashboard/stats")
         assert r.status_code == 200
         data = r.json()
         assert "this_month" in data

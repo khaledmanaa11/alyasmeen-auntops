@@ -12,6 +12,12 @@ Deliberately NOT patched: app.db.database's own query/execute/execute_returning/
 rpc definitions. tests/unit/test_database.py exercises those directly against
 a fake Supabase `_client`, so leaving the real functions in place lets that
 retry/circuit-breaker logic actually run under test.
+
+Also defines the three dashboard-auth fixtures (`client`, `operator_client`,
+`admin_client`) every integration test in this repo now uses instead of
+hand-computing a session cookie — see the `operator_client` docstring below
+for why. Declared once here (not per-file) so plans 05-05/05-07/05-09's new
+test files can consume them without re-declaring anything.
 """
 from __future__ import annotations
 
@@ -20,6 +26,8 @@ import json
 from typing import Any
 
 import pytest
+
+from app.services.sessions import Operator
 
 
 class FakeDB:
@@ -277,6 +285,81 @@ def mock_db(monkeypatch, fake_db: FakeDB, sent_messages: list[dict]):
     monkeypatch.setattr(processor, "send_buttons", _capture_send_buttons)
 
     return fake_db
+
+
+FAKE_OPERATOR = Operator(
+    user_id="00000000-0000-0000-0000-000000000001",
+    email="aunt@example.test",
+    is_admin=False,
+    session_id="11111111-1111-1111-1111-111111111111",
+)
+FAKE_ADMIN = Operator(
+    user_id="00000000-0000-0000-0000-000000000002",
+    email="admin@example.test",
+    is_admin=True,
+    session_id="22222222-2222-2222-2222-222222222222",
+)
+
+
+@pytest.fixture()
+def client():
+    """Plain TestClient(app) with no auth override — every request is
+    unauthenticated unless the test sets cookies itself. Use this fixture
+    (never a locally-declared one) for 401/303-unauthenticated assertions."""
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    return TestClient(app)
+
+
+@pytest.fixture()
+def operator_client(client):
+    """A TestClient standing in for a signed-in, non-admin operator.
+
+    Uses FastAPI's own `app.dependency_overrides` — the idiomatic pattern for
+    testing dependency-guarded routes — to make `require_operator` and
+    `require_operator_page` resolve to a fixed fake Operator, instead of
+    computing and setting a real session cookie. No test should ever
+    hand-compute a token to forge a session again; that scheme (a hash of a
+    shared dashboard password) doesn't exist anymore — see
+    app/routers/auth_deps.py.
+
+    Dependencies are imported here, inside the fixture body rather than at
+    module import time, so this file's import order never depends on
+    app.routers.auth_deps already being importable.
+
+    Because this fixture never sets a real session cookie, the CSRF
+    middleware added in plan 05-04 (scoped via `sensitive_cookies`) will not
+    engage for these requests — that is intentional; 05-04 adds its own
+    dedicated CSRF test against a real cookie.
+    """
+    from app.main import app
+    from app.routers.auth_deps import require_operator, require_operator_page
+
+    app.dependency_overrides[require_operator] = lambda: FAKE_OPERATOR
+    app.dependency_overrides[require_operator_page] = lambda: FAKE_OPERATOR
+    try:
+        yield client
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.fixture()
+def admin_client(client):
+    """Same pattern as operator_client, but overrides all three auth_deps
+    dependencies (require_operator, require_operator_page, require_admin) to
+    resolve to a fixed fake admin Operator."""
+    from app.main import app
+    from app.routers.auth_deps import require_admin, require_operator, require_operator_page
+
+    app.dependency_overrides[require_operator] = lambda: FAKE_ADMIN
+    app.dependency_overrides[require_operator_page] = lambda: FAKE_ADMIN
+    app.dependency_overrides[require_admin] = lambda: FAKE_ADMIN
+    try:
+        yield client
+    finally:
+        app.dependency_overrides.clear()
 
 
 def drain_outbox_jobs() -> None:

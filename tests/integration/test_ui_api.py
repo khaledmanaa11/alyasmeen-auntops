@@ -2,38 +2,20 @@
 test_ui_api.py — Integration tests for the products and broadcast API.
 
 Tests products CRUD (list, create, update, toggle, delete) and broadcast
-endpoints with mocked DB. Auth is injected via cookie.
+endpoints with mocked DB. Auth is injected via the operator_client fixture
+(tests/conftest.py) — a FastAPI dependency override, not a forged cookie.
 """
-import hashlib
 import os
 import sys
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 os.environ["USE_MOCK_WHATSAPP"] = "1"
-
-from app.main import app  # noqa: E402
-
-
-@pytest.fixture()
-def client():
-    return TestClient(app)
-
-
-@pytest.fixture()
-def auth_client(client):
-    from app.services.config import Config
-
-    raw = f"{Config.SECRET_KEY}:{Config.DASHBOARD_PASSWORD}"
-    token = hashlib.sha256(raw.encode()).hexdigest()
-    client.cookies.set("alyasmeen_session", token)
-    return client
 
 
 # ---------------------------------------------------------------------------
@@ -94,8 +76,8 @@ def mock_products_db(monkeypatch):
 
 
 class TestProductsListAPI:
-    def test_list_products_authenticated(self, auth_client, mock_products_db):
-        r = auth_client.get("/api/products")
+    def test_list_products_authenticated(self, operator_client, mock_products_db):
+        r = operator_client.get("/api/products")
         assert r.status_code == 200
         data = r.json()
         assert "products" in data
@@ -107,8 +89,8 @@ class TestProductsListAPI:
 
 
 class TestCreateProduct:
-    def test_create_product_succeeds(self, auth_client, mock_products_db):
-        r = auth_client.post("/api/products", json={
+    def test_create_product_succeeds(self, operator_client, mock_products_db):
+        r = operator_client.post("/api/products", json={
             "name": "شمعة العود",
             "price": 35.0,
             "description": "شمعة عطرية",
@@ -119,26 +101,26 @@ class TestCreateProduct:
         assert data["ok"] is True
         assert data["product"]["name"] == "شمعة العود"
 
-    def test_create_without_name_returns_400(self, auth_client, mock_products_db):
-        r = auth_client.post("/api/products", json={"price": 25.0})
+    def test_create_without_name_returns_400(self, operator_client, mock_products_db):
+        r = operator_client.post("/api/products", json={"price": 25.0})
         assert r.status_code == 400
 
-    def test_create_with_zero_price_returns_400(self, auth_client, mock_products_db):
-        r = auth_client.post("/api/products", json={"name": "test", "price": 0})
+    def test_create_with_zero_price_returns_400(self, operator_client, mock_products_db):
+        r = operator_client.post("/api/products", json={"name": "test", "price": 0})
         assert r.status_code == 400
 
-    def test_create_with_negative_price_returns_400(self, auth_client, mock_products_db):
-        r = auth_client.post("/api/products", json={"name": "test", "price": -5.0})
+    def test_create_with_negative_price_returns_400(self, operator_client, mock_products_db):
+        r = operator_client.post("/api/products", json={"name": "test", "price": -5.0})
         assert r.status_code == 400
 
-    def test_create_with_invalid_price_returns_400(self, auth_client, mock_products_db):
-        r = auth_client.post("/api/products", json={"name": "test", "price": "not-a-number"})
+    def test_create_with_invalid_price_returns_400(self, operator_client, mock_products_db):
+        r = operator_client.post("/api/products", json={"name": "test", "price": "not-a-number"})
         assert r.status_code == 400
 
 
 class TestUpdateProduct:
-    def test_update_existing_product(self, auth_client, mock_products_db):
-        r = auth_client.post("/api/products/1", json={
+    def test_update_existing_product(self, operator_client, mock_products_db):
+        r = operator_client.post("/api/products/1", json={
             "name": "كريم اليدين المحدث",
             "price": 30.0,
             "description": "كريم جديد",
@@ -147,8 +129,8 @@ class TestUpdateProduct:
         assert r.status_code == 200
         assert r.json()["ok"] is True
 
-    def test_update_nonexistent_product_returns_404(self, auth_client, mock_products_db):
-        r = auth_client.post("/api/products/9999", json={
+    def test_update_nonexistent_product_returns_404(self, operator_client, mock_products_db):
+        r = operator_client.post("/api/products/9999", json={
             "name": "لا يوجد",
             "price": 10.0,
         })
@@ -156,25 +138,25 @@ class TestUpdateProduct:
 
 
 class TestToggleProduct:
-    def test_toggle_product_changes_active(self, auth_client, mock_products_db):
-        r = auth_client.post("/api/products/1/toggle")
+    def test_toggle_product_changes_active(self, operator_client, mock_products_db):
+        r = operator_client.post("/api/products/1/toggle")
         assert r.status_code == 200
         data = r.json()
         assert "active" in data
 
-    def test_toggle_nonexistent_returns_404(self, auth_client, mock_products_db):
-        r = auth_client.post("/api/products/9999/toggle")
+    def test_toggle_nonexistent_returns_404(self, operator_client, mock_products_db):
+        r = operator_client.post("/api/products/9999/toggle")
         assert r.status_code == 404
 
 
 class TestDeleteProduct:
-    def test_delete_existing_product(self, auth_client, mock_products_db):
-        r = auth_client.post("/api/products/1/delete")
+    def test_delete_existing_product(self, operator_client, mock_products_db):
+        r = operator_client.post("/api/products/1/delete")
         assert r.status_code == 200
         assert r.json()["ok"] is True
 
-    def test_delete_nonexistent_returns_404(self, auth_client, mock_products_db):
-        r = auth_client.post("/api/products/9999/delete")
+    def test_delete_nonexistent_returns_404(self, operator_client, mock_products_db):
+        r = operator_client.post("/api/products/9999/delete")
         assert r.status_code == 404
 
 
@@ -183,20 +165,20 @@ class TestDeleteProduct:
 # ---------------------------------------------------------------------------
 
 class TestBroadcastAPI:
-    def test_audience_count_all(self, auth_client, monkeypatch):
+    def test_audience_count_all(self, operator_client, monkeypatch):
         import app.routers.ui_api as api
         monkeypatch.setattr(api, "query", lambda sql, params=(): [
             {"phone": "972591111111"}, {"phone": "972592222222"}
         ])
-        r = auth_client.get("/api/broadcast/audience?filter=all")
+        r = operator_client.get("/api/broadcast/audience?filter=all")
         assert r.status_code == 200
         assert r.json()["count"] == 2
 
-    def test_audience_invalid_filter_returns_400(self, auth_client):
-        r = auth_client.get("/api/broadcast/audience?filter=invalid")
+    def test_audience_invalid_filter_returns_400(self, operator_client):
+        r = operator_client.get("/api/broadcast/audience?filter=invalid")
         assert r.status_code == 400
 
-    def test_send_broadcast_to_all(self, auth_client, monkeypatch):
+    def test_send_broadcast_to_all(self, operator_client, monkeypatch):
         import app.routers.ui_api as api
         import app.services.whatsapp_dev as dev
 
@@ -206,7 +188,7 @@ class TestBroadcastAPI:
         sent = []
         monkeypatch.setattr(dev, "send_text", lambda to, msg: sent.append(to) or {})
 
-        r = auth_client.post("/api/broadcast/send", json={
+        r = operator_client.post("/api/broadcast/send", json={
             "message": "عرض خاص هذا الأسبوع!",
             "filter": "all",
         })
@@ -215,8 +197,8 @@ class TestBroadcastAPI:
         assert data["sent"] == 2
         assert data["failed"] == 0
 
-    def test_send_broadcast_empty_message_returns_400(self, auth_client):
-        r = auth_client.post("/api/broadcast/send", json={"message": "", "filter": "all"})
+    def test_send_broadcast_empty_message_returns_400(self, operator_client):
+        r = operator_client.post("/api/broadcast/send", json={"message": "", "filter": "all"})
         assert r.status_code == 400
 
 
@@ -234,20 +216,20 @@ class TestPageRoutes:
         assert r.status_code == 303
         assert "/login" in r.headers.get("location", "")
 
-    def test_orders_page_renders_when_authenticated(self, auth_client):
-        r = auth_client.get("/orders")
+    def test_orders_page_renders_when_authenticated(self, operator_client):
+        r = operator_client.get("/orders")
         assert r.status_code == 200
 
-    def test_dashboard_page_renders_when_authenticated(self, auth_client):
-        r = auth_client.get("/dashboard")
+    def test_dashboard_page_renders_when_authenticated(self, operator_client):
+        r = operator_client.get("/dashboard")
         assert r.status_code == 200
 
-    def test_products_page_renders_when_authenticated(self, auth_client):
-        r = auth_client.get("/products")
+    def test_products_page_renders_when_authenticated(self, operator_client):
+        r = operator_client.get("/products")
         assert r.status_code == 200
 
-    def test_logout_clears_session(self, auth_client):
-        r = auth_client.get("/logout", follow_redirects=False)
+    def test_logout_clears_session(self, operator_client):
+        r = operator_client.get("/logout", follow_redirects=False)
         assert r.status_code == 303
 
     def test_alerts_page_redirects_to_login_unauthenticated(self, client):
@@ -255,6 +237,6 @@ class TestPageRoutes:
         assert r.status_code == 303
         assert "/login" in r.headers.get("location", "")
 
-    def test_alerts_page_renders_when_authenticated(self, auth_client):
-        r = auth_client.get("/alerts")
+    def test_alerts_page_renders_when_authenticated(self, operator_client):
+        r = operator_client.get("/alerts")
         assert r.status_code == 200
