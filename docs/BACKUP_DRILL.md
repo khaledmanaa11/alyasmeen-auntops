@@ -1,10 +1,12 @@
 # Supabase Backup & Restore Drill
 
-**Date:** 2026-06-14 (procedure written); revised 2026-08-25 for the verified no-Docker sequence
-**Status:** Procedure verified — the installed Supabase CLI does NOT require Docker for the
-commands this drill actually needs (`supabase link`, `db push`, `db dump` all work without
-Docker; only local-dev-stack commands like `supabase start`/`db diff` need it, and this drill
-doesn't use those). Live execution is a Phase 4 operator checkpoint — see Drill Log below.
+**Date:** 2026-06-14 (procedure written); revised 2026-08-28 after live verification
+**Status:** `supabase link` and `db push` are Docker-free, but `supabase db dump` is NOT —
+verified failing on CLI 2.116.0 / Windows ("failed to run docker. Docker Desktop is a
+prerequisite"). The working no-Docker path for dumps is native `pg_dump` from the official
+PostgreSQL Windows installer (Command Line Tools only — the same install provides the `psql`
+the restore step needs anyway). Live execution is a Phase 4 operator checkpoint — see Drill
+Log below.
 
 ## Overview
 This document describes the procedure for backing up the ALYASMEEN AuntOps production database and performing a verified restoration drill. Production readiness requires that we can recover from total data loss within a defined RTO (Recovery Time Objective) of 4 hours.
@@ -17,13 +19,14 @@ Supabase provides daily backups on the Pro tier.
 - **Location:** Supabase Dashboard -> Project -> Database -> Backups.
 
 ### Manual (Off-site / Local)
-To ensure we have a portable backup outside of Meta/Supabase, run the following weekly:
+To ensure we have a portable backup outside of Meta/Supabase, run the following weekly.
+`pg_dump` comes from the PostgreSQL Windows installer (Command Line Tools), typically at
+`C:\Program Files\PostgreSQL\<version>\bin\pg_dump.exe`. Use the live project's **Session
+Pooler** connection string (Dashboard -> Settings -> Database -> Connection string ->
+Session pooler):
 ```bash
-# Export the entire database schema and data
-npx supabase db dump --linked --output backup_$(date +%F).sql
-
-# Export roles and permissions
-npx supabase db dump --linked --role-only --output roles_$(date +%F).sql
+# Export the entire database schema and data (plain SQL, restorable via psql)
+pg_dump "<live-session-pooler-url>" --no-owner --no-privileges -f backup_$(date +%F).sql
 ```
 Store these files in a secure, encrypted cloud bucket.
 
@@ -32,8 +35,7 @@ Store these files in a secure, encrypted cloud bucket.
 This drill should be performed quarterly to verify backup integrity.
 
 ### Step 1: Link to the live project and take the backup
-No Docker and no local Supabase stack are needed — `link`, `db push`, and `db dump` all talk
-directly to the hosted project over its Postgres connection.
+`link` and `db push` are Docker-free; the dump itself uses native `pg_dump` (see section 1).
 ```bash
 # Link the CLI to the live project (prompts for the DB password:
 # Supabase Dashboard -> Settings -> Database)
@@ -43,9 +45,8 @@ npx supabase link --project-ref ppwcfmuetgczclmnzvqr
 # Phase 4's "all migrations applied to the live project" criterion gets satisfied
 npx supabase db push --linked
 
-# Dump schema+data and roles separately
-npx supabase db dump --linked -f backup_$(date +%F).sql
-npx supabase db dump --linked --role-only -f roles_$(date +%F).sql
+# Dump schema+data with native pg_dump (Session Pooler URL of the LIVE project)
+pg_dump "<live-session-pooler-url>" --no-owner --no-privileges -f backup_$(date +%F).sql
 ```
 
 ### Step 2: Restore into a throwaway project and apply the backup
@@ -77,7 +78,7 @@ In the event of a production database failure:
 2. Create a new Supabase project.
 3. Link the CLI to the new project: `npx supabase link --project-ref <new-ref>`.
 4. Push the latest migrations: `npx supabase db push`.
-5. Restore data from the latest manual backup: `npx supabase db dump --linked | npx supabase db push`.
+5. Restore data from the latest manual backup: `psql "<new-project-session-pooler-url>" -f backup_YYYY-MM-DD.sql`.
 6. Update application environment variables (`SUPABASE_URL`, `SUPABASE_KEY`) to point to the new project.
 7. Verify system functionality.
 
