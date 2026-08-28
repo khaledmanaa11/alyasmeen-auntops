@@ -59,3 +59,36 @@ circuit-breaker leak is still open and now isolated to `test_ai_service.py`.**
   is fully green — 406 passed, 3 skipped, with `test_handoff_trigger.py` and
   the updated `test_audit.py` both included. Neither `test_ai_service.py`
   nor `ai_service.py` is in this plan's `files_modified`.
+
+## Resolved by 03-03 (ai_service.py + test_ai_service.py)
+
+**The circuit-breaker leak flagged by both 03-01 and 03-02 above is fixed —
+root cause was in `test_ai_service.py`, which this plan owns.**
+
+- Root cause: `generate_reply()`'s `_full_catalog_context()` does an
+  unmocked `from app.ai.retriever import _catalog; get_catalog()` on every
+  call. `app.ai.retriever` is not in conftest's `mock_db` patch list, so in
+  every `test_ai_service.py` test that calls `generate_reply()` with a valid
+  API key, this hits `block_live_db`'s guard, burns 3 real retry attempts
+  (with sleeps) against `app/db/database.py`'s retry logic, and increments
+  its process-global `_consecutive_failures`. The plan's own pre-existing 4
+  tests already sat at 4/5 of the circuit's default `circuit_threshold`; this
+  plan's new tests (which legitimately call `generate_reply()` per its own
+  `<action>` spec) pushed the count over the threshold, tripping the circuit
+  open for `circuit_cooldown_seconds` and failing whichever unrelated test
+  file happened to run next in the same pytest process.
+- Fix (Rule 1/3, scoped to `tests/unit/test_ai_service.py` only — no
+  production code changed for this): added a file-scoped autouse
+  `mock_catalog` fixture that monkeypatches `app.ai.retriever._catalog` to
+  return `[]`, so `generate_reply()` never reaches the live-DB guard at all
+  in this file's tests.
+- Verified: `pytest tests/unit/test_ai_service.py tests/unit/test_database.py -q`
+  and the full `pytest -q` are both green (431 passed, 3 skipped) — see
+  `03-03-SUMMARY.md`.
+- Not touched: `tests/conftest.py` / `app/db/database.py` themselves still
+  have no autouse circuit-breaker reset, and any *other* file that calls
+  `generate_reply()` (or otherwise reaches an unmocked DB seam) enough times
+  in one session could still trip the same shared global. A durable fix
+  (reset the breaker in an autouse fixture, or add `app.ai.retriever` to
+  conftest's `mock_db` patch list) is still open for whoever next owns
+  `tests/conftest.py`.
