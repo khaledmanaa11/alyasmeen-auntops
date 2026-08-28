@@ -262,9 +262,22 @@ def sent_messages() -> list[dict]:
 @pytest.fixture(autouse=True)
 def mock_db(monkeypatch, fake_db: FakeDB, sent_messages: list[dict]):
     """Autouse: patch DB and WhatsApp-sender seams so no test ever hits the
-    real network. See module docstring for why these specific names."""
+    real network. See module docstring for why these specific names.
+
+    app.services.audit is included here (05-09): its log_action() is
+    best-effort and swallows failures, so an unpatched real DB call there
+    would not fail a test — it would silently write a real row to the live
+    project instead (verified empirically: a real INSERT went through and
+    had to be cleaned up by hand while building 05-09). Every route that
+    calls audit.log_action() — not just the ones this phase's own tests
+    target — is covered by patching it here once, the same way query/execute
+    are already covered for wh/processor above, rather than requiring every
+    test file that happens to exercise an audited code path to remember its
+    own per-test patch.
+    """
     import app.routers.whatsapp as wa
     import app.routers.whatsapp_helpers as wh
+    import app.services.audit as audit
     import app.services.processor as processor
 
     def _capture_send_text(to, text):
@@ -275,7 +288,7 @@ def mock_db(monkeypatch, fake_db: FakeDB, sent_messages: list[dict]):
         sent_messages.append({"to": to, "text": body, "buttons": buttons})
         return {"dev": True, "to": to, "text": body, "buttons": buttons}
 
-    for mod in (wh, processor):
+    for mod in (wh, processor, audit):
         monkeypatch.setattr(mod, "query", fake_db.query)
         monkeypatch.setattr(mod, "execute", fake_db.execute)
 
