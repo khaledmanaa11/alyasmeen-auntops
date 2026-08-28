@@ -11,7 +11,7 @@ import pytest
 def mock_whatsapp(monkeypatch):
     import app.services.followup as fu
 
-    monkeypatch.setattr(fu, "send_text", lambda to, msg: None)
+    monkeypatch.setattr(fu, "queue_text", lambda to, msg: None)
 
 
 class TestRecordDelivery:
@@ -45,7 +45,7 @@ class TestSendFollowups:
         sent = []
         monkeypatch.setattr(fu, "query", lambda sql, params=(): pending)
         monkeypatch.setattr(fu, "execute", lambda sql, params=(): None)
-        monkeypatch.setattr(fu, "send_text", lambda to, msg: sent.append(to))
+        monkeypatch.setattr(fu, "queue_text", lambda to, msg: sent.append(to))
 
         result = fu.send_followups()
         assert result == 2
@@ -59,7 +59,7 @@ class TestSendFollowups:
         execute_calls = []
         monkeypatch.setattr(fu, "query", lambda sql, params=(): pending)
         monkeypatch.setattr(fu, "execute", lambda sql, params=(): execute_calls.append(params))
-        monkeypatch.setattr(fu, "send_text", lambda to, msg: None)
+        monkeypatch.setattr(fu, "queue_text", lambda to, msg: None)
 
         fu.send_followups()
         # Should have called execute to mark sent=TRUE
@@ -81,7 +81,7 @@ class TestSendFollowups:
 
         monkeypatch.setattr(fu, "query", lambda sql, params=(): pending)
         monkeypatch.setattr(fu, "execute", lambda sql, params=(): None)
-        monkeypatch.setattr(fu, "send_text", flaky_send)
+        monkeypatch.setattr(fu, "queue_text", flaky_send)
 
         result = fu.send_followups()
         assert result == 1  # only one succeeded

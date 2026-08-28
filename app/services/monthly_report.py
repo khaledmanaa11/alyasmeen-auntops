@@ -17,11 +17,7 @@ from datetime import date, timedelta
 
 from app.db.database import execute, query
 from app.services.config import Config
-
-if Config.USE_MOCK_WHATSAPP:
-    from app.services.whatsapp_dev import send_text
-else:
-    from app.services.whatsapp_meta import send_text
+from app.services.processor import queue_text
 
 log = logging.getLogger(__name__)
 
@@ -153,7 +149,7 @@ def send_monthly_report() -> None:
     report = build_report(first_day.year, first_day.month)
 
     try:
-        send_text(Config.AUNT_PHONE, report)
+        queue_text(Config.AUNT_PHONE, report)
         log.info("monthly_report: sent for %d-%02d", first_day.year, first_day.month)
     except Exception:
         log.exception("monthly_report: failed to send WhatsApp report")

@@ -9,10 +9,10 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def mock_whatsapp(monkeypatch):
-    """Patch send_text so no real WhatsApp call is made."""
+    """Patch queue_text so no real WhatsApp call is made."""
     import app.services.monthly_report as mr
 
-    monkeypatch.setattr(mr, "send_text", lambda to, msg: None)
+    monkeypatch.setattr(mr, "queue_text", lambda to, msg: None)
 
 
 @pytest.fixture()
@@ -116,7 +116,7 @@ class TestSendMonthlyReport:
 
         monkeypatch.setattr(cfg.Config, "AUNT_PHONE", None)
         sent = []
-        monkeypatch.setattr(mr, "send_text", lambda to, msg: sent.append(to))
+        monkeypatch.setattr(mr, "queue_text", lambda to, msg: sent.append(to))
         mr.send_monthly_report()
         assert sent == []
 
@@ -126,7 +126,7 @@ class TestSendMonthlyReport:
 
         monkeypatch.setattr(cfg.Config, "AUNT_PHONE", "972591111111")
         sent = []
-        monkeypatch.setattr(mr, "send_text", lambda to, msg: sent.append(to))
+        monkeypatch.setattr(mr, "queue_text", lambda to, msg: sent.append(to))
         mr.send_monthly_report()
         assert "972591111111" in sent
 
