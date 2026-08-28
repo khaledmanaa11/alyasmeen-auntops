@@ -1,21 +1,16 @@
 """
 test_gatekeeper.py — Unit tests for app/shared/gatekeeper.py
 
-Tests rate limiting (bucket logic), retry behaviour on transient failures,
-and queue status reporting. All tests are synchronous — asyncio.run() is used
-to call async methods without needing pytest-asyncio.
+Tests rate limiting (bucket logic), the bounded-wait-then-raise contract,
+the no-retry-on-failure contract, and queue status reporting. The gatekeeper
+is fully synchronous — no asyncio helpers needed, call gk.execute() directly.
 """
-import asyncio
 import json
 import tempfile
+import time
 from pathlib import Path
 
 import pytest
-
-
-def run(coro):
-    """Run an async coroutine synchronously in tests."""
-    return asyncio.get_event_loop().run_until_complete(coro)
 
 
 # ---------------------------------------------------------------------------
@@ -23,14 +18,12 @@ def run(coro):
 # ---------------------------------------------------------------------------
 
 class TestServiceBucket:
-    def _make_bucket(self, rpm=10, rph=100, retry_after=1, max_retries=2):
+    def _make_bucket(self, rpm=10, rph=100):
         from app.shared.gatekeeper import _ServiceBucket
 
         return _ServiceBucket({
             "requests_per_minute": rpm,
             "requests_per_hour": rph,
-            "retry_after_seconds": retry_after,
-            "max_retries": max_retries,
         })
 
     def test_bucket_initially_allows_requests(self):
@@ -72,8 +65,6 @@ class TestApiGatekeeper:
                 "test_service": {
                     "requests_per_minute": rpm,
                     "requests_per_hour": rph,
-                    "retry_after_seconds": 1,
-                    "max_retries": 2,
                 }
             }
         }
@@ -92,41 +83,39 @@ class TestApiGatekeeper:
             results.append(x)
             return x * 2
 
-        result = run(gk.execute("test_service", my_fn, 5))
+        result = gk.execute("test_service", my_fn, 5)
         assert result == 10
         assert results == [5]
 
-    def test_execute_calls_async_function(self):
-        gk = self._make_gatekeeper()
-
-        async def my_async_fn(x):
-            return x + 1
-
-        result = run(gk.execute("test_service", my_async_fn, 10))
-        assert result == 11
-
-    def test_execute_retries_on_failure(self):
+    def test_execute_does_not_retry_and_propagates_exception(self):
         gk = self._make_gatekeeper()
         call_count = [0]
 
-        def flaky_fn():
-            call_count[0] += 1
-            if call_count[0] < 3:
-                raise ConnectionError("transient error")
-            return "ok"
-
-        result = run(gk.execute("test_service", flaky_fn))
-        assert result == "ok"
-        assert call_count[0] == 3  # failed twice, succeeded on 3rd
-
-    def test_execute_raises_after_max_retries_exhausted(self):
-        gk = self._make_gatekeeper()
-
         def always_fail():
+            call_count[0] += 1
             raise RuntimeError("permanent failure")
 
         with pytest.raises(RuntimeError, match="permanent failure"):
-            run(gk.execute("test_service", always_fail))
+            gk.execute("test_service", always_fail)
+        assert call_count[0] == 1  # no retry
+
+    def test_execute_raises_rate_limit_exceeded_after_bounded_wait(self):
+        from app.shared.gatekeeper import RateLimitExceeded
+
+        gk = self._make_gatekeeper(rpm=1, rph=1000)
+
+        def fn():
+            return "ok"
+
+        # First call consumes the bucket's only slot.
+        assert gk.execute("test_service", fn) == "ok"
+
+        # Second call should wait briefly, then raise — bounded, not indefinite.
+        t0 = time.monotonic()
+        with pytest.raises(RateLimitExceeded):
+            gk.execute("test_service", fn, max_wait=0.3, poll_interval=0.05)
+        elapsed = time.monotonic() - t0
+        assert elapsed < 0.3 + 0.3
 
     def test_get_queue_status_returns_dict(self):
         gk = self._make_gatekeeper()
@@ -146,7 +135,7 @@ class TestApiGatekeeper:
             return "result"
 
         # Should not raise even for unknown service
-        result = run(gk.execute("unknown_service", fn))
+        result = gk.execute("unknown_service", fn)
         assert result == "result"
 
     def test_load_missing_config_returns_empty_gatekeeper(self):
