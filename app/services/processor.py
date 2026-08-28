@@ -446,10 +446,24 @@ def handle_message(phone: str, text: str, name: str = ""):
         log.error("ai_reply_failed", error=str(e), phone=phone)
         reply = AI_FALLBACK_REPLY
 
+    # A tool inside this call may have opened a handoff (request_human_handoff,
+    # or a policy denial that escalates). Replace the model's own reply with
+    # the deterministic acknowledgement so the customer gets exactly ONE
+    # message, worded by us — not by the model, which is free to over-promise
+    # ("حنان رح تتصل فيكِ خلال ساعة") if left to phrase this itself. Using
+    # st.pop also keeps this transient flag out of anything save_session might
+    # later persist.
+    if st.pop("handoff_pending", False):
+        reply = HANDOFF_ACK_REPLY
+
     append_history(phone, "assistant", reply)
     queue_text(phone, reply)
 
-    # Session might have been updated by tools
+    # Session might have been updated by tools. save_session()'s SQL
+    # deliberately never writes the `paused` column (see load_session()'s
+    # comment) — a handoff opened above already paused this session via
+    # handoff.trigger(), and this save must not un-mute the bot by clobbering
+    # that on the very next message.
     save_session(phone, st)
 
 
@@ -554,6 +568,9 @@ def _make_tool_executor(phone: str, st: dict, cart: list) -> Callable[[str, dict
         if name == "save_address":
             return _tool_save_address(phone, st, args.get("address", ""))
 
+        if name == "request_human_handoff":
+            return _tool_request_human_handoff(phone, st, args.get("reason", ""))
+
         # Dead-code defence: policy's unknown_tool rule already denies any
         # name not in TOOL_SCOPES before this point is ever reached.
         return f"Tool {name} not found"
@@ -650,12 +667,29 @@ def _tool_save_address(phone: str, st: dict, address: str) -> str:
     st["address"] = address
     st["stage"] = "confirm"
     # save_session is called at end of handle_message
-    
+
     from app.routers.whatsapp_helpers import save_customer_address
     save_customer_address(phone, address)
-    
+
     _show_cart(phone, st["cart"])
     return "تم حفظ العنوان."
+
+
+def _tool_request_human_handoff(phone: str, st: dict, reason: str) -> str:
+    """Claude's escalation tool. Opens a REAL handoff — the whole point is
+    that "I've passed this to Hanan" is backed by a database row, not just
+    by prose the model produced.
+
+    On failure this must NOT set handoff_pending: if the durable write did
+    not happen, the customer must not be told it did. handle_message()
+    replaces the reply with HANDOFF_ACK_REPLY only when handoff_pending is
+    True, so on failure Claude's own (honest, apologetic) reply reaches the
+    customer instead.
+    """
+    if _open_handoff(phone, "ai_requested", {"reason": reason[:200]}):
+        st["handoff_pending"] = True
+        return "تم تحويل المحادثة لحنان بنجاح."
+    return "تعذّر التحويل حالياً — اعتذري للزبونة واطلبي منها المحاولة بعد قليل."
 
 
 def _show_cart(phone: str, cart: list):
