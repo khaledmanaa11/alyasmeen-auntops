@@ -287,6 +287,7 @@ Only fires if `AUNT_PHONE` is set. Wrapped in try/except — order never fails i
 |-----|----------|---------|
 | `SUPABASE_URL` | ✅ | Supabase project URL |
 | `SUPABASE_KEY` | ✅ | Supabase anon key |
+| `DATABASE_URL` | prod | Postgres Session Pooler connection string — persists the APScheduler job store across worker restarts (see .env.example for the exact shape) |
 | `DASHBOARD_PASSWORD` | ✅ | Web dashboard login |
 | `SECRET_KEY` | ✅ | Session cookie signing |
 | `AUNT_PHONE` | ✅ | New-order alerts + monthly report |
