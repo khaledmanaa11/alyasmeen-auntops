@@ -6,7 +6,7 @@ This roadmap transitions ALYASMEEN AuntOps from a development implementation to 
 
 - [x] **Phase 1: Database Foundation (M1)** - Establish a reproducible and recoverable data foundation.
 - [x] **Phase 2: Application Hardening (M2)** - Secure and durable application boundary with separate web/worker roles.
-- [ ] **Phase 3: Agent Dependability & Safety (M3)** - Safe, autonomous customer service with deterministic policy and human fallbacks.
+- [x] **Phase 3: Agent Dependability & Safety (M3)** - Safe, autonomous customer service with deterministic policy and human fallbacks.
 - [x] **Phase 4: Reliability & Operations Completion (M4)** - Finish the reliability story: no dead code claiming to run, live-DB verification, operator-visible failures.
 - [ ] **Phase 5: Operator Security & UX (M5)** - Secure and operator-friendly dashboard with MFA and handoff management.
 - [ ] **Phase 6: Production Go-Live (M6)** - Integrated system validation, pilot operation, and final cutover.
@@ -62,7 +62,7 @@ policy gate for this phase. See `03-RESEARCH.md` for the stale-plan reconciliati
 - [x] 03-05-PLAN.md — Policy-gated tool executor, handoff tool implementation, AI-failure escalation
 - [x] 03-06-PLAN.md — Pytest eval gate over the real pipeline + measured baseline
 - [x] 03-07-PLAN.md — Release thresholds from the baseline + docs/EVAL_GATE.md
-- [ ] 03-08-PLAN.md — Requirement verification tests + knowledge-vault and CLAUDE.md update
+- [x] 03-08-PLAN.md — Requirement verification tests + knowledge-vault and CLAUDE.md update
 
 ### Phase 4: Reliability & Operations Completion (M4)
 **Goal**: Every reliability mechanism either genuinely works in production or is deleted — no dead code that claims to run, no failure invisible to the operator.
