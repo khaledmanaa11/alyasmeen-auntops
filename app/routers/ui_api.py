@@ -362,6 +362,53 @@ async def api_delete_product(product_id: int, request: Request):
 
 
 # ---------------------------------------------------------------------------
+# Alerts API — dead-lettered webhook_events + permanently-failed outbox_jobs
+# ---------------------------------------------------------------------------
+
+@router.get("/api/alerts")
+async def api_alerts(request: Request):
+    if not _is_authenticated(request):
+        raise HTTPException(status_code=401)
+    dead_events = query(
+        "SELECT id, phone, payload, error, attempts, created_at FROM webhook_events "
+        "WHERE processed = TRUE AND error LIKE %s ORDER BY created_at DESC LIMIT 100",
+        ("dead-letter:%",),
+    )
+    failed_jobs = query(
+        "SELECT id, kind, phone, payload, last_error, attempts, max_attempts, created_at "
+        "FROM outbox_jobs WHERE status = 'failed' AND attempts >= max_attempts "
+        "ORDER BY created_at DESC LIMIT 100",
+    )
+    for row in dead_events + failed_jobs:
+        if row.get("created_at") and not isinstance(row["created_at"], str):
+            row["created_at"] = row["created_at"].isoformat()
+    return JSONResponse(content={"webhook_events": dead_events, "outbox_jobs": failed_jobs})
+
+
+@router.post("/api/alerts/webhook_events/{event_id}/retry")
+async def api_retry_webhook_event(event_id: str, request: Request):
+    if not _is_authenticated(request):
+        raise HTTPException(status_code=401)
+    execute(
+        "UPDATE webhook_events SET processed = FALSE, attempts = 0, error = NULL WHERE id = %s",
+        (event_id,),
+    )
+    return {"ok": True}
+
+
+@router.post("/api/alerts/outbox_jobs/{job_id}/retry")
+async def api_retry_outbox_job(job_id: str, request: Request):
+    if not _is_authenticated(request):
+        raise HTTPException(status_code=401)
+    execute(
+        "UPDATE outbox_jobs SET status = 'pending', attempts = 0, last_error = NULL, "
+        "updated_at = now() WHERE id = %s",
+        (job_id,),
+    )
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
 # Broadcast APIs
 # ---------------------------------------------------------------------------
 
