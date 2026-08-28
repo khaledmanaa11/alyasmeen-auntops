@@ -76,14 +76,24 @@ This roadmap transitions ALYASMEEN AuntOps from a development implementation to 
 
 ### Phase 5: Operator Security & UX (M5)
 **Goal**: Secure and operator-friendly dashboard with MFA and handoff management.
-**Depends on**: Phase 3
-**Requirements**: REQ-prod-auth-mfa, REQ-prod-session-opaque, REQ-prod-csrf, REQ-prod-sec-headers, REQ-dash-login, REQ-dash-orders-list, REQ-dash-orders-filter, REQ-dash-status-update, REQ-dash-products-crud
+**Depends on**: Phase 3 (soft — the `handoffs` / `audit_logs` tables and `sessions.paused` already exist from Phase 1, so Phase 5 builds the resolution + UI half against live schema. Phase 3 still owns `HandoffService.trigger()`/pause; until it ships there is no producer of active handoffs, and `POST /dev/test_handoff` seeds them for verification.)
+**Requirements**: REQ-prod-auth-mfa, REQ-prod-session-opaque, REQ-prod-csrf, REQ-prod-sec-headers, REQ-prod-handoff (UI), REQ-dash-login, REQ-dash-orders-list, REQ-dash-orders-filter, REQ-dash-status-update, REQ-dash-products-crud
 **Success Criteria** (what must be TRUE):
   1. Dashboard access requires Supabase Auth with MFA (TOTP).
   2. Aunt can manage handoffs, see audit history, and resolve conflicts from the UI.
   3. All dashboard mutations are protected against CSRF and session hijacking.
   4. The operator can clearly see and recover from failed communications or dead-letter jobs.
-**Plans**: TBD
+**Plans**: 10 plans in 7 waves
+- [ ] 05-01-PLAN.md — Opaque session store: operator_sessions/trusted_devices/pending_logins migration + sessions.py
+- [ ] 05-02-PLAN.md — Supabase Auth service wrapper (AAL/MFA) + operator account management CLI
+- [ ] 05-03-PLAN.md — Replace the shared-password guard: auth deps, email+password+TOTP login, test seam
+- [ ] 05-04-PLAN.md — CSRF (starlette-csrf) + security headers + shared `_nav.html` partial
+- [ ] 05-05-PLAN.md — Handoff resolve + audit service + operator JSON API + dev handoff seed
+- [ ] 05-06-PLAN.md — Audited mutations, bot-vs-aunt conflict guard, alerts API rework, failure alerts
+- [ ] 05-07-PLAN.md — Handoffs tab (transcript, return-to-bot, live badge) + audit trail page
+- [ ] 05-08-PLAN.md — Alerts page reworked into Arabic action cards + conflict picker on orders
+- [ ] 05-09-PLAN.md — Account page: MFA enrollment, session management, admin session view, password reset
+- [ ] 05-10-PLAN.md — Live rollout + assisted TOTP enrollment + operator walkthrough (checkpoints)
 
 ### Phase 6: Production Go-Live (M6)
 **Goal**: Integrated system validation, pilot operation, and final cutover.
@@ -104,5 +114,5 @@ This roadmap transitions ALYASMEEN AuntOps from a development implementation to 
 | 2. Application Hardening | 2/2 | ✅ Completed | 2026-06-14 |
 | 3. Agent Dependability | 0/3 | 🏗️ In Progress | - |
 | 4. Reliability & Ops Completion | 7/7 | Complete    | 2026-08-28 |
-| 5. Operator Security | 0/1 | Not started | - |
+| 5. Operator Security | 0/10 | 📋 Planned | - |
 | 6. Production Go-Live | 0/1 | Not started | - |
