@@ -6,7 +6,7 @@ from typing import Any, Callable
 
 import structlog
 from app.db.database import execute, query, rpc
-from app.services.ai_service import generate_reply
+from app.services.ai_service import AIUnavailableError, generate_reply
 from app.services.config import Config
 from app.services.pdf_invoice import generate_invoice_pdf
 from app.services import handoff, policy
@@ -442,9 +442,25 @@ def handle_message(phone: str, text: str, name: str = ""):
             customer_name=customer_name,
             tool_executor=tool_executor
         )
+    except AIUnavailableError as e:
+        # ai_service.py raises this for every real AI failure (missing key,
+        # API error, empty completion) instead of swallowing it — see
+        # 03-03. The customer still ALWAYS gets a reply (non-negotiable),
+        # and the aunt gets a durable handoff instead of the outage going
+        # unnoticed. _open_handoff() already swallows its own failures, so a
+        # handoff problem on top of an AI problem still cannot cost the
+        # customer her message.
+        log.error("ai_unavailable", error=str(e), phone=phone)
+        reply = AI_FALLBACK_REPLY
+        _open_handoff(phone, "ai_failure", {"error": str(e)[:200]})
     except Exception as e:
+        # Defence in depth: anything generate_reply did not convert into
+        # AIUnavailableError. From here on there is exactly one AI fallback
+        # string in the codebase (AI_FALLBACK_REPLY) — ai_service.py's own
+        # near-duplicate was removed in 03-03.
         log.error("ai_reply_failed", error=str(e), phone=phone)
         reply = AI_FALLBACK_REPLY
+        _open_handoff(phone, "ai_failure", {"error": str(e)[:200]})
 
     # A tool inside this call may have opened a handoff (request_human_handoff,
     # or a policy denial that escalates). Replace the model's own reply with
