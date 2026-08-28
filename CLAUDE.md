@@ -44,7 +44,8 @@ The aunt manages orders via a built-in web dashboard. Claude Haiku powers the AI
 - End-to-end tested locally: orders API, dashboard stats, test order creation all working
 - Orders page redesigned: customer name as headline, inline products, WhatsApp link, live counts, auto-refresh
 - **Aunt gets a WhatsApp notification the moment a customer confirms an order**
-- Monthly report, follow-up scheduler, retry queue all wired and running
+- Monthly report and follow-up scheduler wired and running (`app/worker.py`); the old
+  retry-queue mechanism was retired in Phase 4 — see Scheduler section below
 - PDF invoice generated and sent to the customer on status → done (`pdf_invoice.py`; no external invoicing service)
 - **Product management page** — `/products` dashboard tab; aunt can add, edit, toggle, delete products herself
 - **Products moved to Supabase** — `products` table replaces `catalog.json` as live source of truth; bot picks up changes instantly
@@ -62,6 +63,10 @@ The aunt manages orders via a built-in web dashboard. Claude Haiku powers the AI
 4. **Update `WA_META_TOKEN`** in Railway env vars — new system user token
 5. **Add real product images** — upload to Cloudinary, add `image_url` column to `products` table, update template
 6. **Add FAQ/store info** — `app/data/knowledge/` is empty; add `.md` files for AI context
+7. **Before any release that touches the agent's message-handling code**, run the command in
+   `docs/EVAL_GATE.md` — the opt-in eval suite (`tests/eval/`, real Claude API calls,
+   `RUN_AGENT_EVAL=1`) compares against the measured baseline in
+   `.planning/phases/03-agent-dependability-safety/03-EVAL-BASELINE.md`.
 
 ---
 
@@ -97,7 +102,7 @@ All dashboard templates (`login`, `orders`, `dashboard`, `products`, `broadcast`
 - **AI:** Claude Haiku via Anthropic SDK — `app/services/ai_service.py`
 - **Database:** Supabase (PostgreSQL) via HTTPS — `app/db/database.py` uses `supabase-py`
 - **Dashboard:** Custom web UI in FastAPI — `app/routers/ui.py` + `app/templates/`
-- **Scheduler:** APScheduler — follow-up, monthly report, retry queue (wired in `app/main.py`)
+- **Scheduler:** APScheduler — follow-up, monthly report, webhook/outbox pollers (wired in `app/worker.py`, its own Railway worker process — see Scheduler section below)
 
 ---
 
@@ -107,7 +112,7 @@ auntops_fixed/
 ├── app/
 │   ├── main.py                  # FastAPI app, router registration, APScheduler
 │   ├── routers/
-│   │   ├── whatsapp.py          # Bot brain — all WhatsApp message handling + aunt notification
+│   │   ├── whatsapp.py          # Webhook receiver ONLY — HMAC verify, persist to webhook_events (bot brain moved to services/processor.py in the 2026-08-25 hardening session)
 │   │   ├── ui.py                # Web dashboard — login, orders, dashboard, JSON APIs
 │   │   └── debug.py             # Dev endpoints (POST /dev/test_order)
 │   ├── templates/
@@ -117,7 +122,11 @@ auntops_fixed/
 │   │   └── products.html        # Product management — add/edit/toggle/delete products
 │   ├── services/
 │   │   ├── config.py            # All env vars — import Config everywhere
-│   │   ├── ai_service.py        # ONLY AI file — Claude Haiku, product context, chat history
+│   │   ├── ai_service.py        # ONLY AI file — Claude Haiku, 5 tools (incl. request_human_handoff), chat history
+│   │   ├── processor.py         # Bot brain (moved out of whatsapp.py, 2026-08-25) — hard commands, session state machine, agentic AI loop + tool executor, outbox enqueue/poller, webhook poller
+│   │   ├── policy.py            # Deterministic, zero-I/O policy gate — validates every AI tool call before it executes (REQ-prod-policy-gate)
+│   │   ├── handoff.py           # trigger()/resolve() — pauses/unpauses the bot, aunt WhatsApp alert via the outbox
+│   │   ├── audit.py             # Best-effort operator action trail (OPERATOR_ACTIONS allowlist)
 │   │   ├── followup.py          # Post-delivery follow-up (every 6 hours)
 │   │   ├── monthly_report.py    # Monthly summary sent to aunt on 1st of each month
 │   │   ├── pdf_invoice.py       # Generates the PDF invoice sent to the customer on DONE
@@ -127,11 +136,12 @@ auntops_fixed/
 │   │   └── retriever.py         # Product search — loads from Supabase `products` table (active=true)
 │   ├── db/
 │   │   ├── database.py          # Supabase HTTPS client — query / execute / execute_returning
-│   │   └── schema.sql           # DB schema reference (7 tables, already applied on Supabase)
+│   │   └── schema.sql           # DB schema reference (baseline tables only — see Database Tables below for the full live set)
 │   └── data/
 │       ├── fonts/               # PDF invoice fonts (David, Heebo)
 │       └── knowledge/           # AI knowledge base — store info, shipping, returns, FAQ .md files
 ├── tests/
+│   ├── eval/                    # Opt-in, real-Claude-API agent release gate — see docs/EVAL_GATE.md
 │   └── data/
 │       └── whatsapp_agent_dataset.json  # Agent eval dataset — 75 labeled customer messages (intent, entities, edge-case tags)
 ├── .env                         # Secrets — NEVER commit
@@ -207,50 +217,68 @@ server-side session cookie (`app/routers/auth_routes.py` + `app/routers/auth_dep
 |-------|---------|
 | `products` | Product catalog — name, price, description, tags, active flag |
 | `customers` | One row per customer — name, saved_address |
-| `sessions` | WhatsApp cart + stage per customer |
+| `sessions` | WhatsApp cart + stage per customer (also `paused` — see [[agent-safety]]) |
 | `orders` | Every confirmed order |
 | `order_lines` | Line items inside each order |
 | `chat_history` | AI conversation memory (last 6 turns to Claude) |
 | `follow_ups` | 3-day post-delivery follow-up tracking |
-| `retry_queue` | Failed WhatsApp/PDF-invoice calls queued for retry |
+| `webhook_events` | Durable inbox — raw inbound WhatsApp payloads, polled by the worker |
+| `outbox_jobs` | Durable outbox — every outbound send (message/buttons/invoice) is queued here first, then delivered by the poller with bounded retries |
+| `handoffs` | Human-handoff state — opened by `handoff.trigger()`, closed by `handoff.resolve()` |
+| `audit_logs` | Best-effort operator/bot action trail, read via the `/audit` dashboard page |
+| `operator_sessions` | Opaque per-device dashboard login sessions (Supabase Auth + TOTP, not the shared `DASHBOARD_PASSWORD` cookie) |
+
+`retry_queue` still exists as a table (migration `20260825000003_retire_retry_queue.sql`
+comments it, doesn't drop it — RLS-locked deny-all) but is **retired, not live**: the outbox
+poller's bounded per-job attempts + `notify_permanent_failure()` replaced it in Phase 4.
+Nothing in the running app writes to or reads it.
 
 ---
 
 ## How the Bot Works
 
+See [[agent-safety]] in the knowledge vault for the full architecture (policy gate, the five
+handoff triggers, the handoff lifecycle). Compact version:
+
 ```
-Customer sends WhatsApp message
+Meta webhook (real) / mock sender (dev)
         │
-  whatsapp.py  (hard commands first)
+   POST /whatsapp/webhook           app/routers/whatsapp.py — webhook receiver ONLY
+        │  HMAC verify → parse defensively → INSERT INTO webhook_events
+        │  returns immediately; no reply is computed here
+        ▼
+app/worker.py — BlockingScheduler, "webhook_processor" job, every 3s
         │
-   "cart"      → show cart
-   "clear"     → empty cart
-   "pickup"    → set fulfillment
-   "delivery"  → ask address, save to DB
-   "confirm"   → write order to DB
-                 → send confirmation to customer
-                 → send new-order notification to AUNT_PHONE
-   "وين طلبي" → look up latest order status
-   number      → add product from last menu
-   2x1, 3*2   → add product with quantity
-        │
-   no match → ai_service.py → Claude Haiku (with 4 tools)
-                │
-                ├── tool: add_to_cart(product_name, qty)  → actually updates cart in DB
-                ├── tool: show_menu(category)              → loads Supabase, sets menu_products in session
-                ├── tool: get_order_status()               → queries orders table, returns status
-                └── tool: save_address(address)            → saves to customers + session
-                │
-                Claude writes final reply knowing what the tools returned
+   process_webhook_events() → process_event()      app/services/processor.py
+        │  text / button click  → handle_message(phone, text, name)
+        │  anything else (voice, image, sticker…)  → handle_unsupported_media()
+        │                                              (a reply + a handoff — not a silent drop)
+        ▼
+   handle_message(phone, text, name)                app/services/processor.py
+        │  1. paused gate   — a human owns this chat; record the message, send nothing
+        │  2. keyword gate  — policy.detect_handoff_keyword() → open a handoff, one Arabic ack
+        │  3. hard commands — menu/cart/clear/confirm/pickup/delivery, Arabic variants, numbers
+        │  4. AI fallback   → ai_service.generate_reply(), 5 tools, each gated by policy.validate()
+        │       add_to_cart · show_menu · get_order_status · save_address · request_human_handoff
+        │       an AI failure (AIUnavailableError) → Arabic fallback reply AND a handoff
+        ▼
+   queue_text(phone, reply) → INSERT INTO outbox_jobs   (never a direct send from this path)
+        ▼
+app/worker.py — "outbox_processor" job, every 2s → process_outbox_jobs() → send_text/send_buttons
 ```
 
 **Agentic loop (2 API calls when a tool fires):**
 1. First call → Claude picks a tool (stop_reason = "tool_use")
-2. Tool executes in `whatsapp.py` (has full DB/session access)
-3. Result sent back to Claude as tool_result
-4. Second call → Claude writes the conversational reply
+2. `policy.validate()` gates the call BEFORE it executes — a denial becomes the tool result,
+   Claude phrases the reply around it; an allowed call dispatches to the real tool implementation
+3. Tool executes in `processor.py` (has full DB/session access)
+4. Result sent back to Claude as tool_result
+5. Second call → Claude writes the conversational reply
 
-Hard commands always intercept before AI. If customer types `confirm`, `cart`, `clear`, etc. the hard handler runs and Claude is never called.
+Hard commands, the paused gate, and the keyword-handoff gate all intercept before AI. If a
+customer types `confirm`, `cart`, `clear`, etc. the hard handler runs and Claude is never
+called; if the session is paused or the message matches a handoff phrase, Claude is never
+called either.
 
 **New-order notification to aunt** (fires on every `confirm`):
 ```
@@ -261,17 +289,28 @@ Hard commands always intercept before AI. If customer types `confirm`, `cart`, `
 📦 توصيل 🚚
 📍 شارع النصر، رام الله
 ```
-Only fires if `AUNT_PHONE` is set. Wrapped in try/except — order never fails if notification fails.
+Only fires if `AUNT_PHONE` is set. Queued into `outbox_jobs` via `queue_text` — the same
+durable outbox every customer-facing send uses, retried by the outbox poller up to its bounded
+attempts — not a bare try/except that silently drops the alert on a WhatsApp API failure. A
+permanent failure (attempts exhausted) triggers `processor.notify_permanent_failure()`: a
+dashboard alert (`/alerts`) plus a proactive WhatsApp alert to the aunt/admin.
 
 ---
 
-## Scheduler (main.py)
+## Scheduler (app/worker.py)
+
+A `BlockingScheduler` running as its own Railway **worker** process (separate from the
+`web` process serving FastAPI) — not `main.py`.
 
 | Job | Schedule | What it does |
 |-----|----------|-------------|
-| `followup.send_followups` | Every 6 hours | Sends follow-up to customers 3+ days after delivery |
+| `followup.send_followups` | Every 6 hours | Sends follow-up to customers 3+ days after delivery (queued via the outbox — see [[agent-safety]]) |
 | `monthly_report.send_monthly_report` | 1st of month, 8 AM | Arabic summary sent to `AUNT_PHONE` |
-| `retry_queue.process_retries` | Every 15 min | Retries failed WhatsApp/PDF-invoice calls (max 3x) |
+| `webhook_processor` (`process_webhook_events`) | Every 3s | Durable inbox poller — the entry point into the bot brain (`processor.handle_message`) |
+| `outbox_processor` (`process_outbox_jobs`) | Every 2s | Durable outbox poller — the only place that calls `send_text`/`send_buttons` from the message pipeline |
+
+There is no `retry_queue` job — that mechanism was retired in Phase 4; the outbox poller's
+bounded per-job attempts are what REQ-sched-retry-queue now maps to.
 
 ---
 
@@ -283,6 +322,12 @@ Only fires if `AUNT_PHONE` is set. Wrapped in try/except — order never fails i
 5. One AI file only — `ai_service.py`
 6. One DB file only — `database.py`. No psycopg2, no direct supabase imports elsewhere
 7. No AppSheet — fully removed
+8. All bot logic lives in `app/services/processor.py` / `ai_service.py` / `policy.py` /
+   `handoff.py`. `app/routers/whatsapp.py` is a webhook receiver only — it persists the raw
+   payload to `webhook_events` and nothing else.
+9. Every outbound customer message goes through `queue_text`/`queue_buttons` (the durable
+   outbox) — never `send_text`/`send_buttons` directly, outside `process_job` and the
+   standalone scheduler services.
 
 ---
 
