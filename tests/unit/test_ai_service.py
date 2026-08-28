@@ -5,6 +5,8 @@ Tests prompt building, history trimming, language detection, and the
 ai_available() guard. All Claude API calls are mocked.
 """
 
+import pytest
+
 
 class TestAiAvailable:
     def test_returns_false_when_no_api_key(self, monkeypatch):
@@ -104,13 +106,93 @@ class TestIsArabic:
 
 
 class TestGenerateReply:
-    def test_returns_fallback_when_no_api_key(self, monkeypatch):
+    def test_raises_when_no_api_key(self, monkeypatch):
         import app.services.ai_service as ai
 
         monkeypatch.setattr(ai.Config, "CLAUDE_API_KEY", None)
-        reply = ai.generate_reply("مرحبا", None)
-        assert isinstance(reply, str)
-        assert len(reply) > 0
+        with pytest.raises(ai.AIUnavailableError):
+            ai.generate_reply("مرحبا", None)
+
+    def test_raises_when_anthropic_call_fails(self, monkeypatch):
+        import app.services.ai_service as ai
+
+        def fake_create(**kwargs):
+            raise RuntimeError("boom: rate limited")
+
+        fake_client = type("C", (), {
+            "messages": type("M", (), {"create": staticmethod(fake_create)})()
+        })()
+
+        monkeypatch.setattr(ai.Config, "CLAUDE_API_KEY", "sk-test")
+        monkeypatch.setattr(ai, "Anthropic", lambda **kw: fake_client)
+
+        with pytest.raises(ai.AIUnavailableError) as excinfo:
+            ai.generate_reply("مرحبا", [])
+        assert excinfo.value.__cause__ is not None
+
+    def test_raises_when_response_has_no_text(self, monkeypatch):
+        import app.services.ai_service as ai
+
+        # A response whose content blocks carry no .text at all (e.g. only
+        # non-text blocks) — getattr(block, "text", None) returns None for
+        # each, so the joined text is empty.
+        empty_response = type("R", (), {"content": []})()
+
+        def fake_create(**kwargs):
+            return empty_response
+
+        fake_client = type("C", (), {
+            "messages": type("M", (), {"create": staticmethod(fake_create)})()
+        })()
+
+        monkeypatch.setattr(ai.Config, "CLAUDE_API_KEY", "sk-test")
+        monkeypatch.setattr(ai, "Anthropic", lambda **kw: fake_client)
+
+        with pytest.raises(ai.AIUnavailableError):
+            ai.generate_reply("مرحبا", [])
+
+    def test_failing_tool_does_not_break_the_reply(self, monkeypatch):
+        """A tool_executor that raises must not prevent generate_reply from
+        returning the model's final text — only the whole-function contract
+        (missing key / API failure / empty completion) raises."""
+        import app.services.ai_service as ai
+
+        tool_use_block = type("Block", (), {
+            "type": "tool_use",
+            "name": "add_to_cart",
+            "id": "toolu_1",
+            "input": {"product_name": "كريم"},
+        })()
+        first_response = type("R", (), {
+            "content": [tool_use_block],
+            "stop_reason": "tool_use",
+        })()
+        final_text_block = type("Block", (), {"text": "تم! أضفت الكريم للسلة"})()
+        second_response = type("R", (), {
+            "content": [final_text_block],
+            "stop_reason": "end_turn",
+        })()
+
+        calls = {"n": 0}
+
+        def fake_create(**kwargs):
+            calls["n"] += 1
+            return first_response if calls["n"] == 1 else second_response
+
+        fake_client = type("C", (), {
+            "messages": type("M", (), {"create": staticmethod(fake_create)})()
+        })()
+
+        def failing_executor(name, args):
+            raise RuntimeError("tool blew up")
+
+        monkeypatch.setattr(ai.Config, "CLAUDE_API_KEY", "sk-test")
+        monkeypatch.setattr(ai, "Anthropic", lambda **kw: fake_client)
+
+        reply = ai.generate_reply(
+            "بدي كريم", [], tool_executor=failing_executor
+        )
+        assert reply == "تم! أضفت الكريم للسلة"
 
     def test_calls_claude_and_returns_text(self, monkeypatch):
         import app.services.ai_service as ai

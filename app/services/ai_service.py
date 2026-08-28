@@ -26,6 +26,19 @@ from app.shared.gatekeeper import gatekeeper
 
 log = logging.getLogger(__name__)
 
+
+class AIUnavailableError(RuntimeError):
+    """Raised when generate_reply cannot produce a real model reply.
+
+    Deliberate contract change (Phase 3): this function used to swallow every
+    exception and return a hard-coded Arabic apology, which made a genuine
+    Claude outage indistinguishable from a normal answer — so the caller could
+    never escalate to a human. The caller (processor.handle_message) is now
+    responsible for BOTH the customer-facing fallback text AND opening a
+    handoff. The customer must still always get a reply; see plan 03-05.
+    """
+
+
 # ---------------------------------------------------------------------------
 # Knowledge base (app/data/knowledge/*.md) — selectively injected per message
 # ---------------------------------------------------------------------------
@@ -347,13 +360,20 @@ def generate_reply(
     - previous_messages: list of {"role": "user"/"assistant", "content": "..."} from DB
     - cart: current cart items so Claude can reference them in context
     - tool_executor: optional callable(tool_name, tool_input) -> result_str.
-        When provided, Claude is given the 4 action tools and can call them.
+        When provided, Claude is given the 5 action tools and can call them.
         A second API call is made after tool execution to get the final reply.
 
-    Returns the assistant's reply as a plain string.
+    Returns the assistant's reply as a plain string on success.
+
+    Raises AIUnavailableError if no real model reply could be produced: no API
+    key/SDK configured, the Anthropic call itself fails (timeout, rate limit,
+    auth error, etc.), or the model's response contains no text content. The
+    caller (processor.handle_message) is responsible for the customer-facing
+    fallback text and for deciding whether to escalate to a human. A single
+    failing *tool* does not raise here — see the inner try/except below.
     """
     if not ai_available():
-        return "عذرًا، الخدمة غير متاحة حالياً. جرّب مرة ثانية بعد قليل 🙏"
+        raise AIUnavailableError("CLAUDE_API_KEY missing or anthropic SDK unavailable")
 
     know = _relevant_knowledge(user_message)
     system = _SYSTEM_PROMPT
@@ -409,6 +429,11 @@ def generate_reply(
             tool_results = []
             for block in resp.content:
                 if getattr(block, "type", None) == "tool_use":
+                    # Deliberately NOT re-raised: a single failing tool becomes a
+                    # tool_result string Claude talks around, so one broken tool
+                    # never costs the customer their whole reply. This is
+                    # independent of — and must survive — the outer raise-on-
+                    # failure contract added below for real Claude/API failures.
                     try:
                         result_text = tool_executor(block.name, dict(block.input))
                     except Exception as exc:
@@ -440,10 +465,15 @@ def generate_reply(
             for block in (resp.content or [])
             if getattr(block, "text", None)
         ]
-        return "\n".join(parts).strip() or "(no reply)"
-    except Exception:
+        text = "\n".join(parts).strip()
+        if not text:
+            raise AIUnavailableError("empty model response")
+        return text
+    except AIUnavailableError:
+        raise
+    except Exception as exc:
         log.exception("Claude API error")
-        return "عذرًا، صار خلل مؤقت. جرّب مرة ثانية 🙏"
+        raise AIUnavailableError(str(exc)) from exc
 
 
 # ---------------------------------------------------------------------------
