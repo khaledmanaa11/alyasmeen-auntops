@@ -68,3 +68,13 @@ async def broadcast_page(request: Request):
 @router.get("/alerts", response_class=HTMLResponse)
 async def alerts_page(request: Request):
     return templates.TemplateResponse(request, "alerts.html")
+
+
+@router.get("/handoffs", response_class=HTMLResponse)
+async def handoffs_page(request: Request):
+    return templates.TemplateResponse(request, "handoffs.html")
+
+
+@router.get("/audit", response_class=HTMLResponse)
+async def audit_page(request: Request):
+    return templates.TemplateResponse(request, "audit.html")

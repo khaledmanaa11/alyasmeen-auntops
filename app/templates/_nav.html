@@ -38,7 +38,48 @@
         <span class="material-symbols-outlined" style="font-size:18px">warning</span>
         تنبيهات
       </a>
+      <a href="/handoffs" class="{{ 'nav-active px-3 py-1.5 rounded-xl text-sm font-bold shadow-sm' if _p == '/handoffs' else 'nav-link px-3 py-1.5 rounded-xl text-sm font-medium' }} flex items-center gap-1 relative">
+        <span class="material-symbols-outlined" style="font-size:18px">forum</span>
+        محادثات
+        <span id="handoffCount" class="hidden text-[10px] font-bold text-white rounded-full px-1.5 py-0.5 leading-none" style="background:#ef4444;">0</span>
+      </a>
+      <a href="/audit" class="{{ 'nav-active px-3 py-1.5 rounded-xl text-sm font-bold shadow-sm' if _p == '/audit' else 'nav-link px-3 py-1.5 rounded-xl text-sm font-medium' }} flex items-center gap-1">
+        <span class="material-symbols-outlined" style="font-size:18px">history</span>
+        السجل
+      </a>
+      <a href="/account" class="{{ 'nav-active px-3 py-1.5 rounded-xl text-sm font-bold shadow-sm' if _p == '/account' else 'nav-link px-3 py-1.5 rounded-xl text-sm font-medium' }} flex items-center gap-1">
+        <span class="material-symbols-outlined" style="font-size:18px">account_circle</span>
+        حسابي
+      </a>
       <a href="/logout"    class="px-3 py-1.5 rounded-xl text-sm font-medium text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors mr-1">خروج</a>
     </div>
   </div>
 </nav>
+
+<script>
+  // Badge polling for the محادثات (handoffs) tab — 30s matches the
+  // dashboard's existing auto-refresh feel. Wrapped in try/catch: a badge
+  // that throws must never break the page it sits on.
+  const BADGE_POLL_MS = 30000;
+
+  async function pollHandoffBadge() {
+    try {
+      const res = await fetch('/api/handoffs/count');
+      const data = await res.json();
+      const badge = document.getElementById('handoffCount');
+      if (!badge) return;
+      const active = data.active || 0;
+      if (active > 0) {
+        badge.textContent = active;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    } catch (e) {
+      // fail silently
+    }
+  }
+
+  pollHandoffBadge();
+  setInterval(pollHandoffBadge, BADGE_POLL_MS);
+</script>
