@@ -114,3 +114,10 @@ async def broadcast_page(request: Request):
     if not _is_authenticated(request):
         return RedirectResponse(url="/login", status_code=303)
     return templates.TemplateResponse(request, "broadcast.html")
+
+
+@router.get("/alerts", response_class=HTMLResponse)
+async def alerts_page(request: Request):
+    if not _is_authenticated(request):
+        return RedirectResponse(url="/login", status_code=303)
+    return templates.TemplateResponse(request, "alerts.html")
