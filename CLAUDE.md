@@ -156,8 +156,13 @@ SQL uses `%s` placeholders throughout. `_escape()` + `_build()` in `database.py`
 **Required env vars:**
 ```
 SUPABASE_URL=https://ppwcfmuetgczclmnzvqr.supabase.co
-SUPABASE_KEY=<anon key>
+SUPABASE_KEY=<service_role key>
 ```
+
+**Security note:** `SUPABASE_KEY` is the `service_role` (secret) key, not the anon key — it
+bypasses RLS entirely. It is only ever read via `Config.SUPABASE_KEY` inside `database.py`,
+which runs exclusively in the FastAPI/worker server processes on Railway. It must never be
+sent to any client-side/browser code and is never shipped to the dashboard's HTML/JS.
 
 ---
 
@@ -284,7 +289,7 @@ Only fires if `AUNT_PHONE` is set. Wrapped in try/except — order never fails i
 | Var | Required | Purpose |
 |-----|----------|---------|
 | `SUPABASE_URL` | ✅ | Supabase project URL |
-| `SUPABASE_KEY` | ✅ | Supabase anon key |
+| `SUPABASE_KEY` | ✅ | Supabase **service_role** key (server-side only — never expose to the dashboard's client-side code) |
 | `DATABASE_URL` | prod | Postgres Session Pooler connection string — persists the APScheduler job store across worker restarts (see .env.example for the exact shape) |
 | `DASHBOARD_PASSWORD` | ✅ | Web dashboard login |
 | `SECRET_KEY` | ✅ | Session cookie signing |
