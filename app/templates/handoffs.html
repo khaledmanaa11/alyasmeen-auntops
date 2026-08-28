@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ALYASMEEN — محادثات</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/js/csrf.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+  <style>
+    * { font-family: 'Cairo', sans-serif; }
+    body { background: #f0f7f4; }
+    .material-symbols-outlined {
+      font-family: 'Material Symbols Outlined';
+      font-weight: normal; font-style: normal; font-size: 24px;
+      line-height: 1; letter-spacing: normal; text-transform: none;
+      display: inline-block; white-space: nowrap; direction: ltr;
+      -webkit-font-smoothing: antialiased;
+    }
+    .nav-glass {
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(0,105,72,0.08);
+      box-shadow: 0 1px 16px rgba(0,105,72,0.06);
+    }
+    .nav-active { background: #006948; color: white; }
+    .nav-link   { color: #6b7280; transition: all 0.15s; }
+    .nav-link:hover { background: #f0f7f4; color: #006948; }
+    .handoff-card {
+      background: white;
+      border-radius: 20px;
+      border: 1px solid #e8f3ee;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+    .handoff-card:hover { box-shadow: 0 8px 28px rgba(0,105,72,0.12); transform: translateY(-2px); }
+    .card-enter { animation: slideUp 0.22s ease forwards; }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+<body class="min-h-screen">
+
+  {% include "_nav.html" %}
+
+  <!-- Main (Alpine.js root) -->
+  <div x-data="handoffsApp()" x-init="init()" class="max-w-5xl mx-auto px-5 py-6">
+
+    <!-- Header -->
+    <div class="mb-6">
+      <h1 class="text-2xl font-black text-gray-900">محادثات</h1>
+      <p class="text-xs text-gray-400 mt-0.5">محادثات تحتاج تدخلك — رديّ على الزبونة في واتساب، وبعدين رجّعيها للبوت</p>
+    </div>
+
+    <!-- Filter pills -->
+    <div class="flex gap-2 mb-6">
+      <button @click="setFilter('active')"
+        class="px-4 py-2 rounded-xl text-sm font-bold shrink-0 transition-all border"
+        :class="filter === 'active' ? 'text-white shadow-md border-transparent' : 'bg-white text-gray-600 border-gray-200'"
+        :style="filter === 'active' ? 'background:#006948' : ''">
+        نشطة <span x-text="'(' + activeList.length + ')'"></span>
+      </button>
+      <button @click="setFilter('resolved')"
+        class="px-4 py-2 rounded-xl text-sm font-bold shrink-0 transition-all border"
+        :class="filter === 'resolved' ? 'text-white shadow-md border-transparent' : 'bg-white text-gray-600 border-gray-200'"
+        :style="filter === 'resolved' ? 'background:#006948' : ''">
+        محلولة <span x-text="'(' + resolvedList.length + ')'"></span>
+      </button>
+    </div>
+
+    <!-- Loading -->
+    <div x-show="loading" class="flex items-center justify-center py-20 gap-3 text-gray-400">
+      <div class="w-6 h-6 border-2 border-gray-200 border-t-[#006948] rounded-full animate-spin"></div>
+      <span class="text-sm font-medium">جاري التحميل...</span>
+    </div>
+
+    <!-- Empty state -->
+    <div x-show="!loading && visible.length === 0" x-cloak
+      class="flex flex-col items-center py-24 text-gray-400 gap-4">
+      <div class="w-24 h-24 rounded-full flex items-center justify-center text-5xl" style="background:#f0f7f4">🎉</div>
+      <p class="font-bold text-base text-gray-500">ما في محادثات محوّلة إلك 🎉</p>
+    </div>
+
+    <!-- Content -->
+    <div x-show="!loading && visible.length > 0" x-cloak class="flex flex-col gap-3">
+      <template x-for="(item, i) in visible" :key="item.id">
+        <div class="handoff-card card-enter p-4" :style="'animation-delay:' + (i * 0.04) + 's'">
+          <div class="flex items-start justify-between gap-4">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap mb-1.5">
+                <span class="font-black text-gray-900 text-base" x-text="item.customer_name || item.phone"></span>
+                <span class="text-xs font-bold px-2 py-0.5 rounded-lg" style="background:#e6f3ee; color:#006948" x-text="item.reason"></span>
+              </div>
+              <p class="text-xs text-gray-400" x-text="relativeTime(item.created_at)"></p>
+            </div>
+            <a :href="item.wa_link" target="_blank"
+              class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white text-xs font-bold shadow-sm shrink-0 transition-all hover:shadow-md hover:-translate-y-0.5"
+              style="background:#25D366">
+              <svg class="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+              </svg>
+              افتحي واتساب
+            </a>
+          </div>
+
+          <div class="flex items-center gap-2 mt-3 pt-3 border-t border-gray-50">
+            <button @click="toggleTranscript(item)"
+              class="flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-[#006948] transition-colors">
+              <span class="material-symbols-outlined" style="font-size:16px" x-text="expanded[item.id] ? 'expand_less' : 'chat'"></span>
+              شوفي المحادثة
+            </button>
+            <template x-if="item.status === 'active'">
+              <button @click="resolveHandoff(item)"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-white text-xs font-bold shadow-sm mr-auto transition-all hover:shadow-md hover:-translate-y-0.5"
+                style="background:#006948">
+                <span class="material-symbols-outlined" style="font-size:16px">smart_toy</span>
+                أعد للبوت
+              </button>
+            </template>
+          </div>
+
+          <!-- Transcript -->
+          <div x-show="expanded[item.id]" x-cloak x-transition class="mt-3 pt-3 border-t border-gray-50">
+            <p class="text-[10px] text-gray-400 mb-2">آخر ٢٠ رسالة</p>
+            <template x-if="transcriptLoading[item.id]">
+              <div class="text-xs text-gray-400 italic py-4 text-center">جاري تحميل المحادثة...</div>
+            </template>
+            <div class="flex flex-col gap-2 overflow-y-auto pr-1" style="max-height:320px">
+              <template x-for="turn in (transcripts[item.id] || [])" :key="turn.created_at + '-' + turn.role">
+                <div class="flex" :class="turn.role === 'user' ? 'justify-start' : 'justify-end'">
+                  <div class="max-w-[80%] rounded-2xl px-3 py-2 text-sm text-gray-800"
+                    :class="turn.role === 'user' ? 'bg-white border border-gray-200' : ''"
+                    :style="turn.role === 'assistant' ? 'background:#e6f3ee' : ''">
+                    <span x-text="turn.content"></span>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- Toast -->
+    <div x-show="toast.show" x-cloak x-transition
+      class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+      <div class="bg-gray-900 text-white text-sm font-semibold shadow-2xl rounded-2xl px-6 py-3">
+        <span x-text="toast.msg"></span>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+function handoffsApp() {
+  return {
+    filter: 'active',
+    activeList: [],
+    resolvedList: [],
+    loading: true,
+    expanded: {},
+    transcripts: {},
+    transcriptLoading: {},
+    toast: { show: false, msg: '' },
+
+    async init() {
+      await this.loadAll();
+      this.loading = false;
+    },
+
+    get visible() {
+      return this.filter === 'active' ? this.activeList : this.resolvedList;
+    },
+
+    setFilter(f) {
+      this.filter = f;
+    },
+
+    async loadAll() {
+      try {
+        const [activeRes, resolvedRes] = await Promise.all([
+          fetch('/api/handoffs?status=active'),
+          fetch('/api/handoffs?status=resolved'),
+        ]);
+        const activeData = await activeRes.json();
+        const resolvedData = await resolvedRes.json();
+        this.activeList = activeData.handoffs || [];
+        this.resolvedList = resolvedData.handoffs || [];
+      } catch (e) {
+        this.activeList = [];
+        this.resolvedList = [];
+      }
+    },
+
+    async toggleTranscript(item) {
+      const id = item.id;
+      this.expanded[id] = !this.expanded[id];
+      if (this.expanded[id] && !this.transcripts[id]) {
+        this.transcriptLoading[id] = true;
+        try {
+          const res = await fetch('/api/handoffs/' + id);
+          const data = await res.json();
+          this.transcripts[id] = data.transcript || [];
+        } catch (e) {
+          this.transcripts[id] = [];
+        }
+        this.transcriptLoading[id] = false;
+      }
+    },
+
+    async resolveHandoff(item) {
+      try {
+        const res = await fetch('/api/handoffs/' + item.id + '/resolve', { method: 'POST' });
+        if (res.ok) {
+          this.activeList = this.activeList.filter(h => h.id !== item.id);
+          item.status = 'resolved';
+          item.resolved_at = new Date().toISOString();
+          this.resolvedList = [item, ...this.resolvedList];
+          this.showToast('رجّعت المحادثة للبوت ✅');
+          this.refreshBadge();
+        } else if (res.status === 409) {
+          this.showToast('هاي المحادثة محلولة من قبل');
+          await this.loadAll();
+        } else {
+          this.showToast('⚠️ حدث خطأ، حاول مجدداً');
+        }
+      } catch (e) {
+        this.showToast('⚠️ حدث خطأ، حاول مجدداً');
+      }
+    },
+
+    refreshBadge() {
+      if (typeof pollHandoffBadge === 'function') pollHandoffBadge();
+    },
+
+    relativeTime(iso) {
+      if (!iso) return '';
+      try {
+        const then = new Date(iso).getTime();
+        const diffMin = Math.max(0, Math.round((Date.now() - then) / 60000));
+        if (diffMin < 1) return 'منذ لحظات';
+        if (diffMin < 60) return 'منذ ' + diffMin + ' دقيقة';
+        const diffHr = Math.round(diffMin / 60);
+        if (diffHr < 24) return 'منذ ' + diffHr + ' ساعة';
+        const diffDay = Math.round(diffHr / 24);
+        return 'منذ ' + diffDay + ' يوم';
+      } catch (e) {
+        return '';
+      }
+    },
+
+    showToast(msg) {
+      this.toast.msg = msg;
+      this.toast.show = true;
+      setTimeout(() => { this.toast.show = false; }, 2500);
+    }
+  };
+}
+</script>
+</body>
+</html>
