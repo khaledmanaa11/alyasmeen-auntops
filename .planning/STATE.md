@@ -29,7 +29,7 @@ ones were fixed in two Sonnet waves + follow-ups. All on branch `fix/production-
 re-run `/gsd:plan-phase 3` (or at minimum the plan checker) against the current branch.
 
 ## Technical Debt / Risks
-- `retry_queue.py` (enqueue never called) and `gatekeeper.py` (unwired) are dead code claiming to run → Phase 4 criterion 1.
+- `retry_queue.py` (enqueue never called) is still dead code claiming to run → Phase 4 criterion 1 (retirement is plan 04-04, not yet executed). `gatekeeper.py` is **no longer dead code** — rewritten synchronous (plan 04-02) and wired into every outbound Claude call (`ai_service.py`) and every real-mode WhatsApp send (`whatsapp_meta.py`).
 - Migrations not yet applied to live Supabase; anon-vs-service_role key decision open → Phase 4 criterion 2.
 - Worker job store falls back to MemoryJobStore without `DATABASE_URL` → Phase 4 criterion 3. **Mechanism now proven** (`tests/integration/test_scheduler_persistence.py`, plan 04-03); the live Railway `DATABASE_URL` step itself is still pending — operator checkpoint in plan 04-07.
 - No dashboard visibility for dead-lettered events / failed outbox jobs → Phase 4 criterion 4.
@@ -37,11 +37,11 @@ re-run `/gsd:plan-phase 3` (or at minimum the plan checker) against the current 
 
 ## Todos & Blockers
 - [ ] **TODO**: Merge/push `fix/production-hardening` (user decision).
-- [ ] **TODO**: Continue `/gsd:execute-phase 4` — plan 04-03/7 done, 04-04 through 04-07 remain.
+- [ ] **TODO**: Continue `/gsd:execute-phase 4` — plans 04-02/04-03 done, 04-01/04-04 through 04-07 remain.
 - [ ] **TODO**: Re-verify Phase 3 plans against the hardening branch, then `/gsd:execute-phase 3`.
 - [ ] **TODO** (deploy): Set `DASHBOARD_PASSWORD`, `SECRET_KEY` in Railway — app now refuses to start without them. Set `CLAUDE_MODEL` or accept new default. Update `WA_META_TOKEN`. Set `DATABASE_URL` (Session Pooler, postgresql:// — see .env.example) so the worker job store survives restarts.
 - [ ] **BLOCKER**: Meta WABA registration still pending.
 
 ## Session Continuity
-- **Last Action**: Executed Phase 4 Plan 03 (Scheduler persistence proof + DATABASE_URL docs) — 256 tests green, commits `dc4bdf1`, `201d606`.
-- **Next Step**: `/gsd:execute-phase 4` to continue with plan 04-04 (retire retry_queue.py/retry_actions.py).
+- **Last Action**: Executed Phase 4 Plan 02 (synchronous gatekeeper rewrite + wiring into ai_service.py's 3 Claude calls and whatsapp_meta.py's 4 senders) — 259 tests green, commits `997d062`, `0b24fdd`, `80fa30f`. Also observed a concurrent executor completing Plan 03 in this same working directory in parallel (commits `dc4bdf1`, `201d606`) — see 04-02-SUMMARY.md "Issues Encountered" for the git-race that resulted and how it self-corrected.
+- **Next Step**: `/gsd:execute-phase 4` to continue with remaining plans (04-01, 04-04 through 04-07). Confirm no other plan executor is still mid-run against this working directory before starting the next one.
