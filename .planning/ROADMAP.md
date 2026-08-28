@@ -122,7 +122,7 @@ policy gate for this phase. See `03-RESEARCH.md` for the stale-plan reconciliati
 |-------|----------------|--------|-----------|
 | 1. Database Foundation | 3/3 | ✅ Completed | 2026-06-14 |
 | 2. Application Hardening | 2/2 | ✅ Completed | 2026-06-14 |
-| 3. Agent Dependability | 0/8 | 🏗️ In Progress | - |
+| 3. Agent Dependability | 5/8 | 🏗️ In Progress | - |
 | 4. Reliability & Ops Completion | 7/7 | Complete    | 2026-08-28 |
 | 5. Operator Security | 5/10 | 🏗️ In Progress | - |
 | 6. Production Go-Live | 0/1 | Not started | - |
