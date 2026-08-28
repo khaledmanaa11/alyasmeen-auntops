@@ -84,7 +84,7 @@ This roadmap transitions ALYASMEEN AuntOps from a development implementation to 
   3. All dashboard mutations are protected against CSRF and session hijacking.
   4. The operator can clearly see and recover from failed communications or dead-letter jobs.
 **Plans**: 10 plans in 7 waves
-- [ ] 05-01-PLAN.md — Opaque session store: operator_sessions/trusted_devices/pending_logins migration + sessions.py
+- [x] 05-01-PLAN.md — Opaque session store: operator_sessions/trusted_devices/pending_logins migration + sessions.py — completed 2026-08-28
 - [ ] 05-02-PLAN.md — Supabase Auth service wrapper (AAL/MFA) + operator account management CLI
 - [ ] 05-03-PLAN.md — Replace the shared-password guard: auth deps, email+password+TOTP login, test seam
 - [ ] 05-04-PLAN.md — CSRF (starlette-csrf) + security headers + shared `_nav.html` partial
