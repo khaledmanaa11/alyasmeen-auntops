@@ -31,18 +31,31 @@ def mock_order(monkeypatch):
     modules and routes them through the same shared execute_calls list, so
     tests can assert on outbox inserts regardless of which module's `execute`
     actually ran.
+
+    05-06 wired handoff.bot_recently_active() and audit.log_action() into
+    api_update_status. Both are bound to the REAL app.services.handoff /
+    app.services.audit modules — unpatched, bot_recently_active would issue
+    a real SELECT (and, worse, an unhandled exception would turn every
+    status-update test into a 500 instead of 200) and log_action would issue
+    a real best-effort write against the live Supabase instance. Default to
+    "no conflict" and a capturing audit spy so every existing test keeps
+    working, while still letting individual tests override either.
     """
     import app.routers.ui_api as ui_api
+    import app.services.audit as audit
+    import app.services.handoff as handoff
     import app.services.processor as processor
 
     order_data = {
         "id": 42,
         "phone": "972591234567",
         "fulfillment": "pickup",
+        "status": "to_do",
         "customer_name": "فاطمة",
     }
 
     execute_calls = []
+    audit_calls = []
 
     def fake_query(sql, params=()):
         if "orders" in sql and "order_lines" not in sql:
@@ -54,11 +67,17 @@ def mock_order(monkeypatch):
     def fake_execute(sql, params=()):
         execute_calls.append((sql, params))
 
+    def fake_log_action(actor, action, details=None):
+        audit_calls.append((actor, action, details))
+
     monkeypatch.setattr(ui_api, "query", fake_query)
     monkeypatch.setattr(ui_api, "execute", fake_execute)
     monkeypatch.setattr(processor, "execute", fake_execute)
+    monkeypatch.setattr(handoff, "bot_recently_active", lambda phone, window_minutes=5: None)
+    monkeypatch.setattr(audit, "log_action", fake_log_action)
     result = dict(order_data)
     result["execute_calls"] = execute_calls
+    result["audit_calls"] = audit_calls
     return result
 
 
@@ -154,6 +173,102 @@ class TestOrderStatusUpdate:
 
         r = operator_client.post("/api/orders/9999/status", json={"status": "ready"})
         assert r.status_code == 404
+
+    def test_successful_status_change_produces_audit_log(self, operator_client, mock_order):
+        """05-06: every status change is attributed via audit.log_action,
+        naming the operator (op.email) and the from/to status."""
+        r = operator_client.post(
+            f"/api/orders/{mock_order['id']}/status",
+            json={"status": "ready"},
+        )
+        assert r.status_code == 200
+
+        audit_calls = mock_order["audit_calls"]
+        matches = [c for c in audit_calls if c[1] == "order_status_changed"]
+        assert len(matches) == 1
+        actor, action, details = matches[0]
+        assert actor == "aunt@example.test"  # FAKE_OPERATOR.email
+        assert details["order_id"] == mock_order["id"]
+        assert details["to"] == "ready"
+
+
+class TestBotConflictGuard:
+    """05-06: a status change that collides with a live bot conversation
+    returns 409 instead of silently applying, unless the operator forces it."""
+
+    def test_no_recent_bot_activity_still_succeeds(self, operator_client, mock_order):
+        """Regression: mock_order's default bot_recently_active() returns
+        None (no conflict), so a normal status change is unaffected."""
+        r = operator_client.post(
+            f"/api/orders/{mock_order['id']}/status",
+            json={"status": "ready"},
+        )
+        assert r.status_code == 200
+        assert r.json()["ok"] is True
+
+    def test_bot_active_without_force_returns_409_and_blocks_update(
+        self, operator_client, mock_order, monkeypatch
+    ):
+        import app.services.handoff as handoff
+
+        monkeypatch.setattr(
+            handoff, "bot_recently_active",
+            lambda phone, window_minutes=5: {
+                "last_activity": "2026-08-28T10:00:00+00:00", "paused": False,
+            },
+        )
+
+        r = operator_client.post(
+            f"/api/orders/{mock_order['id']}/status",
+            json={"status": "ready"},
+        )
+
+        assert r.status_code == 409
+        body = r.json()
+        assert body["conflict"] is True
+        assert body["reason"] == "bot_active"
+        assert body["phone"] == mock_order["phone"]
+        assert body["requested_status"] == "ready"
+
+        # No order UPDATE (or anything else) was issued — the conflict guard
+        # runs BEFORE any change is applied.
+        assert mock_order["execute_calls"] == []
+
+    def test_bot_active_with_force_applies_pauses_bot_and_opens_handoff(
+        self, operator_client, mock_order, monkeypatch
+    ):
+        import app.services.handoff as handoff
+
+        monkeypatch.setattr(
+            handoff, "bot_recently_active",
+            lambda phone, window_minutes=5: {
+                "last_activity": "2026-08-28T10:00:00+00:00", "paused": False,
+            },
+        )
+
+        r = operator_client.post(
+            f"/api/orders/{mock_order['id']}/status",
+            json={"status": "ready", "force": True},
+        )
+
+        assert r.status_code == 200
+        assert r.json()["ok"] is True
+
+        calls = mock_order["execute_calls"]
+        paused_updates = [c for c in calls if "UPDATE sessions" in c[0] and "paused = TRUE" in c[0]]
+        assert len(paused_updates) == 1
+        assert paused_updates[0][1] == (mock_order["phone"],)
+
+        handoff_inserts = [c for c in calls if "INSERT INTO handoffs" in c[0]]
+        assert len(handoff_inserts) == 1
+
+        order_updates = [c for c in calls if "UPDATE orders" in c[0]]
+        assert len(order_updates) == 1
+
+        override_calls = [c for c in mock_order["audit_calls"] if c[1] == "order_status_conflict_override"]
+        assert len(override_calls) == 1
+        changed_calls = [c for c in mock_order["audit_calls"] if c[1] == "order_status_changed"]
+        assert len(changed_calls) == 1
 
 
 class TestDashboardStats:

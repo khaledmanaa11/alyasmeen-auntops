@@ -33,6 +33,16 @@ FAKE_PRODUCTS = [
 @pytest.fixture()
 def mock_products_db(monkeypatch):
     import app.routers.ui_api as api
+    from app.services import audit
+
+    # 05-06 wired audit.log_action(op.email, ...) into every mutating
+    # products endpoint. api.execute/api.execute_returning are faked below,
+    # but audit.log_action is bound to the REAL app.services.audit module
+    # and, unpatched, would issue a real (best-effort, exception-swallowing)
+    # write against the live Supabase audit_logs table on every test run —
+    # confirmed live during 05-06's own execution and cleaned up afterward.
+    # No-op it here so tests never touch production.
+    monkeypatch.setattr(audit, "log_action", lambda *a, **k: None)
 
     _products = {p["id"]: dict(p) for p in FAKE_PRODUCTS}
     _next_id = [3]
@@ -181,10 +191,14 @@ class TestBroadcastAPI:
     def test_send_broadcast_to_all(self, operator_client, monkeypatch):
         import app.routers.ui_api as api
         import app.services.whatsapp_dev as dev
+        from app.services import audit
 
         monkeypatch.setattr(api, "query", lambda sql, params=(): [
             {"phone": "972591111111"}, {"phone": "972592222222"}
         ])
+        # See mock_products_db's comment: audit.log_action is unmocked by
+        # default and would otherwise hit the live Supabase instance.
+        monkeypatch.setattr(audit, "log_action", lambda *a, **k: None)
         sent = []
         monkeypatch.setattr(dev, "send_text", lambda to, msg: sent.append(to) or {})
 

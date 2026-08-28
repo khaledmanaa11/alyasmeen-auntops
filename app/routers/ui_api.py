@@ -15,8 +15,10 @@ from fastapi.responses import JSONResponse
 
 from app.db.database import execute, execute_returning, query
 from app.routers.auth_deps import require_operator
+from app.services import audit, handoff
 from app.services.config import Config
 from app.services.processor import queue_text, queue_pdf_invoice
+from app.services.sessions import Operator
 
 logger = logging.getLogger(__name__)
 
@@ -70,16 +72,17 @@ async def api_order_lines(order_id: int):
 
 
 @router.post("/api/orders/{order_id}/status")
-async def api_update_status(order_id: int, request: Request):
+async def api_update_status(order_id: int, request: Request, op: Operator = Depends(require_operator)):
     body = await request.json()
     new_status = (body.get("status") or "").strip().lower()
+    force = bool(body.get("force"))
 
     if new_status not in {"ready", "delivered", "done"}:
         raise HTTPException(status_code=400, detail="Invalid status")
 
     # Load order
     rows = query(
-        """SELECT o.id, o.phone, o.fulfillment,
+        """SELECT o.id, o.phone, o.fulfillment, o.status,
                   COALESCE(c.name, '') AS customer_name
            FROM orders o
            LEFT JOIN customers c ON c.phone = o.phone
@@ -92,6 +95,40 @@ async def api_update_status(order_id: int, request: Request):
     order = rows[0]
     phone = order["phone"]
     fulfillment = order.get("fulfillment") or "pickup"
+    customer_name = order.get("customer_name") or ""
+    from_status = order.get("status")
+
+    # Bot-vs-aunt conflict guard — a heuristic, not a lock. The collision
+    # being solved is one human (the aunt) versus one bot on the same
+    # customer's conversation, on a 10-30 orders/day shop — not two
+    # concurrent humans — so row versioning / advisory locks / a distributed
+    # lock manager would be wildly disproportionate here (same reasoning as
+    # handoff.bot_recently_active's own docstring). BEFORE any change is
+    # applied, ask whether the bot is still talking to this customer.
+    conflict = handoff.bot_recently_active(phone)
+    if conflict and not force:
+        return JSONResponse(status_code=409, content={
+            "conflict": True,
+            "reason": "bot_active",
+            "customer_name": customer_name,
+            "phone": phone,
+            "last_activity": conflict["last_activity"],
+            "requested_status": new_status,
+            "message": f"البوت يتحدث مع {customer_name or phone} الآن",
+        })
+
+    if conflict and force:
+        # The operator has explicitly chosen herself as the winner: stop the
+        # bot on this conversation and open a takeover handoff so it shows up
+        # in the handoffs tab with an explicit "return to bot" undo button.
+        execute("UPDATE sessions SET paused = TRUE WHERE phone = %s", (phone,))
+        execute(
+            "INSERT INTO handoffs (phone, reason, status, assigned_to) VALUES (%s, %s, 'active', 'aunt')",
+            (phone, "operator_takeover"),
+        )
+        audit.log_action(op.email, "order_status_conflict_override", {
+            "order_id": order_id, "phone": phone, "from": from_status, "to": new_status,
+        })
 
     # Every customer-facing send is enqueued into outbox_jobs instead of being
     # sent inline in this request handler. queue_text/queue_pdf_invoice are
@@ -130,6 +167,10 @@ async def api_update_status(order_id: int, request: Request):
             "UPDATE orders SET status = 'done', updated_at = now() WHERE id = %s",
             (order_id,),
         )
+
+    audit.log_action(op.email, "order_status_changed", {
+        "order_id": order_id, "from": from_status, "to": new_status,
+    })
 
     return {"ok": True, "status": new_status, "order_id": order_id}
 
@@ -260,7 +301,7 @@ async def api_list_products():
 
 
 @router.post("/api/products")
-async def api_create_product(request: Request):
+async def api_create_product(request: Request, op: Operator = Depends(require_operator)):
     body = await request.json()
     name = (body.get("name") or "").strip()
     if not name:
@@ -278,6 +319,7 @@ async def api_create_product(request: Request):
         (name, price, description, tags),
     )
     _invalidate()
+    audit.log_action(op.email, "product_created", {"product_id": row["id"], "name": name})
     return JSONResponse(content={"ok": True, "product": {
         "id": row["id"], "name": row["name"], "price": float(row["price"]),
         "description": row.get("description") or "", "tags": row.get("tags") or "",
@@ -286,7 +328,7 @@ async def api_create_product(request: Request):
 
 
 @router.post("/api/products/{product_id}")
-async def api_update_product(product_id: int, request: Request):
+async def api_update_product(product_id: int, request: Request, op: Operator = Depends(require_operator)):
     rows = query("SELECT id FROM products WHERE id = %s", (product_id,))
     if not rows:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -307,27 +349,34 @@ async def api_update_product(product_id: int, request: Request):
         (name, price, description, tags, product_id),
     )
     _invalidate()
+    audit.log_action(op.email, "product_updated", {"product_id": product_id, "name": name})
     return {"ok": True}
 
 
 @router.post("/api/products/{product_id}/toggle")
-async def api_toggle_product(product_id: int):
-    rows = query("SELECT id, active FROM products WHERE id = %s", (product_id,))
+async def api_toggle_product(product_id: int, op: Operator = Depends(require_operator)):
+    rows = query("SELECT id, active, name FROM products WHERE id = %s", (product_id,))
     if not rows:
         raise HTTPException(status_code=404, detail="Product not found")
     new_active = not rows[0]["active"]
     execute("UPDATE products SET active = %s WHERE id = %s", (new_active, product_id))
     _invalidate()
+    audit.log_action(op.email, "product_toggled", {
+        "product_id": product_id, "name": rows[0].get("name"), "active": new_active,
+    })
     return {"ok": True, "active": new_active}
 
 
 @router.post("/api/products/{product_id}/delete")
-async def api_delete_product(product_id: int):
-    rows = query("SELECT id FROM products WHERE id = %s", (product_id,))
+async def api_delete_product(product_id: int, op: Operator = Depends(require_operator)):
+    rows = query("SELECT id, name FROM products WHERE id = %s", (product_id,))
     if not rows:
         raise HTTPException(status_code=404, detail="Product not found")
     execute("DELETE FROM products WHERE id = %s", (product_id,))
     _invalidate()
+    audit.log_action(op.email, "product_deleted", {
+        "product_id": product_id, "name": rows[0].get("name"),
+    })
     return {"ok": True}
 
 
@@ -354,21 +403,23 @@ async def api_alerts():
 
 
 @router.post("/api/alerts/webhook_events/{event_id}/retry")
-async def api_retry_webhook_event(event_id: str):
+async def api_retry_webhook_event(event_id: str, op: Operator = Depends(require_operator)):
     execute(
         "UPDATE webhook_events SET processed = FALSE, attempts = 0, error = NULL WHERE id = %s",
         (event_id,),
     )
+    audit.log_action(op.email, "alert_retried", {"source": "webhook_event", "id": event_id})
     return {"ok": True}
 
 
 @router.post("/api/alerts/outbox_jobs/{job_id}/retry")
-async def api_retry_outbox_job(job_id: str):
+async def api_retry_outbox_job(job_id: str, op: Operator = Depends(require_operator)):
     execute(
         "UPDATE outbox_jobs SET status = 'pending', attempts = 0, last_error = NULL, "
         "updated_at = now() WHERE id = %s",
         (job_id,),
     )
+    audit.log_action(op.email, "alert_retried", {"source": "outbox_job", "id": job_id})
     return {"ok": True}
 
 
@@ -411,7 +462,7 @@ async def api_broadcast_audience(filter: str = "all"):
 
 
 @router.post("/api/broadcast/send")
-async def api_broadcast_send(request: Request):
+async def api_broadcast_send(request: Request, op: Operator = Depends(require_operator)):
     body = await request.json()
     message = (body.get("message") or "").strip()
     filter = (body.get("filter") or "all").strip()
@@ -439,4 +490,5 @@ async def api_broadcast_send(request: Request):
             failed += 1
 
     logger.info("broadcast complete sent=%d failed=%d filter=%s", sent, failed, filter)
+    audit.log_action(op.email, "broadcast_sent", {"filter": filter, "sent": sent, "failed": failed})
     return JSONResponse(content={"sent": sent, "failed": failed, "total": len(phones)})

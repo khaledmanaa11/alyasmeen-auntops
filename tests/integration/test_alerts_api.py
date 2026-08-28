@@ -93,6 +93,7 @@ class TestAlertsList:
 class TestRetryWebhookEvent:
     def test_retry_webhook_event_resets_row(self, operator_client, monkeypatch):
         import app.routers.ui_api as ui_api
+        from app.services import audit
 
         captured = []
 
@@ -100,6 +101,10 @@ class TestRetryWebhookEvent:
             captured.append((sql, params))
 
         monkeypatch.setattr(ui_api, "execute", fake_execute)
+        # 05-06 wired audit.log_action(op.email, "alert_retried", ...) into
+        # this endpoint — unmocked it would hit the live Supabase instance
+        # (audit.log_action is best-effort, but the write itself is real).
+        monkeypatch.setattr(audit, "log_action", lambda *a, **k: None)
 
         r = operator_client.post(
             f"/api/alerts/webhook_events/{FAKE_DEAD_EVENT['id']}/retry"
@@ -115,6 +120,7 @@ class TestRetryWebhookEvent:
 class TestRetryOutboxJob:
     def test_retry_outbox_job_resets_row(self, operator_client, monkeypatch):
         import app.routers.ui_api as ui_api
+        from app.services import audit
 
         captured = []
 
@@ -122,6 +128,7 @@ class TestRetryOutboxJob:
             captured.append((sql, params))
 
         monkeypatch.setattr(ui_api, "execute", fake_execute)
+        monkeypatch.setattr(audit, "log_action", lambda *a, **k: None)
 
         r = operator_client.post(
             f"/api/alerts/outbox_jobs/{FAKE_FAILED_JOB['id']}/retry"
