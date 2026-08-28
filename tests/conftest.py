@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import itertools
 import json
+import os
 from typing import Any
 
 import pytest
@@ -257,6 +258,43 @@ def sent_messages() -> list[dict]:
     """Every outbound WhatsApp send during a test, in call order. Each entry
     is {"to": ..., "text": ..., "buttons": <list or None>}."""
     return []
+
+
+@pytest.fixture(autouse=True)
+def block_live_db(monkeypatch):
+    """Autouse: refuse to CONSTRUCT the real Supabase client during tests.
+
+    This repo's .env carries the real production service_role key, and this
+    machine has real network egress — so any call that slips past the seam
+    patches below reaches the LIVE project. That actually happened twice
+    while building phase 5 (05-06 and 05-09 each wrote real rows to
+    production audit_logs that had to be deleted by hand).
+
+    The guard sits at app.db.database._get_client, the one place the real
+    client is built. Tests that legitimately exercise query/execute set a
+    fake db._client directly (tests/unit/test_database.py) — those pass
+    through untouched. A deliberate live check must opt in explicitly with
+    ALLOW_LIVE_DB=1 in the environment.
+    """
+    if os.environ.get("ALLOW_LIVE_DB") == "1":
+        yield
+        return
+    import app.db.database as db
+
+    real_get_client = db._get_client
+
+    def guarded_get_client():
+        if db._client is None:
+            raise RuntimeError(
+                "Test attempted to reach the LIVE production Supabase project. "
+                "Patch the query/execute seam (or set a fake db._client) as "
+                "tests/conftest.py does, or set ALLOW_LIVE_DB=1 for a "
+                "deliberate live check."
+            )
+        return real_get_client()
+
+    monkeypatch.setattr(db, "_get_client", guarded_get_client)
+    yield
 
 
 @pytest.fixture(autouse=True)
