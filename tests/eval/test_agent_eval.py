@@ -71,6 +71,24 @@ BASELINE_BY_TIER: dict[str, float] | None = {
     "informational": 1.000,
 }
 
+# ---------------------------------------------------------------------------
+# Regression gate (03-07) — NOT a quality bar. Thresholds are the MEASURED
+# baseline above minus a tolerance that absorbs model non-determinism and
+# sampling noise — every case is a live Claude call at temperature 0.3, so
+# two runs of the same sample legitimately differ by a case or two. A tier
+# scoring below baseline-minus-tolerance on a run with enough samples to mean
+# anything is a release blocker; a tier that scored WORSE than this baseline
+# is not automatically "fine" just because it's still bad — it means things
+# got worse than an already-imperfect starting point.
+# ---------------------------------------------------------------------------
+TOLERANCE = {
+    "critical":      0.05,   # order path — tightest, a regression here loses orders
+    "handoff":       0.05,   # a missed escalation means an angry customer talks to a bot
+    "informational": 0.15,   # loosest: app/data/knowledge/ is empty, these are noisy by construction
+    "overall":       0.08,
+}
+MIN_SAMPLE_FOR_TIER_GATE = 5   # below this a tier's percentage is noise, report only
+
 DEFAULT_SAMPLES = "12"
 DEFAULT_SEED = 20260828
 
@@ -231,6 +249,7 @@ def run_case(case: dict, fake_db, sent_messages: list, flush_outbox, monkeypatch
         "passed": (observed in expected) if expected else None,
         "reply_nonempty": bool(reply),
         "reply": reply,
+        "raw_input": case.get("raw_input", ""),
         "language_match": _language_match(case["language_profile"], reply),
         "tool_calls": [{"name": n, "args": a} for n, a in calls],
         "elapsed_sec": round(elapsed, 3),
@@ -274,6 +293,104 @@ def _print_report(results: list[dict]) -> None:
     print("=" * 78 + "\n")
 
 
+# ---------------------------------------------------------------------------
+# Regression report — built BEFORE the assertion so it prints on success too
+# (under `-s`), and is reused verbatim as the pytest.fail message on failure.
+# "assert 0.71 >= 0.79" tells nobody what to fix; this does.
+# ---------------------------------------------------------------------------
+
+def _truncate(text: str, n: int = 70) -> str:
+    text = (text or "").replace("\n", " ")
+    return text if len(text) <= n else text[: n - 1] + "…"
+
+
+def _build_regression_report(
+    results: list[dict],
+    baseline_overall: float,
+    baseline_by_tier: dict[str, float],
+    tolerance: dict[str, float],
+    min_sample_for_tier_gate: int,
+) -> tuple[str, bool]:
+    """Returns (report_text, gate_failed)."""
+    lines: list[str] = []
+    gate_failed = False
+
+    total = len(results)
+    total_pass = sum(1 for r in results if r["passed"])
+    overall_score = (total_pass / total) if total else 0.0
+    overall_floor = baseline_overall - tolerance["overall"]
+    overall_verdict = "PASS" if overall_score >= overall_floor else "FAIL"
+    if overall_verdict == "FAIL":
+        gate_failed = True
+
+    lines.append("=" * 88)
+    lines.append("REGRESSION GATE — baseline vs measured (03-EVAL-BASELINE.md is the baseline of record)")
+    lines.append("=" * 88)
+    lines.append(f"{'tier':14s} {'baseline':>9s} {'measured':>9s} {'tolerance':>9s} {'floor':>9s} {'n':>4s}  verdict")
+    lines.append(
+        f"{'overall':14s} {baseline_overall:9.3f} {overall_score:9.3f} "
+        f"{tolerance['overall']:9.3f} {overall_floor:9.3f} {total:4d}  {overall_verdict}"
+    )
+
+    for tier in ("critical", "handoff", "informational"):
+        rows = [r for r in results if r["tier"] == tier]
+        n = len(rows)
+        if n == 0:
+            lines.append(f"{tier:14s} {'—':>9s} {'—':>9s} {'—':>9s} {'—':>9s} {0:4d}  SKIPPED (not sampled)")
+            continue
+        p = sum(1 for r in rows if r["passed"])
+        score = p / n
+        floor = baseline_by_tier[tier] - tolerance[tier]
+        gated = n >= min_sample_for_tier_gate
+        if not gated:
+            verdict = f"SKIPPED (n={n} < {min_sample_for_tier_gate})"
+        elif score >= floor:
+            verdict = "PASS"
+        else:
+            verdict = "FAIL"
+            gate_failed = True
+        lines.append(
+            f"{tier:14s} {baseline_by_tier[tier]:9.3f} {score:9.3f} "
+            f"{tolerance[tier]:9.3f} {floor:9.3f} {n:4d}  {verdict}"
+        )
+
+    regressed = [r for r in results if r["passed"] is False]
+    if regressed:
+        lines.append("-" * 88)
+        lines.append(f"Regressed cases ({len(regressed)}) — did not match any expected outcome:")
+        for r in sorted(regressed, key=lambda r: r["id"]):
+            exp = "|".join(r["expected"]) or "-"
+            lines.append(
+                f"  id={r['id']:<3d} intent={r['intent']:<50s} expected={{{exp}}} "
+                f"observed={r['observed']:<16s} raw_input={_truncate(r['raw_input'])!r}"
+            )
+
+    no_reply = [r for r in results if not r["reply_nonempty"]]
+    if no_reply:
+        gate_failed = True
+        lines.append("-" * 88)
+        lines.append(
+            f"HARD FLOOR VIOLATION — {len(no_reply)} case(s) sent the customer NO reply "
+            "(absolute, not relative to baseline):"
+        )
+        for r in sorted(no_reply, key=lambda r: r["id"]):
+            lines.append(
+                f"  id={r['id']:<3d} intent={r['intent']:<50s} observed={r['observed']:<16s} "
+                f"raw_input={_truncate(r['raw_input'])!r}"
+            )
+
+    errored = [r for r in results if r["error"]]
+    if errored:
+        gate_failed = True
+        lines.append("-" * 88)
+        lines.append(f"Cases that raised an exception ({len(errored)}) — a pipeline bug, not a score:")
+        for r in sorted(errored, key=lambda r: r["id"]):
+            lines.append(f"  id={r['id']:<3d} intent={r['intent']:<50s} error={r['error']}")
+
+    lines.append("=" * 88)
+    return "\n".join(lines), gate_failed
+
+
 def _write_last_run(results: list[dict]) -> None:
     out_path = Path(__file__).parent / ".last_run.json"
     payload = {
@@ -304,7 +421,8 @@ def test_agent_eval(fake_db, sent_messages, flush_outbox, monkeypatch):
             result = {
                 "id": cid, "intent": case["expected_intent"], "tier": TIER_OF.get(cid, "unscored"),
                 "expected": sorted(EXPECTED.get(cid, [])), "observed": "error", "passed": False,
-                "reply_nonempty": False, "reply": "", "language_match": None,
+                "reply_nonempty": False, "reply": "", "raw_input": case.get("raw_input", ""),
+                "language_match": None,
                 "tool_calls": [], "elapsed_sec": None, "error": f"{type(exc).__name__}: {exc}",
             }
         results.append(result)
@@ -312,8 +430,26 @@ def test_agent_eval(fake_db, sent_messages, flush_outbox, monkeypatch):
     _print_report(results)
     _write_last_run(results)
 
-    # Deliberately NOT a quality gate yet (see module docstring) — thresholds
-    # are plan 03-07's job, derived from a real measured baseline instead of
-    # invented numbers. This only proves the harness ran end-to-end.
+    # Sanity: the harness itself ran end-to-end for every selected case.
     assert len(results) == len(case_ids)
     assert all(r.get("observed") for r in results)
+
+    # Regression gate (03-07) — see TOLERANCE's docstring above. Report is
+    # built and printed BEFORE the assertion, so a passing run under `-s`
+    # shows the same per-tier table a failing run would fail with.
+    report, gate_failed = _build_regression_report(
+        results, BASELINE_OVERALL, BASELINE_BY_TIER, TOLERANCE, MIN_SAMPLE_FOR_TIER_GATE
+    )
+    print("\n" + report)
+    if gate_failed:
+        pytest.fail("Agent eval regression gate failed:\n" + report, pytrace=False)
+
+
+def test_gate_constants_are_consistent():
+    """Default-suite, API-free — keeps the gate constants from rotting silently.
+
+    Not marked `eval`: no fixtures, no API calls, runs in every `pytest -q`.
+    """
+    assert set(TOLERANCE) == set(BASELINE_BY_TIER) | {"overall"}
+    assert all(0.0 <= v <= 0.5 for v in TOLERANCE.values())
+    assert BASELINE_MEASURED_AT

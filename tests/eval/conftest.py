@@ -78,14 +78,22 @@ EVAL_CATALOG: list[dict] = [
 
 
 @pytest.fixture(autouse=True)
-def _eval_guard():
-    """Refuse to run anything under tests/eval/ unless explicitly opted in.
+def _eval_guard(request):
+    """Refuse to run anything MARKED `eval` under tests/eval/ unless explicitly opted in.
 
-    Marker-based exclusion (pyproject.toml) already keeps this out of every default or
-    accidental pytest invocation; this is the second, independent guard for the case someone
-    runs `pytest -m eval tests/eval` on purpose but without meaning to spend real API money
-    right now.
+    Marker-based exclusion (pyproject.toml) already keeps eval-marked tests out of every
+    default or accidental pytest invocation; this is the second, independent guard for the
+    case someone runs `pytest -m eval tests/eval` on purpose but without meaning to spend real
+    API money right now.
+
+    Scoped to `request.node.get_closest_marker("eval")` — not every test — because 03-07 added
+    `test_gate_constants_are_consistent` to this same directory as a deliberately unmarked,
+    API-free, default-suite test (regression-gate constants must not rot silently). A blanket
+    skip here would defeat that: it would make a "runs in every `pytest -q`" test invisible
+    outside `RUN_AGENT_EVAL=1`, which is exactly backwards for that test's purpose.
     """
+    if request.node.get_closest_marker("eval") is None:
+        return
     if os.environ.get("RUN_AGENT_EVAL") != "1":
         pytest.skip(
             "Agent eval makes real Claude API calls and costs money — "
