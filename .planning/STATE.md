@@ -31,17 +31,17 @@ re-run `/gsd:plan-phase 3` (or at minimum the plan checker) against the current 
 ## Technical Debt / Risks
 - `retry_queue.py` (enqueue never called) and `gatekeeper.py` (unwired) are dead code claiming to run → Phase 4 criterion 1.
 - Migrations not yet applied to live Supabase; anon-vs-service_role key decision open → Phase 4 criterion 2.
-- Worker job store falls back to MemoryJobStore without `DATABASE_URL` → Phase 4 criterion 3.
+- Worker job store falls back to MemoryJobStore without `DATABASE_URL` → Phase 4 criterion 3. **Mechanism now proven** (`tests/integration/test_scheduler_persistence.py`, plan 04-03); the live Railway `DATABASE_URL` step itself is still pending — operator checkpoint in plan 04-07.
 - No dashboard visibility for dead-lettered events / failed outbox jobs → Phase 4 criterion 4.
 - Async latency: outbox adds ≤2s to replies (poll interval) on top of the 3s inbox poll; acceptable at current volume, monitor in pilot.
 
 ## Todos & Blockers
 - [ ] **TODO**: Merge/push `fix/production-hardening` (user decision).
-- [ ] **TODO**: `/gsd:plan-phase 4` (Reliability & Ops Completion — success criteria in ROADMAP.md).
+- [ ] **TODO**: Continue `/gsd:execute-phase 4` — plan 04-03/7 done, 04-04 through 04-07 remain.
 - [ ] **TODO**: Re-verify Phase 3 plans against the hardening branch, then `/gsd:execute-phase 3`.
-- [ ] **TODO** (deploy): Set `DASHBOARD_PASSWORD`, `SECRET_KEY` in Railway — app now refuses to start without them. Set `CLAUDE_MODEL` or accept new default. Update `WA_META_TOKEN`.
+- [ ] **TODO** (deploy): Set `DASHBOARD_PASSWORD`, `SECRET_KEY` in Railway — app now refuses to start without them. Set `CLAUDE_MODEL` or accept new default. Update `WA_META_TOKEN`. Set `DATABASE_URL` (Session Pooler, postgresql:// — see .env.example) so the worker job store survives restarts.
 - [ ] **BLOCKER**: Meta WABA registration still pending.
 
 ## Session Continuity
-- **Last Action**: Outbox wiring completed + Phase 4 inserted into ROADMAP.md (2026-08-25).
-- **Next Step**: `/gsd:plan-phase 4`, or re-verify Phase 3 plans (`/gsd:plan-phase 3`) and execute.
+- **Last Action**: Executed Phase 4 Plan 03 (Scheduler persistence proof + DATABASE_URL docs) — 256 tests green, commits `dc4bdf1`, `201d606`.
+- **Next Step**: `/gsd:execute-phase 4` to continue with plan 04-04 (retire retry_queue.py/retry_actions.py).
