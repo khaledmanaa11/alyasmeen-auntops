@@ -23,6 +23,12 @@ class Config:
     # Database (Supabase ג€” HTTPS via supabase-py)
     SUPABASE_URL = os.getenv("SUPABASE_URL", "https://ppwcfmuetgczclmnzvqr.supabase.co")
     SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
+    # anon/public key ג€” used ONLY by app/services/auth.py for the non-admin Supabase Auth
+    # surface (sign_in_with_password, mfa.*, reset_password_for_email). SUPABASE_KEY above
+    # stays the service_role key, reserved for auth.admin.* and all database.py traffic.
+    # Keep them separate even though the app is server-only ג€” mixing them is how a
+    # service_role key eventually leaks into a code path that faces a browser.
+    SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
     # Postgres connection string (required for APScheduler JobStore)
     DATABASE_URL = os.getenv("DATABASE_URL", "")
 
@@ -42,6 +48,11 @@ class Config:
 
     # Aunt (monthly report + new-order notifications)
     AUNT_PHONE = os.getenv("AUNT_PHONE")  # e.g. 972591234567
+    # Admin (Khaled) ג€” receives new-device login alerts and every permanent-failure alert.
+    # The aunt is not bothered by device alerts; Khaled gets everything.
+    ADMIN_PHONE = os.getenv("ADMIN_PHONE")
+    # Base URL used as the redirect_to target for Supabase Auth password-reset links.
+    DASHBOARD_BASE_URL = os.getenv("DASHBOARD_BASE_URL", "http://localhost:8000")
 
     # AI knowledge base directory
     KNOWLEDGE_DIR: str = os.getenv(
