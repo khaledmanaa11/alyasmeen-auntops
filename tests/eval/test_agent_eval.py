@@ -58,10 +58,18 @@ from tests.eval.expected_behavior import EXPECTED, MEDIA_CASE_TYPES, TIER_OF, TI
 # the full per-case table and failure diagnosis. Plan 03-07 derives release
 # thresholds from these numbers; they are a MEASUREMENT, not a target.
 # ---------------------------------------------------------------------------
-BASELINE_MEASURED_AT: str | None = None
-BASELINE_SAMPLE_SIZE: int | None = None
-BASELINE_OVERALL: float | None = None
-BASELINE_BY_TIER: dict[str, float] | None = None
+# Measured 2026-08-28 against claude-haiku-4-5-20251001, full 74-case run
+# (EVAL_SAMPLES=all). One map defect (id 20) was corrected after the run —
+# see 03-EVAL-BASELINE.md's "Failure diagnosis" section for the raw pre-fix
+# number (62/74, 83.8%) and the full per-case table/diagnosis.
+BASELINE_MEASURED_AT: str | None = "2026-08-28T19:18:48Z"
+BASELINE_SAMPLE_SIZE: int | None = 74
+BASELINE_OVERALL: float | None = 0.851
+BASELINE_BY_TIER: dict[str, float] | None = {
+    "critical": 0.750,
+    "handoff": 0.688,
+    "informational": 1.000,
+}
 
 DEFAULT_SAMPLES = "12"
 DEFAULT_SEED = 20260828

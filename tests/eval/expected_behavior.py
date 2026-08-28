@@ -68,7 +68,13 @@ EXPECTED: dict[int, frozenset[str]] = {
     10: frozenset({"show_menu", "no_tool"}),   # greeting + multi-category product question
     16: frozenset({"no_tool", "show_menu"}),   # skin-problem consult, no buying verb — decision
                                                  # tree says ask a clarifying question first
-    20: frozenset({"no_tool"}),                # "safe during pregnancy?" — no tool answers this
+    20: frozenset({"no_tool", "handoff"}),     # "safe during pregnancy?" — corrected post-baseline
+                                                 # (03-EVAL-BASELINE.md): the request_human_handoff
+                                                 # tool description explicitly names "medical advice"
+                                                 # as an escalation trigger, and the real run showed
+                                                 # the model escalating this exact case — the original
+                                                 # no_tool-only expectation was a map defect, not an
+                                                 # agent weakness
     24: frozenset({"no_tool"}),                # delivery-zone FAQ
     26: frozenset({"no_tool"}),                # vegan/cruelty-free FAQ
     28: frozenset({"show_menu", "no_tool"}),   # "send me your catalog/pricelist"
@@ -83,11 +89,15 @@ EXPECTED: dict[int, frozenset[str]] = {
                                                  # only, never on language match (see test_agent_eval)
     53: frozenset({"show_menu", "no_tool"}),   # size/variant price inquiry
     56: frozenset({"no_tool", "show_menu"}),   # formal MSA ingredient/availability question
-    59: frozenset({"no_tool"}),                # child asthma/allergy safety Q — no medical claims
+    59: frozenset({"no_tool", "handoff"}),     # child asthma/allergy safety Q — same "medical
+                                                 # advice" escalation trigger as id 20; widened for
+                                                 # consistency even though this run observed no_tool
     60: frozenset({"no_tool"}),                # "send me your location pin" — no tool for this
     61: frozenset({"no_tool"}),                # Eid greeting + promotions question
     65: frozenset({"no_tool"}),                # "ok" — bare ack, must not auto-confirm
-    66: frozenset({"no_tool"}),                # eczema suitability Q — no medical claims
+    66: frozenset({"no_tool", "handoff"}),     # eczema suitability Q — same "medical advice"
+                                                 # escalation trigger as id 20; widened for
+                                                 # consistency even though this run observed no_tool
     70: frozenset({"no_tool"}),                # delivery cost/time FAQ
     71: frozenset({"no_tool"}),                # payment methods FAQ
     72: frozenset({"no_tool"}),                # positive post-delivery feedback
