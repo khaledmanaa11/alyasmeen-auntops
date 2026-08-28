@@ -6,6 +6,7 @@
   <title>ALYASMEEN — تنبيهات</title>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/js/csrf.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
   <style>
     * { font-family: 'Cairo', sans-serif; }
@@ -45,32 +46,7 @@
 </head>
 <body class="min-h-screen">
 
-  <!-- Navbar -->
-  <nav class="nav-glass sticky top-0 z-20">
-    <div class="max-w-5xl mx-auto px-5 h-16 flex items-center justify-between">
-      <a href="/orders" class="flex items-center gap-3">
-        <div class="w-9 h-9 rounded-xl flex items-center justify-center shadow-sm shrink-0"
-             style="background: linear-gradient(135deg, #006948, #00a36c)">
-          <span class="text-white text-base leading-none">🌿</span>
-        </div>
-        <div class="leading-tight">
-          <span class="font-black text-gray-900 text-base tracking-tight block">ALYASMEEN</span>
-          <span class="text-xs text-gray-400 block">لوحة الإدارة</span>
-        </div>
-      </a>
-      <div class="flex items-center gap-1">
-        <a href="/orders"    class="nav-link px-3 py-1.5 rounded-xl text-sm font-medium">الطلبات</a>
-        <a href="/dashboard" class="nav-link px-3 py-1.5 rounded-xl text-sm font-medium">الإحصائيات</a>
-        <a href="/products"  class="nav-link px-3 py-1.5 rounded-xl text-sm font-medium">المنتجات</a>
-        <a href="/broadcast" class="nav-link px-3 py-1.5 rounded-xl text-sm font-medium">رسائل</a>
-        <a href="/alerts" class="nav-active px-3 py-1.5 rounded-xl text-sm font-bold shadow-sm flex items-center gap-1">
-          <span class="material-symbols-outlined" style="font-size:18px">warning</span>
-          تنبيهات
-        </a>
-        <a href="/logout"    class="px-3 py-1.5 rounded-xl text-sm font-medium text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors mr-1">خروج</a>
-      </div>
-    </div>
-  </nav>
+  {% include "_nav.html" %}
 
   <!-- Main (Alpine.js root) -->
   <div x-data="alertsApp()" x-init="init()" class="max-w-5xl mx-auto px-5 py-6">

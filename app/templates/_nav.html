@@ -1,0 +1,44 @@
+{#
+  Shared dashboard nav partial — the single copy of the nav block, included
+  by every page template (orders, dashboard, products, broadcast, alerts).
+
+  Self-highlights the active tab from request.url.path instead of taking a
+  per-template `active` variable. Starlette's Jinja2Templates always puts
+  `request` in the template context (every page renders through
+  templates.TemplateResponse(request, ...)), and a Jinja2 {% include %}
+  inherits the parent's context — so this partial can read the current path
+  directly and every call site stays a bare include with nothing to pass.
+  That is what makes the extraction pay off: adding a new nav tab means
+  editing this ONE file, never the five page templates.
+
+  Class strings below match the pre-extraction markup byte-for-byte per
+  link (active: "nav-active ... font-bold shadow-sm", inactive:
+  "nav-link ... font-medium") so the rendered nav is visually identical to
+  before the extraction.
+#}
+{% set _p = request.url.path %}
+<nav class="nav-glass sticky top-0 z-30">
+  <div class="max-w-5xl mx-auto px-5 h-16 flex items-center justify-between">
+    <a href="/orders" class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl flex items-center justify-center shadow-sm shrink-0"
+           style="background: linear-gradient(135deg, #006948, #00a36c)">
+        <span class="text-white text-base leading-none">🌿</span>
+      </div>
+      <div class="leading-tight">
+        <span class="font-black text-gray-900 text-base tracking-tight block">ALYASMEEN</span>
+        <span class="text-xs text-gray-400 block">لوحة الإدارة</span>
+      </div>
+    </a>
+    <div class="flex items-center gap-1">
+      <a href="/orders"    class="{{ 'nav-active px-3 py-1.5 rounded-xl text-sm font-bold shadow-sm' if _p == '/orders' else 'nav-link px-3 py-1.5 rounded-xl text-sm font-medium' }}">الطلبات</a>
+      <a href="/dashboard" class="{{ 'nav-active px-3 py-1.5 rounded-xl text-sm font-bold shadow-sm' if _p == '/dashboard' else 'nav-link px-3 py-1.5 rounded-xl text-sm font-medium' }}">الإحصائيات</a>
+      <a href="/products"  class="{{ 'nav-active px-3 py-1.5 rounded-xl text-sm font-bold shadow-sm' if _p == '/products' else 'nav-link px-3 py-1.5 rounded-xl text-sm font-medium' }}">المنتجات</a>
+      <a href="/broadcast" class="{{ 'nav-active px-3 py-1.5 rounded-xl text-sm font-bold shadow-sm' if _p == '/broadcast' else 'nav-link px-3 py-1.5 rounded-xl text-sm font-medium' }}">رسائل</a>
+      <a href="/alerts" class="{{ 'nav-active px-3 py-1.5 rounded-xl text-sm font-bold shadow-sm' if _p == '/alerts' else 'nav-link px-3 py-1.5 rounded-xl text-sm font-medium' }} flex items-center gap-1">
+        <span class="material-symbols-outlined" style="font-size:18px">warning</span>
+        تنبيهات
+      </a>
+      <a href="/logout"    class="px-3 py-1.5 rounded-xl text-sm font-medium text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors mr-1">خروج</a>
+    </div>
+  </div>
+</nav>
