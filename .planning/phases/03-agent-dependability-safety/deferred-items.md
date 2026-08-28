@@ -37,3 +37,25 @@ across test files within one pytest session.**
   resets `_consecutive_failures = 0` / `_circuit_open_until = 0.0` between
   tests, and re-run `test_audit.py::test_operator_actions_has_nineteen_entries`
   once all wave-1 `OPERATOR_ACTIONS` additions have landed.
+
+## From 03-01 (handoff.py + audit.py + audit.html + test_handoff_trigger.py)
+
+**Update on the above: `test_audit.py`'s count assertion is fixed; the
+circuit-breaker leak is still open and now isolated to `test_ai_service.py`.**
+
+- `audit.py` belongs to this plan (03-01 owns Task 2's `OPERATOR_ACTIONS`
+  addition), so the exact-count test was in scope: added `"handoff_triggered"`,
+  renamed the test to `test_operator_actions_has_twenty_entries`, asserts 20.
+  Confirmed via `pytest tests/unit/test_handoff_trigger.py
+  tests/unit/test_handoff_resolve.py tests/unit/test_audit.py -q` — 20/20 pass.
+- The circuit-breaker leak (still present, not fixed here — belongs to
+  whoever owns `tests/conftest.py`/`app/db/database.py`, per 03-02's note
+  above) is, as of this session, reproducible via
+  `pytest tests/unit/test_ai_service.py tests/unit/test_database.py -q`
+  alone — 03-03's in-progress (uncommitted at the time of this run)
+  `test_ai_service.py` changes trip the breaker and leak into
+  `test_database.py::TestQueryAndExecute::*` (5 tests). Confirmed NOT caused
+  by 03-01's own files: `pytest -q --ignore=tests/unit/test_ai_service.py`
+  is fully green — 406 passed, 3 skipped, with `test_handoff_trigger.py` and
+  the updated `test_audit.py` both included. Neither `test_ai_service.py`
+  nor `ai_service.py` is in this plan's `files_modified`.
