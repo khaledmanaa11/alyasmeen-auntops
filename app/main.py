@@ -23,6 +23,7 @@ except Exception:
     pass
 
 from app.db.database import ping
+from app.middleware.security_headers import SecurityHeadersMiddleware  # noqa: E402
 from app.routers.auth_routes import router as auth_router  # noqa: E402
 from app.routers.broadcast import router as broadcast_router  # noqa: E402
 from app.routers.ui import router as ui_router  # noqa: E402
@@ -80,6 +81,11 @@ app.add_middleware(
     cookie_samesite="lax",
     sensitive_cookies={SESSION_COOKIE_NAME},
 )
+
+# Security headers (REQ-prod-sec-headers) — registered AFTER CSRFMiddleware
+# above so it ends up outermost (see the ordering note in that comment): a
+# CSRF 403 response still gets CSP/X-Frame-Options/etc. on its way out.
+app.add_middleware(SecurityHeadersMiddleware)
 
 
 # Global exception handler — logs via structlog and always returns 500.
