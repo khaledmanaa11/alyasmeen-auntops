@@ -55,13 +55,13 @@ Phase 4's outbox rewrite, and Phase 5 — which already built `handoff.py`'s res
 plus the whole operator UI and explicitly reserved `trigger()`, the paused gate, and the
 policy gate for this phase. See `03-RESEARCH.md` for the stale-plan reconciliation table.
 **Plans**: 8 plans in 5 waves
-- [ ] 03-01-PLAN.md — handoff.trigger(): durable handoff creation, session pause, aunt alert via outbox, audit action
-- [ ] 03-02-PLAN.md — app/services/policy.py: deterministic tool gate + Arabic/English escalation detection
-- [ ] 03-03-PLAN.md — ai_service: AIUnavailableError contract + 5th tool `request_human_handoff`
-- [ ] 03-04-PLAN.md — Paused gate, keyword handoff, unsupported-media handoff + conftest handoff patching
-- [ ] 03-05-PLAN.md — Policy-gated tool executor, handoff tool implementation, AI-failure escalation
+- [x] 03-01-PLAN.md — handoff.trigger(): durable handoff creation, session pause, aunt alert via outbox, audit action
+- [x] 03-02-PLAN.md — app/services/policy.py: deterministic tool gate + Arabic/English escalation detection
+- [x] 03-03-PLAN.md — ai_service: AIUnavailableError contract + 5th tool `request_human_handoff`
+- [x] 03-04-PLAN.md — Paused gate, keyword handoff, unsupported-media handoff + conftest handoff patching
+- [x] 03-05-PLAN.md — Policy-gated tool executor, handoff tool implementation, AI-failure escalation
 - [x] 03-06-PLAN.md — Pytest eval gate over the real pipeline + measured baseline
-- [ ] 03-07-PLAN.md — Release thresholds from the baseline + docs/EVAL_GATE.md
+- [x] 03-07-PLAN.md — Release thresholds from the baseline + docs/EVAL_GATE.md
 - [ ] 03-08-PLAN.md — Requirement verification tests + knowledge-vault and CLAUDE.md update
 
 ### Phase 4: Reliability & Operations Completion (M4)
@@ -122,7 +122,7 @@ policy gate for this phase. See `03-RESEARCH.md` for the stale-plan reconciliati
 |-------|----------------|--------|-----------|
 | 1. Database Foundation | 3/3 | ✅ Completed | 2026-06-14 |
 | 2. Application Hardening | 2/2 | ✅ Completed | 2026-06-14 |
-| 3. Agent Dependability | 5/8 | 🏗️ In Progress | - |
+| 3. Agent Dependability | 7/8 | 🏗️ In Progress | - |
 | 4. Reliability & Ops Completion | 7/7 | Complete    | 2026-08-28 |
 | 5. Operator Security | 5/10 | 🏗️ In Progress | - |
 | 6. Production Go-Live | 0/1 | Not started | - |
