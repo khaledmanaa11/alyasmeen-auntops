@@ -1,13 +1,14 @@
 import json
 import logging
 import time
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Callable
 
 import structlog
 from app.db.database import execute, query, rpc
 from app.services.ai_service import generate_reply
 from app.services.config import Config
+from app.services.pdf_invoice import generate_invoice_pdf
 from app.routers.whatsapp_helpers import (
     load_session,
     save_session,
@@ -26,9 +27,9 @@ log = structlog.get_logger(__name__)
 
 # Mockable senders (updated via config in worker)
 if Config.USE_MOCK_WHATSAPP:
-    from app.services.whatsapp_dev import send_text, send_buttons
+    from app.services.whatsapp_dev import send_text, send_buttons, send_document_bytes
 else:
-    from app.services.whatsapp_meta import send_text, send_buttons
+    from app.services.whatsapp_meta import send_text, send_buttons, send_document_bytes
 
 # Poison-pill guard: after this many failed attempts a webhook event is
 # dead-lettered (processed = TRUE, error prefixed) instead of retried forever.
@@ -65,6 +66,14 @@ def queue_buttons(phone: str, body: str, buttons: list) -> None:
     execute(
         "INSERT INTO outbox_jobs (kind, phone, payload) VALUES (%s, %s, %s)",
         ("whatsapp_buttons", phone, {"body": body, "buttons": buttons}),
+    )
+
+
+def queue_pdf_invoice(phone: str, order_id: int) -> None:
+    """Queue a PDF invoice regeneration+send for the outbox poller."""
+    execute(
+        "INSERT INTO outbox_jobs (kind, phone, payload) VALUES (%s, %s, %s)",
+        ("pdf_invoice", phone, {"order_id": order_id}),
     )
 
 
@@ -186,6 +195,32 @@ def process_job(job_id: str, kind: str, phone: str, payload: dict, attempts: int
             buttons = payload.get("buttons")
             if body and buttons:
                 send_buttons(phone, body, buttons)
+        elif kind == "pdf_invoice":
+            order_id = payload.get("order_id")
+            rows = query(
+                "SELECT o.id, o.phone, c.name AS customer_name FROM orders o "
+                "LEFT JOIN customers c ON c.phone = o.phone WHERE o.id = %s",
+                (order_id,),
+            )
+            customer_name = (rows[0]["customer_name"] or "") if rows else ""
+            lines = query(
+                "SELECT product_name, qty, unit_price FROM order_lines WHERE order_id = %s",
+                (order_id,),
+            )
+            total = sum(float(ln["unit_price"]) * int(ln["qty"]) for ln in lines)
+            pdf_bytes = generate_invoice_pdf(
+                order_id=order_id,
+                customer_name=customer_name,
+                order_date=date.today().strftime("%d/%m/%Y"),
+                lines=lines,
+                total=total,
+            )
+            send_document_bytes(
+                phone,
+                pdf_bytes,
+                filename=f"فاتورة-{order_id}.pdf",
+                caption=f"🧾 فاتورتك لطلب رقم {order_id}",
+            )
         else:
             log.warning("unknown_job_kind", kind=kind, job_id=job_id)
             

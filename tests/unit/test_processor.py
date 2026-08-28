@@ -461,6 +461,64 @@ class TestOutboxBoundedRetry:
         assert sent_messages == []
 
 
+class TestPdfInvoiceJobKind:
+    """New coverage: process_job(kind="pdf_invoice") regenerates the invoice
+    PDF fresh from order_id (not stored PDF bytes) and sends it via
+    send_document_bytes. Ported from tests/unit/test_retry_actions_pdf.py's
+    two assertions — that file still exists (deleted in plan 04-04) but this
+    class proves the same behavior now lives in processor.py's outbox job
+    kind."""
+
+    def test_pdf_invoice_job_sends_document(self, monkeypatch):
+        documents_sent = []
+
+        def fake_query(sql, params=()):
+            if "customers" in sql:
+                return [{"id": 5, "phone": "972591234567", "customer_name": "فاطمة"}]
+            if "order_lines" in sql:
+                return [{"product_name": "كريم", "qty": 1, "unit_price": 25.0}]
+            return []
+
+        def fake_send_document_bytes(to, pdf_bytes, filename, caption=None):
+            documents_sent.append({"to": to, "filename": filename})
+            return {"dev": True}
+
+        monkeypatch.setattr(processor, "query", fake_query)
+        monkeypatch.setattr(processor, "generate_invoice_pdf", lambda **kwargs: b"fake-pdf")
+        monkeypatch.setattr(processor, "send_document_bytes", fake_send_document_bytes)
+
+        processor.process_job(
+            job_id="j1", kind="pdf_invoice", phone="972591234567",
+            payload={"order_id": 5}, attempts=0,
+        )
+
+        assert len(documents_sent) == 1
+        assert documents_sent[0]["to"] == "972591234567"
+        assert ".pdf" in documents_sent[0]["filename"]
+
+    def test_pdf_invoice_job_sends_even_with_no_matching_customer_row(self, monkeypatch):
+        documents_sent = []
+
+        def fake_query(sql, params=()):
+            if "customers" in sql:
+                return []  # no order/customer rows
+            return [{"product_name": "test", "qty": 1, "unit_price": 10.0}]
+
+        monkeypatch.setattr(processor, "query", fake_query)
+        monkeypatch.setattr(processor, "generate_invoice_pdf", lambda **kwargs: b"fake-pdf")
+        monkeypatch.setattr(
+            processor, "send_document_bytes",
+            lambda to, pdf_bytes, filename, caption=None: documents_sent.append(to) or {},
+        )
+
+        processor.process_job(
+            job_id="j2", kind="pdf_invoice", phone="972591234567",
+            payload={"order_id": 99}, attempts=0,
+        )
+
+        assert len(documents_sent) == 1  # still sends even without customer name
+
+
 class TestOutboxDoesNotPoisonInbox:
     """New coverage: a webhook event whose reply fails to *send* must still
     be marked processed (no dead-letter) — delivery failures now live in
