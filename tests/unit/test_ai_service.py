@@ -8,6 +8,27 @@ ai_available() guard. All Claude API calls are mocked.
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def mock_catalog(monkeypatch):
+    """Prevent generate_reply()'s _full_catalog_context() from reaching the
+    real, block_live_db-guarded Supabase catalog on every call in this file.
+
+    _full_catalog_context() does a local `from app.ai.retriever import
+    _catalog` and swallows any exception, so an unmocked call here doesn't
+    fail the test directly — but it does burn 3 real retry attempts against
+    database.py's circuit breaker (unpatched by conftest's mock_db, which
+    only covers whatsapp_helpers/processor/audit) and increments its
+    *process-global* consecutive-failure counter. Enough generate_reply
+    calls across this file's tests trip the circuit open, which then makes
+    unrelated tests (e.g. tests/unit/test_database.py, if collected in the
+    same pytest run) fail with "Supabase circuit open" even though they
+    never touch ai_service at all.
+    """
+    import app.ai.retriever as retriever
+
+    monkeypatch.setattr(retriever, "_catalog", lambda: [])
+
+
 class TestAiAvailable:
     def test_returns_false_when_no_api_key(self, monkeypatch):
         import app.services.ai_service as ai
@@ -263,6 +284,87 @@ class TestGenerateReply:
         assert reply == "AI reply text"
         assert calls, "gatekeeper.execute was never called"
         assert all(c == "claude_ai" for c in calls)
+
+
+class TestRequestHumanHandoffTool:
+    def test_tools_list_has_five_tools_with_expected_names(self):
+        from app.services.ai_service import _TOOLS
+
+        names = {t["name"] for t in _TOOLS}
+        assert names == {
+            "add_to_cart",
+            "show_menu",
+            "get_order_status",
+            "save_address",
+            "request_human_handoff",
+        }
+
+    def test_request_human_handoff_requires_a_reason(self):
+        from app.services.ai_service import _TOOLS
+
+        tool = next(t for t in _TOOLS if t["name"] == "request_human_handoff")
+        assert tool["input_schema"]["required"] == ["reason"]
+
+    def test_no_tool_can_mutate_order_status(self):
+        from app.services.ai_service import _TOOLS
+
+        forbidden_names = {"cancel_order", "update_status", "set_status", "refund"}
+        for tool in _TOOLS:
+            assert tool["name"] not in forbidden_names
+            props = tool.get("input_schema", {}).get("properties", {})
+            assert "status" not in props
+
+    def test_system_prompt_forbids_claiming_escalation_without_the_tool(self):
+        from app.services.ai_service import _SYSTEM_PROMPT
+
+        assert "escalation_rules" in _SYSTEM_PROMPT
+        assert "لا تدّعي" in _SYSTEM_PROMPT
+
+    def test_tool_executor_receives_the_new_tool(self, monkeypatch):
+        import app.services.ai_service as ai
+
+        tool_use_block = type("Block", (), {
+            "type": "tool_use",
+            "name": "request_human_handoff",
+            "id": "toolu_2",
+            "input": {"reason": "الزبونة غاضبة"},
+        })()
+        first_response = type("R", (), {
+            "content": [tool_use_block],
+            "stop_reason": "tool_use",
+        })()
+        final_text_block = type("Block", (), {"text": "حوّلتك لحنان 🙏"})()
+        second_response = type("R", (), {
+            "content": [final_text_block],
+            "stop_reason": "end_turn",
+        })()
+
+        calls = {"n": 0}
+
+        def fake_create(**kwargs):
+            calls["n"] += 1
+            return first_response if calls["n"] == 1 else second_response
+
+        fake_client = type("C", (), {
+            "messages": type("M", (), {"create": staticmethod(fake_create)})()
+        })()
+
+        received = {}
+
+        def spy_executor(name, args):
+            received["name"] = name
+            received["args"] = args
+            return "handoff opened"
+
+        monkeypatch.setattr(ai.Config, "CLAUDE_API_KEY", "sk-test")
+        monkeypatch.setattr(ai, "Anthropic", lambda **kw: fake_client)
+
+        reply = ai.generate_reply(
+            "ولك وين الطلبية؟؟", [], tool_executor=spy_executor
+        )
+        assert received["name"] == "request_human_handoff"
+        assert received["args"] == {"reason": "الزبونة غاضبة"}
+        assert reply == "حوّلتك لحنان 🙏"
 
 
 def _make_mock_anthropic(reply_text: str):

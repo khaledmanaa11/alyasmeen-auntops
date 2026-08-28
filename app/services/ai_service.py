@@ -181,6 +181,13 @@ _SYSTEM_PROMPT = """\
 </decision_tree>
 </tool_rules>
 
+<escalation_rules>
+- استدعي request_human_handoff فوراً إذا كان الزبون غاضباً، أو طلب استرجاع مصاري، أو اشتكى من منتج
+  تالف/ناقص، أو طلب التحدث مع إنسان، أو سأل عن خصوصيته وبياناته.
+- لا تدّعي أبداً أنك حوّلت المحادثة أو أبلغت حنان إلا إذا استدعيتِ الأداة فعلاً.
+- لا تعدي الزبون بإلغاء أو استرجاع أو تعديل طلب — أنتِ لا تملكين أداة لذلك؛ حوّلي لحنان بدلاً من ذلك.
+</escalation_rules>
+
 <examples>
 <example>
 <user>بدي كريم لبشرتي الجافة</user>
@@ -206,6 +213,11 @@ _SYSTEM_PROMPT = """\
 <user>بدي الكريم والشمعة</user>
 <action>call add_to_cart twice — once for each product</action>
 <reply>تمام! أضفت الاثنين للسلة 🎉</reply>
+</example>
+<example>
+<user>ولك وين الطلبية؟؟ صرلكو ٣ ايام بتقولولي بكرا بكرا، اذا مش جاهزة رجعولي مصاريي</user>
+<action>call request_human_handoff with reason="الزبونة غاضبة وبدها ترجيع مصاري لطلب متأخر"</action>
+<reply>فهمتك تماماً وآسفة عالتأخير 🙏 حوّلت طلبك لحنان مباشرة وح تتواصل معك بأقرب وقت لحل الموضوع.</reply>
 </example>
 </examples>
 
@@ -314,6 +326,33 @@ _TOOLS: list[dict] = [
                 },
             },
             "required": ["address"],
+        },
+    },
+    {
+        "name": "request_human_handoff",
+        "description": (
+            "Hand the conversation to Hanan, a real human. Call this tool — do not just "
+            "promise it in your reply — whenever: the customer explicitly asks for a human; "
+            "the customer is angry, threatening to leave, or demanding a refund; the customer "
+            "reports a damaged, wrong, or missing item; the customer raises a privacy or "
+            "data-protection concern; the customer asks for something you have no tool and no "
+            "catalog information to handle (custom/bulk orders, wholesale, deferred payment, "
+            "medical advice). "
+            "After calling it, tell the customer warmly and briefly that Hanan will follow up — "
+            "never claim you have escalated unless you actually called this tool."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "type": "string",
+                    "description": (
+                        "One short sentence, in the customer's own language, telling Hanan what "
+                        "this is about. Example: 'الزبونة غاضبة وبدها ترجيع مصاري لطلب متأخر'."
+                    ),
+                },
+            },
+            "required": ["reason"],
         },
     },
 ]
