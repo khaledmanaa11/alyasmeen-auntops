@@ -22,6 +22,7 @@ except Exception:
     Anthropic = None  # type: ignore
 
 from app.services.config import Config
+from app.shared.gatekeeper import gatekeeper
 
 log = logging.getLogger(__name__)
 
@@ -398,7 +399,7 @@ def generate_reply(
         if tool_executor:
             create_kwargs["tools"] = _TOOLS
 
-        resp = client.messages.create(**create_kwargs)
+        resp = gatekeeper.execute("claude_ai", client.messages.create, **create_kwargs)
 
         # ---------------------------------------------------------------
         # Agentic loop: if Claude chose to call a tool, execute it and
@@ -428,8 +429,10 @@ def generate_reply(
             # Second call — force a text reply (tool_choice="none") so that if
             # Claude tries to call another tool here, it writes a reply instead;
             # this stays a fixed 2-call loop, not a multi-round agentic loop.
-            resp = client.messages.create(
-                **{**create_kwargs, "messages": messages, "tool_choice": {"type": "none"}}
+            resp = gatekeeper.execute(
+                "claude_ai",
+                client.messages.create,
+                **{**create_kwargs, "messages": messages, "tool_choice": {"type": "none"}},
             )
 
         parts = [
@@ -489,7 +492,9 @@ def improve_message(draft: str) -> dict:
         )
 
     client = Anthropic(api_key=Config.CLAUDE_API_KEY, timeout=30.0)  # type: ignore
-    response = client.messages.create(
+    response = gatekeeper.execute(
+        "claude_ai",
+        client.messages.create,
         model=Config.CLAUDE_MODEL,
         max_tokens=Config.BROADCAST_IMPROVEMENT_MAX_TOKENS,
         system=system_prompt,

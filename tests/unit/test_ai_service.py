@@ -161,6 +161,27 @@ class TestGenerateReply:
         ai.generate_reply("confirm", [], cart=cart)
         assert "سلة" in captured.get("system", "")
 
+    def test_generate_reply_routes_through_gatekeeper(self, monkeypatch):
+        """Prove the Claude call site is really wired through the gatekeeper
+        (not just 'still works by coincidence')."""
+        import app.services.ai_service as ai
+
+        monkeypatch.setattr(ai.Config, "CLAUDE_API_KEY", "sk-test")
+        monkeypatch.setattr(ai, "Anthropic", _make_mock_anthropic("AI reply text"))
+
+        calls = []
+
+        def spy(service, api_call, *args, **kwargs):
+            calls.append(service)
+            return api_call(*args, **kwargs)
+
+        monkeypatch.setattr(ai.gatekeeper, "execute", spy)
+
+        reply = ai.generate_reply("مرحبا", [])
+        assert reply == "AI reply text"
+        assert calls, "gatekeeper.execute was never called"
+        assert all(c == "claude_ai" for c in calls)
+
 
 def _make_mock_anthropic(reply_text: str):
     """Return a fake Anthropic class whose messages.create returns reply_text."""
