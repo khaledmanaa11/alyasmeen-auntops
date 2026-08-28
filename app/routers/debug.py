@@ -21,7 +21,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
-from app.db.database import execute, rpc
+from app.db.database import execute, execute_returning, rpc
 from app.routers.whatsapp_helpers import catalog
 
 log = logging.getLogger(__name__)
@@ -134,6 +134,53 @@ def create_test_order(p: CreateTestOrder):
         "order_name": order_name,
         "cart": cart,
     }
+
+
+class CreateTestHandoff(BaseModel):
+    """Request body for POST /dev/test_handoff."""
+
+    phone: str = "+972500000998"
+    reason: str = "العميلة طلبت التحدث مع شخص حقيقي"
+
+
+@router.post("/test_handoff")
+def create_test_handoff(p: CreateTestHandoff):
+    """Seed a realistic active handoff directly in the database.
+
+    Phase 3 (which will own the real trigger() path — keyword/media
+    detection, the policy gate, pausing the session) has not been executed
+    yet on this branch, so there is no producer of real handoffs. Without
+    this endpoint the handoffs UI (plan 05-07) and its rollout walkthrough
+    (plan 05-09) would be unexercisable until Phase 3 ships. Inserts a
+    customer (if absent), a paused sessions row, three chat_history turns,
+    and an active handoffs row, then returns the handoff id.
+    """
+    execute(
+        "INSERT INTO customers (phone, name) VALUES (%s, %s) ON CONFLICT (phone) DO NOTHING",
+        (p.phone, "عميلة اختبار"),
+    )
+    execute(
+        """
+        INSERT INTO sessions (phone, stage, cart, fulfillment, menu_products, address, paused)
+        VALUES (%s, %s, %s::jsonb, %s, %s::jsonb, %s, %s)
+        ON CONFLICT (phone) DO UPDATE SET paused = TRUE, updated_at = now()
+        """,
+        (p.phone, "root", "[]", None, "[]", "", True),
+    )
+    for role, content in (
+        ("user", "مرحبا، عندي مشكلة بطلبي"),
+        ("assistant", "أهلاً! ممكن توضحي أكثر؟"),
+        ("user", "بدي أحكي مع حدا مش بوت"),
+    ):
+        execute(
+            "INSERT INTO chat_history (phone, role, content) VALUES (%s, %s, %s)",
+            (p.phone, role, content),
+        )
+    row = execute_returning(
+        "INSERT INTO handoffs (phone, reason, status) VALUES (%s, %s, 'active') RETURNING id",
+        (p.phone, p.reason),
+    )
+    return {"ok": True, "handoff_id": row["id"] if row else None, "phone": p.phone}
 
 
 @router.get("/chat", response_class=HTMLResponse)

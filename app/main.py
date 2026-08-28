@@ -26,6 +26,7 @@ from app.db.database import ping
 from app.middleware.security_headers import SecurityHeadersMiddleware  # noqa: E402
 from app.routers.auth_routes import router as auth_router  # noqa: E402
 from app.routers.broadcast import router as broadcast_router  # noqa: E402
+from app.routers.operator_api import router as operator_api_router  # noqa: E402
 from app.routers.ui import router as ui_router  # noqa: E402
 from app.routers.ui_api import router as ui_api_router  # noqa: E402
 from app.routers.whatsapp import router as whatsapp_router  # noqa: E402
@@ -54,6 +55,7 @@ app.include_router(whatsapp_router)
 app.include_router(auth_router)
 app.include_router(ui_router)
 app.include_router(ui_api_router)
+app.include_router(operator_api_router)
 app.include_router(broadcast_router)
 if debug_router:
     app.include_router(debug_router)
