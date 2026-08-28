@@ -78,6 +78,58 @@ def queue_pdf_invoice(phone: str, order_id: int) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Proactive failure alerts (05-06) — a permanently-failed outbox job or a
+# dead-lettered webhook event was previously only visible if someone opened
+# /alerts. This pushes a plain-Arabic WhatsApp alert through the SAME outbox
+# (queue_text — never a direct send) to the aunt (customer-facing failures)
+# and to Khaled/admin (everything), exactly once per permanent failure.
+# ---------------------------------------------------------------------------
+
+# outbox_jobs kinds that reach a real customer — everything else is internal
+# and only the admin needs to know about it.
+CUSTOMER_FACING_KINDS = {"whatsapp_message", "whatsapp_buttons", "pdf_invoice"}
+
+
+def notify_permanent_failure(source: str, phone: str, kind: str, error: str) -> None:
+    """Queue a WhatsApp alert for a job/event that has permanently failed.
+
+    `source` is "outbox_job" or "webhook_event". Wrapped end-to-end in
+    try/except: a failing notification must never change the outcome of the
+    job that already failed.
+    """
+    try:
+        # Loop guard (mandatory): a failed alert addressed TO the aunt or the
+        # admin must never itself queue another alert about that same
+        # failure — that would be an infinite outbox loop (alert about a
+        # failed alert about a failed alert...).
+        if phone and phone in (Config.AUNT_PHONE, Config.ADMIN_PHONE):
+            return
+
+        rows = query("SELECT name FROM customers WHERE phone = %s", (phone,))
+        customer_name = (rows[0].get("name") or "") if rows else ""
+        label = customer_name or phone
+
+        if (kind in CUSTOMER_FACING_KINDS or source == "webhook_event") and Config.AUNT_PHONE:
+            if kind == "pdf_invoice":
+                aunt_msg = f"⚠️ الفاتورة لم تصل إلى {label}. أعيدي المحاولة أو أرسليها يدوياً."
+            elif source == "webhook_event":
+                aunt_msg = f"⚠️ رسالة من {label} لم تُقرأ من النظام. افتحي المحادثة وشوفي شو بدها."
+            else:
+                aunt_msg = f"⚠️ رسالة لم تصل إلى {label}. تابعي المحادثة معها في واتساب."
+            queue_text(Config.AUNT_PHONE, aunt_msg)
+
+        if Config.ADMIN_PHONE:
+            truncated_error = (error or "")[:200]
+            admin_msg = f"⚠️ فشلت عملية ({kind}) للزبون {label} — {truncated_error}"
+            queue_text(Config.ADMIN_PHONE, admin_msg)
+    except Exception as exc:
+        log.warning(
+            "notify_permanent_failure_failed",
+            source=source, phone=phone, kind=kind, error=str(exc),
+        )
+
+
+# ---------------------------------------------------------------------------
 # Polling Loops
 # ---------------------------------------------------------------------------
 
@@ -111,6 +163,7 @@ def process_webhook_events():
                     "UPDATE webhook_events SET processed = TRUE, error = %s, processed_at = now() WHERE id = %s",
                     (f"dead-letter: {e}", ev["id"])
                 )
+                notify_permanent_failure("webhook_event", ev["phone"], "inbound_message", str(e))
             else:
                 execute(
                     "UPDATE webhook_events SET error = %s WHERE id = %s",
@@ -121,7 +174,8 @@ def process_webhook_events():
 def process_outbox_jobs():
     """Poll for pending outbox jobs and process them."""
     jobs = query(
-        "SELECT id, kind, phone, payload, attempts FROM outbox_jobs WHERE status IN ('pending', 'failed') AND attempts < max_attempts ORDER BY created_at ASC LIMIT 10"
+        "SELECT id, kind, phone, payload, attempts, max_attempts FROM outbox_jobs "
+        "WHERE status IN ('pending', 'failed') AND attempts < max_attempts ORDER BY created_at ASC LIMIT 10"
     )
     if not jobs:
         return
@@ -129,7 +183,10 @@ def process_outbox_jobs():
     log.info("processing_outbox_jobs", count=len(jobs))
     for job in jobs:
         try:
-            process_job(job["id"], job["kind"], job["phone"], job["payload"], job["attempts"])
+            process_job(
+                job["id"], job["kind"], job["phone"], job["payload"], job["attempts"],
+                job.get("max_attempts", 3),
+            )
         except Exception as e:
             log.error("job_processing_failed", job_id=job["id"], error=str(e))
 
@@ -181,7 +238,7 @@ def process_event(event_id: str, phone: str, payload: dict):
     )
 
 
-def process_job(job_id: str, kind: str, phone: str, payload: dict, attempts: int):
+def process_job(job_id: str, kind: str, phone: str, payload: dict, attempts: int, max_attempts: int = 3):
     """Process a single outbox job."""
     execute("UPDATE outbox_jobs SET status = 'processing', attempts = attempts + 1, updated_at = now() WHERE id = %s", (job_id,))
     
@@ -228,6 +285,8 @@ def process_job(job_id: str, kind: str, phone: str, payload: dict, attempts: int
     except Exception as e:
         log.error("job_execution_failed", job_id=job_id, error=str(e))
         execute("UPDATE outbox_jobs SET status = 'failed', last_error = %s, updated_at = now() WHERE id = %s", (str(e), job_id))
+        if attempts + 1 >= max_attempts:
+            notify_permanent_failure("outbox_job", phone, kind, str(e))
 
 
 # ---------------------------------------------------------------------------

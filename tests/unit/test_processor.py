@@ -562,3 +562,80 @@ class TestOutboxDoesNotPoisonInbox:
         # happened afterwards — still processed, still no error/dead-letter.
         assert ev["processed"] is True
         assert ev["error"] is None
+
+
+# ---------------------------------------------------------------------------
+# Proactive failure alerts (05-06)
+# ---------------------------------------------------------------------------
+
+class TestPermanentFailureAlerts:
+    """New coverage: notify_permanent_failure() proactively queues a plain-
+    Arabic WhatsApp alert through the outbox (queue_text — never a direct
+    send) for the aunt (customer-facing failures) and admin (everything),
+    exactly once per permanent failure, with a loop guard against alerting
+    about a failure to deliver an alert."""
+
+    def _always_fail(self, *args, **kwargs):
+        raise RuntimeError("meta api down")
+
+    def test_final_attempt_failure_queues_alerts_to_aunt_and_admin(self, fake_db, monkeypatch):
+        monkeypatch.setattr(processor.Config, "AUNT_PHONE", "972590000001")
+        monkeypatch.setattr(processor.Config, "ADMIN_PHONE", "972590000002")
+        monkeypatch.setattr(processor, "send_text", self._always_fail)
+
+        phone = _phone()
+        processor.process_job(
+            "j-final", "whatsapp_message", phone, {"text": "hi"},
+            attempts=2, max_attempts=3,
+        )
+
+        alerted_phones = sorted(j["phone"] for j in fake_db.outbox_jobs)
+        assert alerted_phones == sorted(["972590000001", "972590000002"])
+
+    def test_non_final_attempt_failure_queues_no_alerts(self, fake_db, monkeypatch):
+        monkeypatch.setattr(processor.Config, "AUNT_PHONE", "972590000001")
+        monkeypatch.setattr(processor.Config, "ADMIN_PHONE", "972590000002")
+        monkeypatch.setattr(processor, "send_text", self._always_fail)
+
+        phone = _phone()
+        processor.process_job(
+            "j-nonfinal", "whatsapp_message", phone, {"text": "hi"},
+            attempts=0, max_attempts=3,
+        )
+
+        assert fake_db.outbox_jobs == []
+
+    def test_failure_addressed_to_aunt_phone_queues_no_alert(self, fake_db, monkeypatch):
+        aunt_phone = "972590000001"
+        monkeypatch.setattr(processor.Config, "AUNT_PHONE", aunt_phone)
+        monkeypatch.setattr(processor.Config, "ADMIN_PHONE", "972590000002")
+
+        processor.notify_permanent_failure("outbox_job", aunt_phone, "whatsapp_message", "boom")
+
+        assert fake_db.outbox_jobs == []
+
+    def test_non_customer_facing_kind_alerts_admin_only(self, fake_db, monkeypatch):
+        monkeypatch.setattr(processor.Config, "AUNT_PHONE", "972590000001")
+        monkeypatch.setattr(processor.Config, "ADMIN_PHONE", "972590000002")
+
+        processor.notify_permanent_failure("outbox_job", _phone(), "monthly_report", "boom")
+
+        alerted_phones = [j["phone"] for j in fake_db.outbox_jobs]
+        assert alerted_phones == ["972590000002"]
+
+    def test_dead_lettered_webhook_event_notifies_both(self, fake_db, monkeypatch):
+        monkeypatch.setattr(processor.Config, "AUNT_PHONE", "972590000001")
+        monkeypatch.setattr(processor.Config, "ADMIN_PHONE", "972590000002")
+
+        malformed_payload = {"entry": []}  # process_event's entry[0] raises IndexError
+        fake_db.webhook_events.append({
+            "id": 1, "phone": _phone(), "payload": malformed_payload,
+            "wamid": None, "processed": False, "attempts": 0, "error": None,
+            "created_at": 0,
+        })
+
+        for _ in range(processor.MAX_WEBHOOK_EVENT_ATTEMPTS):
+            processor.process_webhook_events()
+
+        alerted_phones = sorted(j["phone"] for j in fake_db.outbox_jobs)
+        assert alerted_phones == sorted(["972590000001", "972590000002"])
