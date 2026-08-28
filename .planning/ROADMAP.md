@@ -88,7 +88,7 @@ This roadmap transitions ALYASMEEN AuntOps from a development implementation to 
 - [x] 05-02-PLAN.md — Supabase Auth service wrapper (AAL/MFA) + operator account management CLI — completed 2026-08-28
 - [x] 05-03-PLAN.md — Replace the shared-password guard: auth deps, email+password+TOTP login, test seam — completed 2026-08-28
 - [x] 05-04-PLAN.md — CSRF (starlette-csrf) + security headers + shared `_nav.html` partial — completed 2026-08-28
-- [ ] 05-05-PLAN.md — Handoff resolve + audit service + operator JSON API + dev handoff seed
+- [x] 05-05-PLAN.md — Handoff resolve + audit service + operator JSON API + dev handoff seed — completed 2026-08-28
 - [ ] 05-06-PLAN.md — Audited mutations, bot-vs-aunt conflict guard, alerts API rework, failure alerts
 - [ ] 05-07-PLAN.md — Handoffs tab (transcript, return-to-bot, live badge) + audit trail page
 - [ ] 05-08-PLAN.md — Alerts page reworked into Arabic action cards + conflict picker on orders
@@ -114,5 +114,5 @@ This roadmap transitions ALYASMEEN AuntOps from a development implementation to 
 | 2. Application Hardening | 2/2 | ✅ Completed | 2026-06-14 |
 | 3. Agent Dependability | 0/3 | 🏗️ In Progress | - |
 | 4. Reliability & Ops Completion | 7/7 | Complete    | 2026-08-28 |
-| 5. Operator Security | 4/10 | 🏗️ In Progress | - |
+| 5. Operator Security | 5/10 | 🏗️ In Progress | - |
 | 6. Production Go-Live | 0/1 | Not started | - |
