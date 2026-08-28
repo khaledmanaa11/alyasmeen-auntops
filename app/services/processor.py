@@ -9,6 +9,7 @@ from app.db.database import execute, query, rpc
 from app.services.ai_service import generate_reply
 from app.services.config import Config
 from app.services.pdf_invoice import generate_invoice_pdf
+from app.services import handoff, policy
 from app.routers.whatsapp_helpers import (
     load_session,
     save_session,
@@ -41,6 +42,16 @@ MAX_CART_QTY = 50
 
 # Fallback reply sent to the customer when the AI call itself fails.
 AI_FALLBACK_REPLY = "عذرًا، في مشكلة تقنية مؤقتة، جرب كمان شوي 🙏"
+
+# Sent when the bot hands the conversation to Hanan. One deterministic
+# sentence, never model-generated: the customer must not be promised an
+# escalation that did not actually get written to the handoffs table.
+HANDOFF_ACK_REPLY = "تمام 🌿 حوّلت المحادثة لحنان، رح ترد عليكِ بأقرب وقت."
+
+UNSUPPORTED_MEDIA_REPLY = (
+    "ما بقدر أفتح الرسائل الصوتية والصور والملفات 🙏 "
+    "اكتبيلي رسالة نصية لو سمحتِ — وبنفس الوقت حوّلت المحادثة لحنان تتابع معك 🌿"
+)
 
 
 # ---------------------------------------------------------------------------
@@ -293,6 +304,21 @@ def process_job(job_id: str, kind: str, phone: str, payload: dict, attempts: int
 # Bot Logic (handle_message)
 # ---------------------------------------------------------------------------
 
+def _open_handoff(phone: str, reason: str, metadata: dict | None = None) -> bool:
+    """Open a handoff without ever letting it break the reply path.
+
+    Returns True on success. handoff.trigger() intentionally raises on a
+    durable-state failure (see 03-01); the message pipeline must not, because
+    the customer is waiting on a reply either way.
+    """
+    try:
+        handoff.trigger(phone, reason, metadata)
+        return True
+    except Exception as e:
+        log.error("handoff_trigger_failed", phone=phone, reason=reason, error=str(e))
+        return False
+
+
 def handle_message(phone: str, text: str, name: str = ""):
     """Core bot brain: history -> state -> tools -> reply."""
     # 1. Update customer record
@@ -303,12 +329,41 @@ def handle_message(phone: str, text: str, name: str = ""):
     st = load_session(phone)
     history = load_history(phone)
     cart = st.get("cart", [])
-    
+
     log.info("handle_message", phone=phone, text=text, stage=st["stage"])
+
+    # 2a. Paused gate — a human owns this conversation. Record what the
+    # customer said so the aunt sees it in the handoff transcript
+    # (operator_api.py's transcript endpoint reads chat_history), but send
+    # nothing: the whole point of a handoff is that the bot stops talking.
+    # Must run before every hard command and before the AI fallback, so a
+    # paused customer can never accidentally trigger an order/cart mutation.
+    if st.get("paused"):
+        append_history(phone, "user", text)
+        log.info("bot_paused_skipping_reply", phone=phone)
+        return
+
+    # 2b. Keyword-triggered handoff — placed before the hard commands so an
+    # escalation request can never be swallowed by a command match (the two
+    # vocabularies are disjoint, see test_hard_commands_do_not_trigger in
+    # tests/unit/test_policy.py). If the handoff write itself fails, the
+    # customer gets the generic apology instead of a promise the system did
+    # not actually keep.
+    handoff_group = policy.detect_handoff_keyword(text)
+    if handoff_group:
+        append_history(phone, "user", text)
+        opened = _open_handoff(
+            phone, "keyword_request",
+            {"group": handoff_group, "message": text[:200]},
+        )
+        reply = HANDOFF_ACK_REPLY if opened else AI_FALLBACK_REPLY
+        append_history(phone, "assistant", reply)
+        queue_text(phone, reply)
+        return
 
     # 3. Handle "hard" commands (overrides)
     cmd = text.lower().strip()
-    
+
     if cmd in ("menu", "منتجات", "شو عندكم"):
         _tool_show_menu(phone, "", st)
         save_session(phone, st)

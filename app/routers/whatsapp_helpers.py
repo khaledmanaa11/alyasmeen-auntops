@@ -53,7 +53,7 @@ STATUS_LABELS = {
 
 def load_session(phone: str) -> dict[str, Any]:
     rows = query(
-        "SELECT stage, cart, fulfillment, menu_products, address FROM sessions WHERE phone = %s",
+        "SELECT stage, cart, fulfillment, menu_products, address, paused FROM sessions WHERE phone = %s",
         (phone,),
     )
     if rows:
@@ -64,10 +64,17 @@ def load_session(phone: str) -> dict[str, Any]:
             "fulfillment": row["fulfillment"],
             "menu_products": row["menu_products"] if isinstance(row["menu_products"], list) else [],
             "address": row["address"] or "",
+            "paused": bool(row.get("paused")),
         }
-    return {"stage": "root", "cart": [], "fulfillment": None, "menu_products": [], "address": ""}
+    return {"stage": "root", "cart": [], "fulfillment": None, "menu_products": [], "address": "", "paused": False}
 
 
+# save_session() deliberately never writes `paused` — the ON CONFLICT DO
+# UPDATE SET list below is correct precisely because it omits that column.
+# Only handoff.trigger() (sets TRUE) and handoff.resolve() (sets FALSE) own
+# `sessions.paused`. Do not "fix" this apparent omission: doing so would
+# silently un-pause every handed-off conversation the moment the customer's
+# next message runs through the ordinary session-save path.
 def save_session(phone: str, st: dict[str, Any]) -> None:
     execute(
         """
