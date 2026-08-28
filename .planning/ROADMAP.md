@@ -69,7 +69,7 @@ This roadmap transitions ALYASMEEN AuntOps from a development implementation to 
 - [ ] 04-01-PLAN.md — Outbox migration: followup/monthly_report/ui_api enqueue + pdf_invoice job kind
 - [ ] 04-02-PLAN.md — Gatekeeper: synchronous rewrite + wiring into Claude/Meta calls
 - [x] 04-03-PLAN.md — Scheduler persistence proof (SQLAlchemyJobStore) + DATABASE_URL docs
-- [ ] 04-04-PLAN.md — Retire retry_queue.py/retry_actions.py + retirement migration
+- [x] 04-04-PLAN.md — Retire retry_queue.py/retry_actions.py + retirement migration
 - [ ] 04-05-PLAN.md — Dead-letter dashboard: /api/alerts backend
 - [ ] 04-06-PLAN.md — Dead-letter dashboard: Alerts UI tab
 - [ ] 04-07-PLAN.md — Live rollout: DATABASE_URL persistence, service_role switch, migrations, backup drill (checkpoints)
@@ -103,6 +103,6 @@ This roadmap transitions ALYASMEEN AuntOps from a development implementation to 
 | 1. Database Foundation | 3/3 | ✅ Completed | 2026-06-14 |
 | 2. Application Hardening | 2/2 | ✅ Completed | 2026-06-14 |
 | 3. Agent Dependability | 0/3 | 🏗️ In Progress | - |
-| 4. Reliability & Ops Completion | 3/7 | 🏗️ In Progress | - |
+| 4. Reliability & Ops Completion | 4/7 | 🏗️ In Progress | - |
 | 5. Operator Security | 0/1 | Not started | - |
 | 6. Production Go-Live | 0/1 | Not started | - |

@@ -29,7 +29,7 @@ ones were fixed in two Sonnet waves + follow-ups. All on branch `fix/production-
 re-run `/gsd:plan-phase 3` (or at minimum the plan checker) against the current branch.
 
 ## Technical Debt / Risks
-- `retry_queue.py` (enqueue never called) is still dead code claiming to run → Phase 4 criterion 1. Its replacement is now fully built (plan 04-01): follow-ups, the monthly report, and the dashboard's ready/delivered/done order-status sends (incl. PDF invoice) all enqueue into `outbox_jobs` now, same as the bot's own message pipeline already did. Retirement of `retry_queue.py`/`retry_actions.py` itself is still plan 04-04, not yet executed. `gatekeeper.py` is **no longer dead code** — rewritten synchronous (plan 04-02) and wired into every outbound Claude call (`ai_service.py`) and every real-mode WhatsApp send (`whatsapp_meta.py`).
+- ~~`retry_queue.py` (enqueue never called) is dead code claiming to run~~ → **Phase 4 criterion 1 resolved** (plan 04-04): `retry_queue.py`/`retry_actions.py` deleted entirely, the 15-minute scheduler job removed from `app/worker.py`, retirement documented in `supabase/migrations/20260825000003_retire_retry_queue.sql` (COMMENT ON TABLE, not DROP — table is already RLS-locked deny-all). `gatekeeper.py` is **no longer dead code** either — rewritten synchronous (plan 04-02) and wired into every outbound Claude call (`ai_service.py`) and every real-mode WhatsApp send (`whatsapp_meta.py`).
 - Migrations not yet applied to live Supabase; anon-vs-service_role key decision open → Phase 4 criterion 2.
 - Worker job store falls back to MemoryJobStore without `DATABASE_URL` → Phase 4 criterion 3. **Mechanism now proven** (`tests/integration/test_scheduler_persistence.py`, plan 04-03); the live Railway `DATABASE_URL` step itself is still pending — operator checkpoint in plan 04-07.
 - No dashboard visibility for dead-lettered events / failed outbox jobs → Phase 4 criterion 4.
@@ -37,11 +37,11 @@ re-run `/gsd:plan-phase 3` (or at minimum the plan checker) against the current 
 
 ## Todos & Blockers
 - [ ] **TODO**: Merge/push `fix/production-hardening` (user decision).
-- [ ] **TODO**: Continue `/gsd:execute-phase 4` — plans 04-01/04-02/04-03 done, 04-04 through 04-07 remain.
+- [ ] **TODO**: Continue `/gsd:execute-phase 4` — plans 04-01/04-02/04-03/04-04 done, 04-05 through 04-07 remain.
 - [ ] **TODO**: Re-verify Phase 3 plans against the hardening branch, then `/gsd:execute-phase 3`.
 - [ ] **TODO** (deploy): Set `DASHBOARD_PASSWORD`, `SECRET_KEY` in Railway — app now refuses to start without them. Set `CLAUDE_MODEL` or accept new default. Update `WA_META_TOKEN`. Set `DATABASE_URL` (Session Pooler, postgresql:// — see .env.example) so the worker job store survives restarts.
 - [ ] **BLOCKER**: Meta WABA registration still pending.
 
 ## Session Continuity
-- **Last Action**: Executed Phase 4 Plan 01 (outbox migration for follow-ups, monthly report, and the dashboard's order-status endpoint incl. PDF invoice) — 259 tests green, commits `69f6ccd`, `0775654`, `228c57f`, `0e2a0d1`. Ran concurrently with Plans 02/03 executing in the same working directory (parallel wave); one commit briefly picked up unrelated 04-02 file changes staged by that other process, caught via `git show --stat` and corrected with `git reset HEAD~1` + a clean re-stage before pushing anything — see 04-01-SUMMARY.md "Deviations from Plan" for detail.
-- **Next Step**: `/gsd:execute-phase 4` to continue with remaining plans (04-04 through 04-07). Confirm no other plan executor is still mid-run against this working directory before starting the next one.
+- **Last Action**: Executed Phase 4 Plan 04 (retire `retry_queue.py`/`retry_actions.py`, unwire the 15-minute job from `app/worker.py`, document retirement via `COMMENT ON TABLE` migration) — 247 passed/3 skipped, commits `7b145ea`, `006f1a0`.
+- **Next Step**: `/gsd:execute-phase 4` to continue with remaining plans (04-05 through 04-07).
