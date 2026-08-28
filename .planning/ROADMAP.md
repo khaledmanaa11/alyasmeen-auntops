@@ -60,7 +60,7 @@ policy gate for this phase. See `03-RESEARCH.md` for the stale-plan reconciliati
 - [ ] 03-03-PLAN.md — ai_service: AIUnavailableError contract + 5th tool `request_human_handoff`
 - [ ] 03-04-PLAN.md — Paused gate, keyword handoff, unsupported-media handoff + conftest handoff patching
 - [ ] 03-05-PLAN.md — Policy-gated tool executor, handoff tool implementation, AI-failure escalation
-- [ ] 03-06-PLAN.md — Pytest eval gate over the real pipeline + measured baseline
+- [x] 03-06-PLAN.md — Pytest eval gate over the real pipeline + measured baseline
 - [ ] 03-07-PLAN.md — Release thresholds from the baseline + docs/EVAL_GATE.md
 - [ ] 03-08-PLAN.md — Requirement verification tests + knowledge-vault and CLAUDE.md update
 

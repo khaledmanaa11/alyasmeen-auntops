@@ -2,7 +2,7 @@
 
 ## Project Reference
 **Core Value**: Customers can reliably place and manage real orders through WhatsApp, while the aunt retains clear control over exceptions and can operate the business without technical assistance.
-**Current Focus**: Phase 4 (Reliability & Ops Completion) is COMPLETE (7/7 plans). Phase 3 (Agent Dependability & Safety) is IN PROGRESS — wave 3 of ~4 complete (03-01 through 03-05 done, 5/8 plans).
+**Current Focus**: Phase 4 (Reliability & Ops Completion) is COMPLETE (7/7 plans). Phase 3 (Agent Dependability & Safety) is IN PROGRESS — waves 1-4 complete (03-01 through 03-06 done, 6/8 plans; next: wave 5 = 03-07 + 03-08 in parallel).
 
 ## Current Position
 - **Phase**: 3 (Agent Dependability & Safety) — IN PROGRESS (wave 1: 03-01/03-02/03-03 done in parallel; wave 2: 03-04 done, sequential, depends on wave 1; wave 3: 03-05 done, sequential, depends on 03-03+03-04; 5/8 plans). Phase 5 (Operator Security & UX) — IN PROGRESS (waves 1-6 of 7 COMPLETE — 05-01 through 05-09 all done; 9/10 plans; next: the 05-10 checkpoint plan, human-gated live rollout). Phase 4 is COMPLETE (7/7 plans).
@@ -28,7 +28,7 @@ Re-verified and re-planned (`03-RESEARCH.md` + fresh `03-01` through `03-08` pla
 execution, superseding the earlier stale-plan warning. Wave 1 (`03-01`/`03-02`/`03-03`, run in
 parallel), wave 2 (`03-04`, sequential, depends on wave 1), and wave 3 (`03-05`, sequential,
 depends on 03-03+03-04) are all done — see Session Continuity below for what each shipped.
-Remaining: `03-06` through `03-08`.
+Remaining: `03-07` + `03-08` (wave 5, parallel — disjoint files). 🟢 Wave 4 (03-06) done: opt-in real-Claude-API eval harness in `tests/eval/` (double opt-in: `eval` marker excluded from default addopts AND `RUN_AGENT_EVAL=1` required; TTL-immune catalog injection via monkeypatched `retriever._load_catalog`; `EVAL_SAMPLES` cost control; `.last_run.json` gitignored) + measured full-dataset baseline recorded in `03-EVAL-BASELINE.md`: overall 85.1% (63/74), critical 75.0%, handoff 68.8%, informational 100.0% — a MEASUREMENT, not a target; 03-07 derives thresholds from it. Executor dropped twice on ECONNRESET after its final commit; orchestrator verified deliverables and wrote the SUMMARY. Default suite: 470 passed, 3 skipped, 1 deselected.
 
 ## Technical Debt / Risks
 - ~~`retry_queue.py` (enqueue never called) is dead code claiming to run~~ → **Phase 4 criterion 1 resolved** (plan 04-04): `retry_queue.py`/`retry_actions.py` deleted entirely, the 15-minute scheduler job removed from `app/worker.py`, retirement documented in `supabase/migrations/20260825000003_retire_retry_queue.sql` (COMMENT ON TABLE, not DROP — table is already RLS-locked deny-all). `gatekeeper.py` is **no longer dead code** either — rewritten synchronous (plan 04-02) and wired into every outbound Claude call (`ai_service.py`) and every real-mode WhatsApp send (`whatsapp_meta.py`).
