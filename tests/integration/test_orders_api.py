@@ -45,8 +45,17 @@ def auth_client(client):
 
 @pytest.fixture()
 def mock_order(monkeypatch):
-    """Patch db.query and db.execute so no real Supabase call is made."""
+    """Patch db.query and db.execute so no real Supabase call is made.
+
+    queue_text/queue_pdf_invoice (called from ui_api's status-update
+    endpoint) are bound to app.services.processor's own imported `execute`
+    reference, not ui_api's — so this fixture patches execute on BOTH
+    modules and routes them through the same shared execute_calls list, so
+    tests can assert on outbox inserts regardless of which module's `execute`
+    actually ran.
+    """
     import app.routers.ui_api as ui_api
+    import app.services.processor as processor
 
     order_data = {
         "id": 42,
@@ -54,6 +63,8 @@ def mock_order(monkeypatch):
         "fulfillment": "pickup",
         "customer_name": "فاطمة",
     }
+
+    execute_calls = []
 
     def fake_query(sql, params=()):
         if "orders" in sql and "order_lines" not in sql:
@@ -63,11 +74,14 @@ def mock_order(monkeypatch):
         return []
 
     def fake_execute(sql, params=()):
-        pass  # no-op
+        execute_calls.append((sql, params))
 
     monkeypatch.setattr(ui_api, "query", fake_query)
     monkeypatch.setattr(ui_api, "execute", fake_execute)
-    return order_data
+    monkeypatch.setattr(processor, "execute", fake_execute)
+    result = dict(order_data)
+    result["execute_calls"] = execute_calls
+    return result
 
 
 class TestOrdersAPIAuth:
@@ -88,13 +102,20 @@ class TestOrdersAPIAuth:
         assert r.status_code == 401
 
 
+def _outbox_inserts(execute_calls, kind=None):
+    """Filter execute_calls down to outbox_jobs INSERTs, optionally by kind
+    (the first element of the params tuple)."""
+    inserts = [
+        params for sql, params in execute_calls
+        if "INSERT INTO outbox_jobs" in sql
+    ]
+    if kind is not None:
+        inserts = [p for p in inserts if p[0] == kind]
+    return inserts
+
+
 class TestOrderStatusUpdate:
-    def test_update_to_ready_succeeds(self, auth_client, mock_order, monkeypatch):
-        import app.services.whatsapp_dev as wa_dev
-
-        sent = []
-        monkeypatch.setattr(wa_dev, "send_text", lambda to, msg: sent.append((to, msg)) or {})
-
+    def test_update_to_ready_succeeds(self, auth_client, mock_order):
         r = auth_client.post(
             f"/api/orders/{mock_order['id']}/status",
             json={"status": "ready"},
@@ -102,14 +123,11 @@ class TestOrderStatusUpdate:
         assert r.status_code == 200
         assert r.json()["ok"] is True
         assert r.json()["status"] == "ready"
-        assert len(sent) == 1  # WhatsApp notification sent
+        # Queued to the outbox instead of sent inline in the request.
+        inserts = _outbox_inserts(mock_order["execute_calls"], kind="whatsapp_message")
+        assert len(inserts) == 1
 
     def test_update_to_delivered_succeeds(self, auth_client, mock_order, monkeypatch):
-        import app.services.whatsapp_dev as wa_dev
-
-        sent = []
-        monkeypatch.setattr(wa_dev, "send_text", lambda to, msg: sent.append((to, msg)) or {})
-
         # Mock record_delivery
         from app.services import followup
         monkeypatch.setattr(followup, "record_delivery", lambda phone, oid: None)
@@ -120,7 +138,28 @@ class TestOrderStatusUpdate:
         )
         assert r.status_code == 200
         assert r.json()["ok"] is True
-        assert len(sent) == 1
+        inserts = _outbox_inserts(mock_order["execute_calls"], kind="whatsapp_message")
+        assert len(inserts) == 1
+
+    def test_update_to_done_succeeds(self, auth_client, mock_order):
+        """New coverage: marking an order 'done' must queue TWO outbox jobs —
+        the thank-you text and the pdf_invoice regeneration+send — instead of
+        sending the WhatsApp message and generating/sending the PDF inline in
+        the HTTP request."""
+        r = auth_client.post(
+            f"/api/orders/{mock_order['id']}/status",
+            json={"status": "done"},
+        )
+        assert r.status_code == 200
+        assert r.json()["ok"] is True
+        assert r.json()["status"] == "done"
+
+        text_inserts = _outbox_inserts(mock_order["execute_calls"], kind="whatsapp_message")
+        assert len(text_inserts) == 1
+
+        pdf_inserts = _outbox_inserts(mock_order["execute_calls"], kind="pdf_invoice")
+        assert len(pdf_inserts) == 1
+        assert pdf_inserts[0][2] == {"order_id": mock_order["id"]}
 
     def test_invalid_status_returns_400(self, auth_client, mock_order):
         r = auth_client.post(

@@ -25,7 +25,7 @@ class _NoCache:
     Jinja2 <= 3.1.3 builds a cache key that includes the globals dict,
     making the key unhashable (TypeError: unhashable type: 'dict').
     This stub accepts any key and always returns a cache miss so the
-    template is re-parsed each request — a throughput cost to revisit as traffic grows.
+    template is re-parsed each request — safe at this request volume.
     """
 
     def get(self, key: object) -> None:  # noqa: ARG002
@@ -64,7 +64,13 @@ async def login_page(request: Request):
 async def login_submit(request: Request, password: str = Form(...)):
     if password == Config.DASHBOARD_PASSWORD:
         resp = RedirectResponse(url="/orders", status_code=303)
-        resp.set_cookie(COOKIE_NAME, _session_token(), httponly=True, samesite="lax")
+        resp.set_cookie(
+            COOKIE_NAME,
+            _session_token(),
+            httponly=True,
+            samesite="lax",
+            secure=not Config.USE_MOCK_WHATSAPP,
+        )
         return resp
     return templates.TemplateResponse(
         request, "login.html", {"error": "كلمة المرور غير صحيحة"}, status_code=401
@@ -108,3 +114,10 @@ async def broadcast_page(request: Request):
     if not _is_authenticated(request):
         return RedirectResponse(url="/login", status_code=303)
     return templates.TemplateResponse(request, "broadcast.html")
+
+
+@router.get("/alerts", response_class=HTMLResponse)
+async def alerts_page(request: Request):
+    if not _is_authenticated(request):
+        return RedirectResponse(url="/login", status_code=303)
+    return templates.TemplateResponse(request, "alerts.html")

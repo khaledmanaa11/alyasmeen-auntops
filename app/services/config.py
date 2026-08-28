@@ -1,5 +1,6 @@
-"""config.py — Central configuration for ALYASMEEN AuntOps. All environment variables and JSON config files are loaded here. Import Config everywhere — never read os.getenv() directly in other modules."""
+"""config.py ג€” Central configuration for ALYASMEEN AuntOps. All environment variables and JSON config files are loaded here. Import Config everywhere ג€” never read os.getenv() directly in other modules."""
 import os
+import sys
 
 from dotenv import load_dotenv
 
@@ -19,12 +20,11 @@ class Config:
     # Mode
     USE_MOCK_WHATSAPP = _bool(os.getenv("USE_MOCK_WHATSAPP", "1"))
 
-    # Database (Supabase — HTTPS via supabase-py)
+    # Database (Supabase ג€” HTTPS via supabase-py)
     SUPABASE_URL = os.getenv("SUPABASE_URL", "https://ppwcfmuetgczclmnzvqr.supabase.co")
-    # This must be the service_role key to allow administrative queries and custom RPC access.
     SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
-    # Database password for CLI-based dumps/migrations
-    SUPABASE_DB_PASSWORD = os.getenv("SUPABASE_DB_PASSWORD", "")
+    # Postgres connection string (required for APScheduler JobStore)
+    DATABASE_URL = os.getenv("DATABASE_URL", "")
 
     # WhatsApp (Meta Cloud API)
     WA_META_TOKEN       = os.getenv("WA_META_TOKEN")        # permanent access token
@@ -37,8 +37,8 @@ class Config:
     CLAUDE_MODEL   = os.getenv("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
 
     # Web Dashboard
-    DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD", "admin123")
-    SECRET_KEY         = os.getenv("SECRET_KEY", "change-me-in-production")
+    DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD")
+    SECRET_KEY         = os.getenv("SECRET_KEY")
 
     # Aunt (monthly report + new-order notifications)
     AUNT_PHONE = os.getenv("AUNT_PHONE")  # e.g. 972591234567
@@ -49,7 +49,7 @@ class Config:
         os.path.join(os.path.dirname(__file__), "..", "data", "knowledge"),
     )
 
-    # Broadcast message improvement — max tokens for the AI polish call
+    # Broadcast message improvement ג€” max tokens for the AI polish call
     BROADCAST_IMPROVEMENT_MAX_TOKENS: int = 300
 
     # JSON config (loaded from config/ directory)
@@ -74,3 +74,15 @@ def _load_json_config(filename: str) -> dict:
 Config.RATE_LIMITS = _load_json_config("config/rate_limits.json")
 Config.APP_CONFIG = _load_json_config("config/setup.json")
 
+# --- Validation ---
+if not Config.CLAUDE_MODEL:
+    raise ValueError("CLAUDE_MODEL is required")
+
+# DASHBOARD_PASSWORD / SECRET_KEY must never fall back to a hardcoded value —
+# skip the hard-fail under pytest so the test suite doesn't need real secrets.
+_RUNNING_UNDER_PYTEST = "PYTEST_CURRENT_TEST" in os.environ or "pytest" in sys.modules
+if not _RUNNING_UNDER_PYTEST:
+    if not Config.DASHBOARD_PASSWORD:
+        raise ValueError("DASHBOARD_PASSWORD is required — set it in your environment/.env")
+    if not Config.SECRET_KEY:
+        raise ValueError("SECRET_KEY is required — set it in your environment/.env")

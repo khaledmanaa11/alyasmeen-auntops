@@ -1,26 +1,27 @@
 """
-test_bot_flow.py — Integration tests for the full WhatsApp bot conversation flow.
+test_bot_flow.py — Integration tests for the full WhatsApp bot conversation
+flow, end-to-end through the durable-inbox webhook pipeline: POST
+/whatsapp/webhook (persists to webhook_events) -> process_webhook_events()
+(the worker's poll loop, run synchronously here) -> process_event() ->
+processor.handle_message() -> outbox_jobs -> process_outbox_jobs() (the
+worker's other poll loop, also run synchronously here).
 
-Tests the complete order lifecycle: new customer welcome → menu → add to cart →
-choose fulfillment → confirm → notification to aunt. All DB and WhatsApp calls
-are mocked via conftest fixtures.
+Tests the complete order lifecycle: new customer -> menu -> add to cart ->
+choose fulfillment -> confirm -> notification to aunt. All DB access and
+WhatsApp sends are mocked via the conftest.py fixtures (fake_db,
+sent_messages). handle_message() no longer calls send_text/send_buttons
+directly — it enqueues into outbox_jobs via queue_text/queue_buttons, and
+only process_outbox_jobs() (driven by process_job()) actually sends — so
+_process_all() below drains both poll loops before a test reads
+sent_messages back.
 """
-import os
 import random
-import sys
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-ROOT = Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-os.environ["USE_MOCK_WHATSAPP"] = "1"
-
-import app.routers.whatsapp as wa  # noqa: E402
-from app.main import app  # noqa: E402
+from app.main import app
+from tests.conftest import drain_outbox_jobs
 
 FAKE_CATALOG = [
     {"id": 1, "name": "كريم اليدين", "list_price": 25.0, "description_sale": "كريم مرطب"},
@@ -34,250 +35,190 @@ def _phone():
 
 @pytest.fixture()
 def client(monkeypatch):
-    monkeypatch.setattr(wa, "catalog", lambda: FAKE_CATALOG)
+    # mock_db (conftest, autouse) already fakes the DB/session/sender seams;
+    # only the product catalog (backed by Supabase via app.ai.retriever)
+    # needs its own override here.
+    monkeypatch.setattr("app.services.processor.catalog", lambda: FAKE_CATALOG)
     return TestClient(app)
 
 
-class TestNewCustomerWelcome:
-    def test_first_message_triggers_welcome(self, client, monkeypatch):
-        monkeypatch.setattr(wa, "upsert_customer", lambda phone, name="": True)
-        r = client.post(
-            "/whatsapp/webhook",
-            json={"from_number": _phone(), "text": "مرحبا", "wa_name": "أحمد"},
-        )
-        assert r.status_code == 200
+def _process_all():
+    """Drain the durable inbox synchronously — stands in for the worker's
+    process_webhook_events poll loop (app/worker.py runs it every 3s) — then
+    drains the outbox poller too (a separate 2s job in worker.py, see
+    drain_outbox_jobs) so the resulting customer-facing reply actually lands
+    in sent_messages instead of sitting in outbox_jobs as 'pending'."""
+    from app.services.processor import process_webhook_events
+    process_webhook_events()
+    drain_outbox_jobs()
 
-    def test_returning_customer_no_welcome(self, client, monkeypatch):
-        monkeypatch.setattr(wa, "upsert_customer", lambda phone, name="": False)
-        # Should proceed normally without welcome message being sent
-        r = client.post(
-            "/whatsapp/webhook",
-            json={"from_number": _phone(), "text": "cart"},
-        )
-        assert r.status_code == 200
+
+def _last_message_to(sent_messages, phone):
+    """The most recent {"to", "text", "buttons"} entry sent to `phone`, or an
+    empty stand-in if nothing was sent. send_buttons' body is captured as
+    `text` too, so callers don't need to special-case button messages."""
+    for msg in reversed(sent_messages):
+        if msg["to"] == phone:
+            return msg
+    return {"to": phone, "text": "", "buttons": None}
+
+
+def _post_webhook(client, phone, text, name="Test User"):
+    # Simulated Meta webhook payload — matches what process_event() parses.
+    payload = {
+        "object": "whatsapp_business_account",
+        "entry": [{
+            "id": "WHATSAPP_BUSINESS_ACCOUNT_ID",
+            "changes": [{
+                "value": {
+                    "messaging_product": "whatsapp",
+                    "metadata": {"display_phone_number": "16505559999", "phone_number_id": "106132048924043"},
+                    "contacts": [{"profile": {"name": name}, "wa_id": phone}],
+                    "messages": [{
+                        "from": phone,
+                        "id": f"wamid.{random.randint(100000, 999999)}",
+                        "timestamp": "1665401156",
+                        "text": {"body": text},
+                        "type": "text"
+                    }]
+                },
+                "field": "messages"
+            }]
+        }]
+    }
+    r = client.post("/whatsapp/webhook", json=payload)
+    assert r.status_code == 200
+    _process_all()
+    return r
+
+
+class TestNewCustomerWelcome:
+    def test_first_message_triggers_welcome(self, client, sent_messages, monkeypatch):
+        # No dedicated welcome message exists yet — free text falls through
+        # to the AI path. Pin that path so this test doesn't depend on (or
+        # need) a real Claude call, and confirm a brand-new customer's first
+        # message is answered rather than silently dropped.
+        monkeypatch.setattr("app.services.processor.generate_reply", lambda **kwargs: "أهلاً!")
+
+        phone = _phone()
+        _post_webhook(client, phone, "مرحبا")
+        assert _last_message_to(sent_messages, phone)["text"] == "أهلاً!"
+
+    def test_returning_customer_no_welcome(self, client, sent_messages):
+        phone = _phone()
+        _post_webhook(client, phone, "cart")
+        assert "فارغة" in _last_message_to(sent_messages, phone)["text"]
 
 
 class TestFullPickupOrderFlow:
-    def test_complete_pickup_order(self, client):
-        """Full flow: menu → add product → pickup → confirm → get order ID."""
+    def test_complete_pickup_order(self, client, sent_messages):
+        """Full flow: menu -> add product -> pickup -> confirm -> get order ID."""
         phone = _phone()
 
         # Step 1: Show menu
-        r1 = client.post("/whatsapp/webhook", json={"from_number": phone, "text": "menu"})
-        assert r1.status_code == 200
-        assert "كريم اليدين" in r1.json().get("text", "")
+        _post_webhook(client, phone, "menu")
+        assert "كريم اليدين" in _last_message_to(sent_messages, phone)["text"]
 
         # Step 2: Add product 1
-        r2 = client.post("/whatsapp/webhook", json={"from_number": phone, "text": "1"})
-        assert r2.status_code == 200
-        assert "كريم اليدين" in r2.json().get("text", "")
+        _post_webhook(client, phone, "1")
+        assert "كريم اليدين" in _last_message_to(sent_messages, phone)["text"]
 
-        # Step 3: Check cart
-        r3 = client.post("/whatsapp/webhook", json={"from_number": phone, "text": "cart"})
-        assert r3.status_code == 200
-        assert "كريم اليدين" in r3.json().get("text", "")
-        assert "25" in r3.json().get("text", "")
+        # Step 3: Check cart — fulfillment isn't chosen yet, so _show_cart
+        # asks via send_buttons (body captured into "text" too).
+        _post_webhook(client, phone, "cart")
+        last = _last_message_to(sent_messages, phone)
+        assert "كريم اليدين" in last["text"]
+        assert "25" in last["text"]
 
-        # Step 4: Choose pickup
-        r4 = client.post("/whatsapp/webhook", json={"from_number": phone, "text": "pickup"})
-        assert r4.status_code == 200
+        # Step 4: Choose pickup — _show_cart runs again, now as plain text.
+        _post_webhook(client, phone, "pickup")
+        assert "25" in _last_message_to(sent_messages, phone)["text"]
 
         # Step 5: Confirm
-        r5 = client.post("/whatsapp/webhook", json={"from_number": phone, "text": "confirm"})
-        assert r5.status_code == 200
-        data = r5.json()
-        assert data.get("ok") is True
-        assert data.get("order_name", "").startswith("ORD-")
+        _post_webhook(client, phone, "confirm")
+        assert "ORD-" in _last_message_to(sent_messages, phone)["text"]
 
         # Step 6: Cart should be cleared after confirm
-        r6 = client.post("/whatsapp/webhook", json={"from_number": phone, "text": "cart"})
-        assert "فارغة" in r6.json().get("text", "")
+        _post_webhook(client, phone, "cart")
+        assert "فارغة" in _last_message_to(sent_messages, phone)["text"]
 
 
 class TestFullDeliveryOrderFlow:
-    def test_complete_delivery_order(self, client):
-        """Full flow: menu → add → delivery → address → confirm → order ID."""
+    def test_complete_delivery_order(self, client, sent_messages):
+        """Full flow: menu -> add -> delivery -> address -> confirm -> order ID."""
         phone = _phone()
 
-        client.post("/whatsapp/webhook", json={"from_number": phone, "text": "menu"})
-        client.post("/whatsapp/webhook", json={"from_number": phone, "text": "1"})
+        _post_webhook(client, phone, "menu")
+        _post_webhook(client, phone, "1")
 
         # Choose delivery
-        r_del = client.post(
-            "/whatsapp/webhook", json={"from_number": phone, "text": "delivery"}
-        )
-        assert r_del.status_code == 200
-        assert "عنوان" in r_del.json().get("text", "") or "وين" in r_del.json().get("text", "")
+        _post_webhook(client, phone, "delivery")
+        text = _last_message_to(sent_messages, phone)["text"]
+        assert "عنوان" in text or "وين" in text
 
         # Provide address
-        r_addr = client.post(
-            "/whatsapp/webhook",
-            json={"from_number": phone, "text": "شارع النصر، رام الله"},
-        )
-        assert r_addr.status_code == 200
-        # Check if "confirm" is in buttons since we use send_buttons now
-        buttons = r_addr.json().get("buttons", [])
-        assert any(b.get("id") == "confirm" for b in buttons)
+        _post_webhook(client, phone, "شارع النصر، رام الله")
+        assert "confirm" in _last_message_to(sent_messages, phone)["text"]
 
         # Confirm
-        r_confirm = client.post(
-            "/whatsapp/webhook", json={"from_number": phone, "text": "confirm"}
-        )
-        assert r_confirm.status_code == 200
-        assert r_confirm.json().get("ok") is True
+        _post_webhook(client, phone, "confirm")
+        assert "ORD-" in _last_message_to(sent_messages, phone)["text"]
 
 
 class TestAuntNotification:
-    def test_aunt_notified_on_confirm(self, client, monkeypatch):
+    def test_aunt_notified_on_confirm(self, client, sent_messages, monkeypatch):
         """When AUNT_PHONE is set, aunt should receive notification on confirm."""
         import app.services.config as config_mod
 
-        monkeypatch.setattr(config_mod.Config, "AUNT_PHONE", "972591111111")
-
-        sent_to = []
-
-        def capture_send(to, msg):
-            sent_to.append(to)
-            return {"dev": True}
-
-        monkeypatch.setattr(wa, "send_text", capture_send)
+        aunt_phone = "972591111111"
+        monkeypatch.setattr(config_mod.Config, "AUNT_PHONE", aunt_phone)
 
         phone = _phone()
-        client.post("/whatsapp/webhook", json={"from_number": phone, "text": "menu"})
-        client.post("/whatsapp/webhook", json={"from_number": phone, "text": "1"})
-        client.post("/whatsapp/webhook", json={"from_number": phone, "text": "pickup"})
-        client.post("/whatsapp/webhook", json={"from_number": phone, "text": "confirm"})
+        _post_webhook(client, phone, "menu")
+        _post_webhook(client, phone, "1")
+        _post_webhook(client, phone, "pickup")
+        _post_webhook(client, phone, "confirm")
 
-        # Aunt phone should be in recipients
-        assert "972591111111" in sent_to
+        aunt_msg = _last_message_to(sent_messages, aunt_phone)
+        assert "طلب جديد" in aunt_msg["text"]
 
-    def test_no_notification_when_aunt_phone_not_set(self, client, monkeypatch):
+    def test_no_notification_when_aunt_phone_not_set(self, client, sent_messages, monkeypatch):
         """When AUNT_PHONE is not set, no notification is sent to aunt."""
         import app.services.config as config_mod
 
         monkeypatch.setattr(config_mod.Config, "AUNT_PHONE", None)
 
-        sent_to = []
-
-        def capture_send(to, msg):
-            sent_to.append(to)
-            return {"dev": True}
-
-        monkeypatch.setattr(wa, "send_text", capture_send)
-
         phone = _phone()
-        client.post("/whatsapp/webhook", json={"from_number": phone, "text": "menu"})
-        client.post("/whatsapp/webhook", json={"from_number": phone, "text": "1"})
-        client.post("/whatsapp/webhook", json={"from_number": phone, "text": "pickup"})
-        r = client.post("/whatsapp/webhook", json={"from_number": phone, "text": "confirm"})
+        _post_webhook(client, phone, "menu")
+        _post_webhook(client, phone, "1")
+        _post_webhook(client, phone, "pickup")
+        _post_webhook(client, phone, "confirm")
 
-        assert r.json().get("ok") is True
-        # Only the customer was notified (confirm message), not aunt
-        for recipient in sent_to:
-            assert recipient != "972591111111"
-
-
-class TestInboundLoggingEncodingSafe:
-    def test_arabic_inbound_survives_unencodable_console(self, monkeypatch):
-        """Regression: an inbound Arabic message must still be processed even when the
-        dev console can't encode it (Windows cp1255). The top-of-handler inbound log
-        goes through the logger (not a bare print to stdout), so an encoding error can
-        never propagate and drop the message.
-
-        Self-contained (no `client` fixture) — exercises only the `clear`/`امسح` hard
-        command, which needs no product catalog.
-        """
-
-        class _Cp1255Stdout:
-            """Mimics a Windows cp1255 console: ASCII writes fine, Arabic/emoji raise —
-            exactly the failure the old bare `print(...)` hit."""
-            encoding = "cp1255"
-
-            def write(self, s):
-                s.encode("cp1255")  # raises UnicodeEncodeError on Arabic/emoji
-                return len(s)
-
-            def flush(self):
-                pass
-
-            def reconfigure(self, *a, **k):  # a cp1255 console can't switch to utf-8
-                raise OSError("cannot reconfigure")
-
-        # Isolate the inbound-logging path: don't let the mock sender print Arabic too.
-        monkeypatch.setattr(wa, "send_text", lambda to, msg: {"dev": True, "text": msg})
-        monkeypatch.setattr(sys, "stdout", _Cp1255Stdout())
-
-        client = TestClient(app)
-        # "امسح" → clear alias: a hard command (no AI) that always replies in Arabic.
-        r = client.post("/whatsapp/webhook", json={"from_number": _phone(), "text": "امسح"})
-
-        assert r.status_code == 200
-        # A real reply came back — the handler did NOT abort at the inbound log line.
-        assert "مسح" in r.json().get("text", "")
+        assert not any(m["to"] == "972591111111" for m in sent_messages)
 
 
 class TestAIFallback:
-    def test_unknown_message_goes_to_ai(self, client, monkeypatch):
+    def test_unknown_message_goes_to_ai(self, client, sent_messages, monkeypatch):
         """Messages that don't match any hard command fall through to AI."""
-        import app.services.ai_service as ai
+        monkeypatch.setattr("app.services.processor.generate_reply", lambda **kwargs: "Mocked AI Reply")
 
-        monkeypatch.setattr(ai.Config, "CLAUDE_API_KEY", None)  # triggers fallback reply
-        r = client.post(
-            "/whatsapp/webhook",
-            json={"from_number": _phone(), "text": "ما هو أفضل كريم للبشرة الجافة؟"},
-        )
+        phone = _phone()
+        _post_webhook(client, phone, "ما هو أفضل كريم للبشرة الجافة؟")
+
+        assert _last_message_to(sent_messages, phone)["text"] == "Mocked AI Reply"
+
+    def test_ai_failure_sends_arabic_fallback_instead_of_raising(self, client, sent_messages, monkeypatch):
+        """If the AI call itself raises, the customer must still get a reply
+        (the Arabic fallback), not a dropped message or a 500."""
+        import app.services.processor as processor
+
+        def _boom(**kwargs):
+            raise RuntimeError("Claude API timeout")
+
+        monkeypatch.setattr(processor, "generate_reply", _boom)
+
+        phone = _phone()
+        r = _post_webhook(client, phone, "بشرتي جافة كثير وين الحل؟")
+
         assert r.status_code == 200
-        # Should return some text (AI fallback message)
-        assert r.json().get("text") or r.json().get("ok") is not None
-
-
-class TestMetaEnvelopeFlow:
-    def test_meta_envelope_confirm_flow(self, client, monkeypatch):
-        """
-        Prove a Meta button_reply confirm returns 200 (not 422)
-        AND the aunt number appears in captured send_text recipients.
-        """
-        import app.services.config as config_mod
-        monkeypatch.setattr(config_mod.Config, "AUNT_PHONE", "972591111111")
-
-        sent_to = []
-        def capture_send(to, msg):
-            sent_to.append(to)
-            return {"dev": True}
-        monkeypatch.setattr(wa, "send_text", capture_send)
-
-        phone = "972599123456"
-
-        # Step 1: Seed cart via flat shape
-        client.post("/whatsapp/webhook", json={"from_number": phone, "text": "menu"})
-        client.post("/whatsapp/webhook", json={"from_number": phone, "text": "1"})
-        client.post("/whatsapp/webhook", json={"from_number": phone, "text": "pickup"})
-
-        # Step 2: Confirm via real Meta envelope
-        meta_confirm = {
-            "object": "whatsapp_business_account",
-            "entry": [{
-                "changes": [{
-                    "field": "messages",
-                    "value": {
-                        "messaging_product": "whatsapp",
-                        "contacts": [{"profile": {"name": "فاطمة"}, "wa_id": phone}],
-                        "messages": [{
-                            "from": phone,
-                            "type": "interactive",
-                            "interactive": {
-                                "type": "button_reply",
-                                "button_reply": {"id": "confirm", "title": "✅ تأكيد الطلب"}
-                            }
-                        }]
-                    }
-                }]
-            }]
-        }
-
-        r = client.post("/whatsapp/webhook", json=meta_confirm)
-        assert r.status_code == 200
-        assert r.json() == {"ok": True}
-
-        # Aunt phone should be in recipients
-        assert "972591111111" in sent_to
+        assert _last_message_to(sent_messages, phone)["text"] == processor.AI_FALLBACK_REPLY

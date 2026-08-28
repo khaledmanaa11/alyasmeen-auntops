@@ -147,6 +147,26 @@ class TestQueryAndExecute:
         rows = db.query("SELECT * FROM products WHERE id = %s", (9999,))
         assert rows == []
 
+    def test_rpc_calls_client_with_params(self, monkeypatch):
+        import app.db.database as db
+
+        captured_fn = None
+        captured_args = None
+
+        def fake_rpc(self, fn, args):
+            nonlocal captured_fn, captured_args
+            captured_fn = fn
+            captured_args = args
+            return type("Rpc", (), {"execute": lambda self: type("R", (), {"data": [{"val": 1}]})()})()
+
+        fake_client = type("C", (), {"rpc": fake_rpc})()
+        monkeypatch.setattr(db, "_client", fake_client)
+
+        res = db.rpc("my_func", {"p1": "v1"})
+        assert res == [{"val": 1}]
+        assert captured_fn == "my_func"
+        assert captured_args == {"p1": "v1"}
+
 
 class TestResilience:
     """Tests for the retry + circuit-breaker layer around the Supabase RPC seam."""

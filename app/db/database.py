@@ -95,7 +95,7 @@ def _retry_cfg() -> dict[str, Any]:
     }
 
 
-def _call(rpc_name: str, final_sql: str, retryable: bool) -> list[dict[str, Any]]:
+def _call(rpc_name: str, rpc_params: dict[str, Any], retryable: bool) -> list[dict[str, Any]]:
     """Run one Supabase RPC with a circuit breaker and optional retry.
 
     Reads (retryable=True) are retried with exponential backoff because they are
@@ -118,7 +118,7 @@ def _call(rpc_name: str, final_sql: str, retryable: bool) -> list[dict[str, Any]
     last_exc: Exception | None = None
     for attempt in range(attempts):
         try:
-            result = _get_client().rpc(rpc_name, {"sql": final_sql}).execute()
+            result = _get_client().rpc(rpc_name, rpc_params).execute()
             _consecutive_failures = 0
             return result.data or []
         except Exception as exc:
@@ -135,77 +135,24 @@ def _call(rpc_name: str, final_sql: str, retryable: bool) -> list[dict[str, Any]
 
 
 # ---------------------------------------------------------------------------
-# Public API  (same interface as the old psycopg2 version)
+# Public API
 # ---------------------------------------------------------------------------
 
-REQUIRED_SCHEMA = {
-    "products": {"id", "name", "price", "description", "tags", "aliases", "active", "created_at"},
-    "customers": {"phone", "name", "saved_address", "created_at", "updated_at"},
-    "orders": {
-        "id", "order_name", "phone", "fulfillment", "address", "total",
-        "status", "channel", "created_at", "updated_at"
-    },
-    "order_lines": {"id", "order_id", "product_name", "qty", "unit_price", "line_total"},
-    "sessions": {
-        "phone", "stage", "cart", "fulfillment", "menu_products",
-        "address", "created_at", "updated_at"
-    },
-    "chat_history": {"id", "phone", "role", "content", "created_at"},
-    "follow_ups": {"id", "phone", "order_id", "delivered_at", "sent", "sent_at"},
-    "retry_queue": {
-        "id", "action", "order_id", "phone", "payload", "attempts",
-        "max_attempts", "last_error", "next_retry_at", "resolved", "created_at"
-    },
-    "monthly_snapshots": {"year", "month", "data", "created_at"},
-    "webhook_events": {
-        "id", "wamid", "payload", "status", "error", "created_at", "processed_at"
-    },
-    "outbox_jobs": {
-        "id", "transport", "recipient", "payload", "status",
-        "attempts", "max_attempts", "error", "created_at", "processed_at"
-    }
-}
-
-
-def validate_schema() -> None:
-    """Validate that the live Supabase schema matches REQUIRED_SCHEMA.
-
-    Queries information_schema.columns to check for every required table and
-    column. Raises RuntimeError if any part of the schema is missing.
-    """
-    log.info("db: validating schema integrity…")
-    rows = query(
-        "SELECT table_name, column_name FROM information_schema.columns "
-        "WHERE table_schema = 'public'"
-    )
-
-    actual: dict[str, set[str]] = {}
-    for r in rows:
-        actual.setdefault(r["table_name"], set()).add(r["column_name"])
-
-    for table, req_cols in REQUIRED_SCHEMA.items():
-        if table not in actual:
-            raise RuntimeError(f"Database integrity error: Missing table '{table}'")
-
-        missing = req_cols - actual[table]
-        if missing:
-            raise RuntimeError(
-                f"Database integrity error: Table '{table}' missing columns: {sorted(list(missing))}"
-            )
-
-    log.info("✅ Database schema is valid (%d tables)", len(REQUIRED_SCHEMA))
+def rpc(name: str, params: dict[str, Any] = {}, retryable: bool = False) -> list[dict[str, Any]]:
+    """Call a specific Supabase RPC (stored procedure) with parameters."""
+    return _call(name, params, retryable=retryable)
 
 
 def query(sql: str, params: tuple = ()) -> list[dict[str, Any]]:
     """Run a SELECT.  Returns a list of row dicts.  Retried on transient failure."""
     final = _build(sql, params)
-    return _call("run_query", final, retryable=True)
+    return _call("run_query", {"sql": final}, retryable=True)
 
 
 def execute(sql: str, params: tuple = ()) -> None:
     """Run INSERT / UPDATE / DELETE.  Not retried (writes are non-idempotent)."""
     final = _build(sql, params)
-    _call("run_exec", final, retryable=False)
+    _call("run_exec", {"sql": final}, retryable=False)
 
 
 def execute_returning(sql: str, params: tuple = ()) -> dict[str, Any] | None:
@@ -215,7 +162,7 @@ def execute_returning(sql: str, params: tuple = ()) -> dict[str, Any] | None:
     double-apply.
     """
     final = _build(sql, params)
-    rows = _call("run_query", final, retryable=False)
+    rows = _call("run_query", {"sql": final}, retryable=False)
     return rows[0] if rows else None
 
 

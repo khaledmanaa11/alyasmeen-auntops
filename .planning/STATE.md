@@ -1,56 +1,47 @@
----
-gsd_state_version: 1.0
-milestone: M2
-milestone_name: FastAPI -> prod
-status: active
-last_updated: "2026-06-15T23:45:00.000Z"
-last_activity: 2026-06-15 -- Phase 08 COMPLETE; Worker process and Durable Loops implemented.
-progress:
-  total_phases: 10
-  completed_phases: 8
-  total_plans: 5
-  completed_plans: 5
-  percent: 80
----
-
-# Project State
+# Project State: ALYASMEEN AuntOps Production Readiness
 
 ## Project Reference
-
-See: .planning/PROJECT.md (updated 2026-06-15)
-
-**Core value:** A real customer can place an order on the live WhatsApp number and the aunt can fulfill it — reliably and unattended.
-**Current focus:** Phase 09 — Template Integration & Service Migration
+**Core Value**: Customers can reliably place and manage real orders through WhatsApp, while the aunt retains clear control over exceptions and can operate the business without technical assistance.
+**Current Focus**: Phase 3 (Agent Dependability & Safety) — plans need re-verification first; Phase 4 (Reliability & Ops Completion) needs planning.
 
 ## Current Position
+- **Phase**: 3 (Agent Dependability & Safety) — planned, NOT yet executed; Phase 4 inserted 2026-08-25.
+- **Status**: 🟡 Phase 3 plans stale — re-verify before executing (see below).
+- **Progress**: [██████----] ~45%
 
-Phase: 9 of 10 (Template Integration & Service Migration)
-Plan: 0 of 0 in current phase
-Status: Active
-Last activity: 2026-06-15 -- Phase 08 COMPLETE.
+## Accomplishments (2026-08-25 hardening session — outside GSD, branch `fix/production-hardening`)
+A full multi-agent code review rated the implementation 5/10 and found 64 issues; the verified
+ones were fixed in two Sonnet waves + follow-ups. All on branch `fix/production-hardening`
+(9+ commits, NOT merged to main, NOT pushed). Suite: 250+ green.
+- [x] Webhook poison-pill events dead-letter after 3 attempts (`webhook_events.attempts`, migration `20260825000000`).
+- [x] Malformed webhook payloads persist instead of crashing; global handler no longer masks /whatsapp/ failures as 200.
+- [x] **Outbox wired as the single send path**: `queue_text`/`queue_buttons` in `processor.py` → `outbox_jobs` → poller with bounded attempts. Only `process_job` (and standalone scheduler services) call senders directly.
+- [x] `whatsapp_meta.py` senders raise `WhatsAppSendError` on non-2xx (failures were silently swallowed).
+- [x] Arabic confirm (تأكيد/اكد/أكد/تم) + restored clear command; order-number unwrap; qty clamp; AI-failure Arabic fallback; address-persistence bug fixed (delivery orders were losing their address).
+- [x] Retired model default → `claude-haiku-4-5-20251001`; hardcoded credential fallbacks removed (fail-fast); Anthropic 30s timeout; catalog 60s TTL (worker staleness).
+- [x] Dashboard: stored-XSS escaped, broadcast send fixed + authenticated, Secure cookie.
+- [x] Invoice fully Arabic (Amiri font + reshaper/bidi, render-verified); RLS grant fix + `monthly_snapshots` migrations.
+- [x] Test suite repaired: collection fixed, conftest rewritten for processor architecture, 5 stale files ported, debug router gated to dev.
 
-Progress: [████████░░] 80%
+## ⚠️ Phase 3 plans are stale
+`03-01/02/03-PLAN.md` were written BEFORE the hardening session. `processor.py`, `config.py`,
+`ai_service.py`, `whatsapp_meta.py`, and the test seams all changed. Before executing:
+re-run `/gsd:plan-phase 3` (or at minimum the plan checker) against the current branch.
 
-## Performance Metrics
+## Technical Debt / Risks
+- ~~`retry_queue.py` (enqueue never called) is dead code claiming to run~~ → **Phase 4 criterion 1 resolved** (plan 04-04): `retry_queue.py`/`retry_actions.py` deleted entirely, the 15-minute scheduler job removed from `app/worker.py`, retirement documented in `supabase/migrations/20260825000003_retire_retry_queue.sql` (COMMENT ON TABLE, not DROP — table is already RLS-locked deny-all). `gatekeeper.py` is **no longer dead code** either — rewritten synchronous (plan 04-02) and wired into every outbound Claude call (`ai_service.py`) and every real-mode WhatsApp send (`whatsapp_meta.py`).
+- Migrations not yet applied to live Supabase; anon-vs-service_role key decision open → Phase 4 criterion 2.
+- Worker job store falls back to MemoryJobStore without `DATABASE_URL` → Phase 4 criterion 3. **Mechanism now proven** (`tests/integration/test_scheduler_persistence.py`, plan 04-03); the live Railway `DATABASE_URL` step itself is still pending — operator checkpoint in plan 04-07.
+- ~~No dashboard visibility for dead-lettered events / failed outbox jobs~~ → **Phase 4 criterion 4 resolved** (plans 04-05 + 04-06): `GET /api/alerts` + retry endpoints in `ui_api.py`, consumed by `app/templates/alerts.html` (`/alerts` page, 5th nav tab "تنبيهات" wired into all 5 dashboard templates) — operator can see and one-click retry both dead-lettered `webhook_events` and permanently-failed `outbox_jobs`.
+- Async latency: outbox adds ≤2s to replies (poll interval) on top of the 3s inbox poll; acceptable at current volume, monitor in pilot.
 
-**Velocity:**
-- M2 Phase 07: 1 plan
-- M2 Phase 08: 4 plans
-- Trend: Moving fast through M2 core infrastructure.
+## Todos & Blockers
+- [ ] **TODO**: Merge/push `fix/production-hardening` (user decision).
+- [ ] **TODO**: Continue `/gsd:execute-phase 4` — plans 04-01/04-02/04-03/04-04/04-05/04-06 done, 04-07 remains.
+- [ ] **TODO**: Re-verify Phase 3 plans against the hardening branch, then `/gsd:execute-phase 3`.
+- [ ] **TODO** (deploy): Set `DASHBOARD_PASSWORD`, `SECRET_KEY` in Railway — app now refuses to start without them. Set `CLAUDE_MODEL` or accept new default. Update `WA_META_TOKEN`. Set `DATABASE_URL` (Session Pooler, postgresql:// — see .env.example) so the worker job store survives restarts.
+- [ ] **BLOCKER**: Meta WABA registration still pending.
 
-## Accumulated Context
-
-### Decisions
-
-Decisions are logged in PROJECT.md Key Decisions table.
-M2 Decisions:
-- Web+Worker two-process split with DB-backed inbox/outbox. (DONE)
-- Meta `wamid` idempotency. (DONE)
-- HMAC signature verification. (DONE)
-- APScheduler restricted to Worker process. (DONE)
-- Template-based messaging for out-of-window contacts. (TODO - Phase 09)
-
-### Blockers/Concerns
-
-- 🔴 No template support for out-of-window messages (M2 Target - Phase 09)
-- 🔴 Real Meta number registration pending (M2 Onboarding task)
+## Session Continuity
+- **Last Action**: Executed Phase 4 Plan 06 (alerts dashboard UI — `GET /alerts` page in `ui.py` + `app/templates/alerts.html` consuming plan 04-05's API, 5th nav tab "تنبيهات" added to all 5 dashboard templates, fully completing Success Criterion 4) — 256 passed/3 skipped, commits `ba326cb`, `b71072b`.
+- **Next Step**: `/gsd:execute-phase 4` to continue with the final plan (04-07 operator checkpoints — live Railway `DATABASE_URL` etc.).

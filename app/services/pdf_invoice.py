@@ -1,8 +1,11 @@
 """
-Hebrew PDF Invoice Generator — replaces page_wave invoicing.
+Arabic PDF Invoice Generator — replaces page_wave invoicing.
 
-Generates a standard Israeli חשבונית מס/קבלה as a PDF (bytes) using fpdf2.
-Hebrew text is rendered RTL via python-bidi.
+Generates an invoice/receipt (فاتورة / إيصال) as a PDF (bytes) using fpdf2.
+Arabic text is shaped into its contextual letterforms via arabic-reshaper,
+then laid out right-to-left via python-bidi. Both steps are required —
+python-bidi alone only reorders characters, it does not join Arabic letters
+into their correct initial/medial/final/isolated glyph forms.
 
 # noqa: file-too-long
 This file is a layout-heavy PDF renderer. The layout logic (header, meta rows,
@@ -14,22 +17,43 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+import arabic_reshaper
 from bidi.algorithm import get_display
 from fpdf import FPDF
 
 logger = logging.getLogger(__name__)
 
-FONT_PATH = Path(__file__).parent.parent / "data" / "fonts" / "Heebo-Regular.ttf"
+# Amiri — open-source (OFL), full Arabic + Latin glyph coverage. Sourced from
+# the official Google Fonts repo (github.com/google/fonts/ofl/amiri). Do NOT
+# swap back to David/Heebo — those are Hebrew-only fonts with zero Arabic
+# glyph coverage and customers here are Arabic-speaking.
+FONT_PATH = Path(__file__).parent.parent / "data" / "fonts" / "Amiri-Regular.ttf"
+FONT_FAMILY = "Amiri"
 
-# Shekel sign — plain text fallback since some fonts render ₪ inconsistently
+if not FONT_PATH.exists():
+    logger.warning(
+        "⚠️  ARABIC INVOICE FONT MISSING: %s does not exist. "
+        "generate_invoice_pdf() will raise on first call. "
+        "Download an OFL Arabic font (e.g. Amiri or Cairo) from "
+        "https://github.com/google/fonts and place it at this path.",
+        FONT_PATH,
+    )
+
+# Shekel sign — plain text fallback since some fonts (including Amiri) don't
+# carry a ₪ glyph and render it as a missing-glyph box.
 SHEKEL = "ILS"
 
 
 def _h(text: str) -> str:
-    """Apply BiDi algorithm so fpdf2 renders Hebrew text right-to-left."""
+    """Shape Arabic text into contextual letterforms, then apply the BiDi
+    algorithm so fpdf2 renders it right-to-left. Non-Arabic characters
+    (Latin, digits, punctuation) pass through both steps unchanged, so this
+    is safe to call on mixed Arabic/Latin strings too.
+    """
     if not text:
         return ""
-    return get_display(str(text))
+    reshaped = arabic_reshaper.reshape(str(text))
+    return get_display(reshaped)
 
 
 def generate_invoice_pdf(
@@ -40,7 +64,7 @@ def generate_invoice_pdf(
     total: float,
 ) -> bytes:
     """
-    Generate a Hebrew PDF invoice (Israeli חשבונית format) and return it as bytes.
+    Generate an Arabic PDF invoice (فاتورة / إيصال) and return it as bytes.
 
     Args:
         order_id:      Integer order ID (e.g. 8 → displayed as ORD-0008)
@@ -54,19 +78,19 @@ def generate_invoice_pdf(
     """
     pdf = FPDF(orientation="P", unit="mm", format="A4")
     pdf.add_page()
-    pdf.add_font("Heebo", "", str(FONT_PATH))
+    pdf.add_font(FONT_FAMILY, "", str(FONT_PATH))
 
     page_w = pdf.w - pdf.l_margin - pdf.r_margin   # usable width
     order_label = f"ORD-{order_id:04d}"
 
     # ── Header ────────────────────────────────────────────────────────────────
-    pdf.set_font("Heebo", size=22)
+    pdf.set_font(FONT_FAMILY, size=22)
     pdf.set_text_color(40, 40, 40)
     pdf.cell(page_w, 10, "ALYASMEEN", align="C", new_x="LMARGIN", new_y="NEXT")
 
-    pdf.set_font("Heebo", size=11)
+    pdf.set_font(FONT_FAMILY, size=11)
     pdf.set_text_color(100, 100, 100)
-    pdf.cell(page_w, 6, _h("טיפוח טבעי — עבודת יד"), align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(page_w, 6, _h("عناية طبيعية — صناعة يدوية"), align="C", new_x="LMARGIN", new_y="NEXT")
 
     pdf.ln(3)
     pdf.set_draw_color(200, 200, 200)
@@ -75,35 +99,35 @@ def generate_invoice_pdf(
     pdf.ln(4)
 
     # ── Invoice meta ─────────────────────────────────────────────────────────
-    pdf.set_font("Heebo", size=14)
+    pdf.set_font(FONT_FAMILY, size=14)
     pdf.set_text_color(30, 30, 30)
-    pdf.cell(page_w, 8, _h("חשבונית מס / קבלה"), align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(page_w, 8, _h("فاتورة / إيصال"), align="C", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(2)
 
-    pdf.set_font("Heebo", size=10)
+    pdf.set_font(FONT_FAMILY, size=10)
     pdf.set_text_color(60, 60, 60)
 
-    def meta_row(label_heb: str, value: str) -> None:
+    def meta_row(label_ar: str, value: str) -> None:
         """Print one right-aligned label: value row."""
-        text = _h(f"{label_heb}: {value}")
+        text = _h(f"{label_ar}: {value}")
         pdf.cell(page_w, 6, text, align="R", new_x="LMARGIN", new_y="NEXT")
 
-    meta_row("מספר הזמנה", order_label)
-    meta_row("תאריך", order_date)
-    meta_row("לכבוד", customer_name or _h("לקוח יקר"))
+    meta_row("رقم الطلب", order_label)
+    meta_row("التاريخ", order_date)
+    meta_row("إلى", customer_name or "زبون عزيز")
 
     pdf.ln(4)
     pdf.line(pdf.l_margin, pdf.get_y(), pdf.l_margin + page_w, pdf.get_y())
     pdf.ln(4)
 
     # ── Table header ─────────────────────────────────────────────────────────
-    # Columns (RTL order on page): פריט | כמות | מחיר ליחידה | סה"כ
+    # Columns (RTL order on page): المنتج | الكمية | سعر الوحدة | المجموع
     col_total  = 30
     col_price  = 35
     col_qty    = 20
     col_name   = page_w - col_total - col_price - col_qty
 
-    pdf.set_font("Heebo", size=10)
+    pdf.set_font(FONT_FAMILY, size=10)
     pdf.set_fill_color(245, 245, 245)
     pdf.set_text_color(30, 30, 30)
 
@@ -129,16 +153,16 @@ def generate_invoice_pdf(
         pdf.set_xy(pdf.l_margin, y_pos + row_h)
 
     header_items = [
-        (col_total, _h('סה"כ')),
-        (col_price, _h("מחיר ליחידה")),
-        (col_qty,   _h("כמות")),
-        (col_name,  _h("פריט")),
+        (col_total, _h("المجموع")),
+        (col_price, _h("سعر الوحدة")),
+        (col_qty,   _h("الكمية")),
+        (col_name,  _h("المنتج")),
     ]
     rtl_row(header_items, y, fill=True)
 
     # ── Table rows ───────────────────────────────────────────────────────────
     pdf.set_fill_color(255, 255, 255)
-    pdf.set_font("Heebo", size=10)
+    pdf.set_font(FONT_FAMILY, size=10)
 
     for i, line in enumerate(lines):
         name       = str(line.get("product_name") or "")
@@ -160,9 +184,9 @@ def generate_invoice_pdf(
 
     # ── Total row ────────────────────────────────────────────────────────────
     pdf.ln(2)
-    pdf.set_font("Heebo", size=11)
+    pdf.set_font(FONT_FAMILY, size=11)
     pdf.set_text_color(30, 30, 30)
-    total_text = _h(f'סה"כ לתשלום: {total:.2f} {SHEKEL}')
+    total_text = _h(f"الإجمالي المستحق: {total:.2f} {SHEKEL}")
     pdf.cell(page_w, 8, total_text, align="R", new_x="LMARGIN", new_y="NEXT")
 
     # ── Footer ───────────────────────────────────────────────────────────────
@@ -171,9 +195,9 @@ def generate_invoice_pdf(
     pdf.line(pdf.l_margin, pdf.get_y(), pdf.l_margin + page_w, pdf.get_y())
     pdf.ln(4)
 
-    pdf.set_font("Heebo", size=10)
+    pdf.set_font(FONT_FAMILY, size=10)
     pdf.set_text_color(100, 100, 100)
-    pdf.cell(page_w, 6, _h("תודה על הקנייה! אנחנו שמחים לשרת אותך."), align="C",
+    pdf.cell(page_w, 6, _h("شكراً لشرائك! يسعدنا خدمتك."), align="C",
              new_x="LMARGIN", new_y="NEXT")
     pdf.cell(page_w, 6, "ALYASMEEN", align="C", new_x="LMARGIN", new_y="NEXT")
 

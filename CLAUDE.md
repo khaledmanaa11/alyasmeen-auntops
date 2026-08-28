@@ -30,7 +30,7 @@ A WhatsApp ordering bot for ALYASMEEN — a natural & handmade skincare products
 The aunt manages orders via a built-in web dashboard. Claude Haiku powers the AI conversation.
 
 **Owner:** Khaled (building this for his aunt)
-**Market:** Palestine | **Volume:** variable — built to scale (no fixed cap; plan for growth)
+**Market:** Palestine | **Volume:** 10–30 orders/day
 **Languages:** Arabic (primary) + English
 
 ---
@@ -121,8 +121,6 @@ auntops_fixed/
 │   │   ├── followup.py          # Post-delivery follow-up (every 6 hours)
 │   │   ├── monthly_report.py    # Monthly summary sent to aunt on 1st of each month
 │   │   ├── pdf_invoice.py       # Generates the PDF invoice sent to the customer on DONE
-│   │   ├── retry_queue.py       # Failed WhatsApp/invoice calls — retries every 15 min
-│   │   ├── retry_actions.py     # Re-sends a queued WhatsApp message or PDF invoice (action dispatch)
 │   │   ├── whatsapp_meta.py     # Real WhatsApp sender (Meta Cloud API)
 │   │   └── whatsapp_dev.py      # Mock WhatsApp sender (prints to console)
 │   ├── ai/
@@ -158,8 +156,13 @@ SQL uses `%s` placeholders throughout. `_escape()` + `_build()` in `database.py`
 **Required env vars:**
 ```
 SUPABASE_URL=https://ppwcfmuetgczclmnzvqr.supabase.co
-SUPABASE_KEY=<anon key>
+SUPABASE_KEY=<service_role key>
 ```
+
+**Security note:** `SUPABASE_KEY` is the `service_role` (secret) key, not the anon key — it
+bypasses RLS entirely. It is only ever read via `Config.SUPABASE_KEY` inside `database.py`,
+which runs exclusively in the FastAPI/worker server processes on Railway. It must never be
+sent to any client-side/browser code and is never shipped to the dashboard's HTML/JS.
 
 ---
 
@@ -286,7 +289,8 @@ Only fires if `AUNT_PHONE` is set. Wrapped in try/except — order never fails i
 | Var | Required | Purpose |
 |-----|----------|---------|
 | `SUPABASE_URL` | ✅ | Supabase project URL |
-| `SUPABASE_KEY` | ✅ | Supabase anon key |
+| `SUPABASE_KEY` | ✅ | Supabase **service_role** key (server-side only — never expose to the dashboard's client-side code) |
+| `DATABASE_URL` | prod | Postgres Session Pooler connection string — persists the APScheduler job store across worker restarts (see .env.example for the exact shape) |
 | `DASHBOARD_PASSWORD` | ✅ | Web dashboard login |
 | `SECRET_KEY` | ✅ | Session cookie signing |
 | `AUNT_PHONE` | ✅ | New-order alerts + monthly report |
@@ -316,40 +320,3 @@ uvicorn app.main:app --reload --port 8000
 4. Set WhatsApp webhook: `https://your-app-url/whatsapp/webhook`
 5. Add real products via `/products` dashboard page (products live in the Supabase `products` table)
 6. Add `.md` files to `app/data/knowledge/` for AI context
-
----
-
-<!-- GSD:project-pointer-start -->
-## 🚦 Production Readiness Program (GSD)
-
-This project is being productionized via GSD across **5 milestones** (M1 Supabase → M2 FastAPI →
-M3 Agent → M4 UI → M5 Go-live). The durable source of truth for that work lives in `.planning/`:
-
-- `.planning/PROJECT.md` — the production program, validated state, key decisions
-- `.planning/REQUIREMENTS.md` — current milestone's requirements (REQ-IDs)
-- `.planning/ROADMAP.md` — current milestone's phases + success criteria
-- `.planning/STATE.md` — where we are right now
-- `.planning/codebase/` + `.planning/intel/` — the brownfield map & ingested design intel
-
-**Current milestone: M1 (Supabase → prod)** — built smoke-thread-first. Read `.planning/` before
-planning or executing production work.
-<!-- GSD:project-pointer-end -->
-
-<!-- GSD:workflow-start source:GSD defaults -->
-## GSD Workflow Enforcement
-
-For the production-readiness work, route changes through a GSD command so planning artifacts and
-execution context stay in sync:
-- `/gsd-quick` for small fixes, doc updates, ad-hoc tasks
-- `/gsd-debug` for investigation and bug fixing
-- `/gsd-plan-phase` / `/gsd-execute-phase` for planned phase work
-
-Prefer not to make direct repo edits outside a GSD workflow unless explicitly asked to bypass it.
-<!-- GSD:workflow-end -->
-
-<!-- GSD:profile-start -->
-## Developer Profile
-
-> Profile not yet configured. Run `/gsd-profile-user` to generate your developer profile.
-> This section is managed by `generate-claude-profile` -- do not edit manually.
-<!-- GSD:profile-end -->

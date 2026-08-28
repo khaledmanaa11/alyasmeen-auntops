@@ -51,6 +51,3 @@ graphify-out/
 
 # GSD generated output
 .planning/graphs/
-
-# Backups
-backups/

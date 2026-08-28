@@ -69,6 +69,10 @@
         <a href="/dashboard" class="nav-link px-3 py-1.5 rounded-xl text-sm font-medium">الإحصائيات</a>
         <a href="/products"  class="nav-link px-3 py-1.5 rounded-xl text-sm font-medium">المنتجات</a>
         <a href="/broadcast" class="nav-active px-3 py-1.5 rounded-xl text-sm font-bold shadow-sm">رسائل</a>
+        <a href="/alerts" class="nav-link px-3 py-1.5 rounded-xl text-sm font-medium flex items-center gap-1">
+          <span class="material-symbols-outlined" style="font-size:18px">warning</span>
+          تنبيهات
+        </a>
         <a href="/logout"    class="px-3 py-1.5 rounded-xl text-sm font-medium text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors mr-1">خروج</a>
       </div>
     </div>
@@ -112,8 +116,8 @@
               <span class="material-symbols-outlined absolute top-1/2 -translate-y-1/2 right-3.5 text-gray-400" style="font-size:20px">group</span>
               <select id="segment-select" name="segment" class="input-field pr-11 appearance-none cursor-pointer">
                 <option value="all">🌍 جميع العملاء</option>
-                <option value="recent">🕐 العملاء الجدد (آخر 30 يوم)</option>
-                <option value="vip">⭐ عملاء VIP (الأكثر طلباً)</option>
+                <option value="month">🕐 العملاء الجدد (آخر 30 يوم)</option>
+                <option value="top">⭐ عملاء VIP (الأكثر طلباً)</option>
               </select>
             </div>
           </div>

@@ -16,7 +16,7 @@ Architecture decisions extracted from the ingested docs. No doc in this set is t
 - status: Accepted (not locked)
 - scope: AI model selection
 - decision: Use Claude Haiku (smallest/fastest Claude model). Upgrade path to Sonnet/Opus via `CLAUDE_MODEL` env var with no code change.
-- rationale: strong Arabic support, low cost/token, sub-second latency.
+- rationale: strong Arabic support, low cost/token at 10–30 orders/day, sub-second latency.
 
 ## ADR-003 — FastAPI over Flask or Django
 - source: docs/PLAN.md (§5, embedded in SPEC)
@@ -37,7 +37,7 @@ Architecture decisions extracted from the ingested docs. No doc in this set is t
 - status: Accepted (not locked)
 - scope: AI tool-use architecture
 - decision: `generate_reply` accepts an optional `tool_executor: Callable[[str, dict], str]`. The caller (`whatsapp.py`) supplies a closure capturing `phone`, `st`, `cart` and routes tool calls to handlers there. `ai_service.py` stays the single AI file with no DB/session imports.
-- rationale: preserves "one AI file" rule; tool handlers live with the session state they need; each tool call costs one extra API call (a real per-message cost to monitor as volume grows).
+- rationale: preserves "one AI file" rule; tool handlers live with the session state they need; each tool call costs one extra API call (negligible at volume).
 
 ## ADR-PE-001 — Full catalog in system prompt vs. per-message retrieval
 - source: docs/PLAN_PROMPT_ENGINEERING.md (§4, embedded in SPEC)
@@ -66,3 +66,26 @@ Architecture decisions extracted from the ingested docs. No doc in this set is t
 - scope: bilingual product retrieval
 - decision: Add `aliases TEXT DEFAULT ''` to the `products` table; aunt registers synonyms; retriever does exact substring match against aliases. Rejected Levenshtein/phonetic matching.
 - rationale: explicit + deterministic, zero false positives; fuzzy matching is non-deterministic and error-prone in Arabic.
+
+---
+
+## [PROPOSED] ADR-RES-001 — Web/Worker process split for production
+- source: .planning/research/ARCHITECTURE.md
+- status: Proposed
+- scope: production process management
+- decision: Split the modular monolith into two operational roles: a **Web process** for synchronous HTTP work (webhooks, UI) and a **Worker process** for asynchronous/slow work (AI, Meta Send, Invoices).
+- rationale: decouples webhook latency from Claude/Meta response times; prevents duplicate scheduling across replicas; provides a durable boundary for failure recovery.
+
+## [PROPOSED] ADR-RES-002 — Durable Inbox/Outbox pattern
+- source: .planning/research/ARCHITECTURE.md
+- status: Proposed
+- scope: reliability and idempotency
+- decision: Webhooks are persisted to a `webhook_events` table (Inbox) before acknowledgment. Side effects and outbound messages are committed to `outbox_jobs` in the same transaction as business state changes.
+- rationale: guarantees no work is lost during crashes; enables safe retries and prevents duplicate orders.
+
+## [PROPOSED] ADR-RES-003 — Pinned Claude Haiku 4.5 Snapshot
+- source: .planning/research/STACK.md
+- status: Proposed
+- scope: AI model reliability
+- decision: Pin a specific model snapshot (e.g., `claude-haiku-4-5-20251001`) rather than using floating aliases.
+- rationale: prevents silent behavior changes from provider-side model updates; critical for stable tool-use and grounding.

@@ -74,33 +74,17 @@ def send_buttons(to: str, body: str, buttons: list[dict]) -> dict:
     return msg
 
 
-def send_template(to: str, template_name: str, language_code: str = "ar", body_vars: list[str] | None = None) -> dict:
-    """Mock sending a WhatsApp template ג€” prints to console.
+def verify_signature(body_bytes: bytes, signature: str | None) -> bool:
+    """Always return True for dev mode.
 
     Args:
-        to:            Recipient phone number.
-        template_name: The name of the registered Meta template.
-        language_code: The language code.
-        body_vars:     Optional list of text variables for the template body.
+        body_bytes: The raw request body.
+        signature:  The value of the X-Hub-Signature-256 header.
 
     Returns:
-        Dict with dev=True and template details.
+        True
     """
-    payload = {
-        "dev": True,
-        "to": to,
-        "type": "template",
-        "template": {
-            "name": template_name,
-            "language": {"code": language_code},
-        }
-    }
-    if body_vars:
-        payload["template"]["body_vars"] = body_vars
-
-    print("\nreply (template)\n----------------")
-    print(payload)
-    return payload
+    return True
 
 
 def verify_get(params: dict) -> tuple[bool,int,str]:

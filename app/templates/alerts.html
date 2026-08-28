@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ALYASMEEN — تنبيهات</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+  <style>
+    * { font-family: 'Cairo', sans-serif; }
+    body { background: #f0f7f4; }
+    .material-symbols-outlined {
+      font-family: 'Material Symbols Outlined';
+      font-weight: normal; font-style: normal; font-size: 24px;
+      line-height: 1; letter-spacing: normal; text-transform: none;
+      display: inline-block; white-space: nowrap; direction: ltr;
+      -webkit-font-smoothing: antialiased;
+    }
+    .nav-glass {
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(0,105,72,0.08);
+      box-shadow: 0 1px 16px rgba(0,105,72,0.06);
+    }
+    .nav-active { background: #006948; color: white; }
+    .nav-link   { color: #6b7280; transition: all 0.15s; }
+    .nav-link:hover { background: #f0f7f4; color: #006948; }
+    .alert-card {
+      background: white;
+      border-radius: 20px;
+      border: 1px solid #e8f3ee;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+      transition: box-shadow 0.2s, transform 0.2s;
+      overflow: hidden;
+    }
+    .alert-card:hover { box-shadow: 0 8px 28px rgba(0,105,72,0.12); transform: translateY(-2px); }
+    .card-enter { animation: slideUp 0.22s ease forwards; }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+<body class="min-h-screen">
+
+  <!-- Navbar -->
+  <nav class="nav-glass sticky top-0 z-20">
+    <div class="max-w-5xl mx-auto px-5 h-16 flex items-center justify-between">
+      <a href="/orders" class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl flex items-center justify-center shadow-sm shrink-0"
+             style="background: linear-gradient(135deg, #006948, #00a36c)">
+          <span class="text-white text-base leading-none">🌿</span>
+        </div>
+        <div class="leading-tight">
+          <span class="font-black text-gray-900 text-base tracking-tight block">ALYASMEEN</span>
+          <span class="text-xs text-gray-400 block">لوحة الإدارة</span>
+        </div>
+      </a>
+      <div class="flex items-center gap-1">
+        <a href="/orders"    class="nav-link px-3 py-1.5 rounded-xl text-sm font-medium">الطلبات</a>
+        <a href="/dashboard" class="nav-link px-3 py-1.5 rounded-xl text-sm font-medium">الإحصائيات</a>
+        <a href="/products"  class="nav-link px-3 py-1.5 rounded-xl text-sm font-medium">المنتجات</a>
+        <a href="/broadcast" class="nav-link px-3 py-1.5 rounded-xl text-sm font-medium">رسائل</a>
+        <a href="/alerts" class="nav-active px-3 py-1.5 rounded-xl text-sm font-bold shadow-sm flex items-center gap-1">
+          <span class="material-symbols-outlined" style="font-size:18px">warning</span>
+          تنبيهات
+        </a>
+        <a href="/logout"    class="px-3 py-1.5 rounded-xl text-sm font-medium text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors mr-1">خروج</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main (Alpine.js root) -->
+  <div x-data="alertsApp()" x-init="init()" class="max-w-5xl mx-auto px-5 py-6">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-black text-gray-900">تنبيهات</h1>
+        <p class="text-xs text-gray-400 mt-0.5">رسائل عالقة تحتاج مراجعة أو إعادة محاولة</p>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div x-show="loading" class="flex items-center justify-center py-20 gap-3 text-gray-400">
+      <div class="w-6 h-6 border-2 border-gray-200 border-t-[#006948] rounded-full animate-spin"></div>
+      <span class="text-sm font-medium">جاري التحميل...</span>
+    </div>
+
+    <!-- Empty state -->
+    <div x-show="!loading && webhookEvents.length === 0 && outboxJobs.length === 0" x-cloak
+      class="flex flex-col items-center py-24 text-gray-400 gap-4">
+      <div class="w-24 h-24 rounded-full flex items-center justify-center text-5xl" style="background:#f0f7f4">🎉</div>
+      <p class="font-bold text-base text-gray-500">لا توجد رسائل معلّقة 🎉</p>
+      <p class="text-sm text-gray-400">كل شيء يعمل كما هو متوقع</p>
+    </div>
+
+    <!-- Content -->
+    <div x-show="!loading && (webhookEvents.length > 0 || outboxJobs.length > 0)" x-cloak class="flex flex-col gap-8">
+
+      <!-- Incoming (webhook_events) -->
+      <div x-show="webhookEvents.length > 0">
+        <div class="flex items-center gap-2 mb-3">
+          <h2 class="text-lg font-black text-gray-900">رسائل واردة معلّقة</h2>
+          <span class="text-xs font-bold px-2 py-0.5 rounded-lg" style="background:#e6f3ee; color:#006948" x-text="webhookEvents.length"></span>
+        </div>
+        <div class="flex flex-col gap-3">
+          <template x-for="item in webhookEvents" :key="item.id">
+            <div class="alert-card card-enter p-4 flex items-start justify-between gap-4">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="material-symbols-outlined text-gray-400" style="font-size:18px">call</span>
+                  <span class="font-bold text-gray-900 text-sm" x-text="item.phone || 'غير معروف'"></span>
+                  <span class="text-xs font-bold px-2 py-0.5 rounded-lg bg-red-50 text-red-500"
+                        x-text="'محاولات: ' + item.attempts"></span>
+                </div>
+                <p class="text-xs text-gray-500 leading-relaxed break-words" x-text="trim(item.error, 160)"></p>
+                <p class="text-xs text-gray-400 mt-1" x-text="formatDate(item.created_at)"></p>
+              </div>
+              <div class="flex flex-col items-end gap-1 shrink-0">
+                <button @click="retryWebhookEvent(item)"
+                  class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white text-xs font-bold shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5"
+                  style="background:#006948">
+                  <span class="material-symbols-outlined" style="font-size:16px">refresh</span>
+                  إعادة المحاولة
+                </button>
+                <p class="text-[10px] text-gray-400 max-w-[180px] text-left leading-tight">
+                  قد يكرر هذا بعض الإجراءات إذا فشلت الرسالة الأصلية جزئياً
+                </p>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Outgoing (outbox_jobs) -->
+      <div x-show="outboxJobs.length > 0">
+        <div class="flex items-center gap-2 mb-3">
+          <h2 class="text-lg font-black text-gray-900">رسائل صادرة فشلت</h2>
+          <span class="text-xs font-bold px-2 py-0.5 rounded-lg" style="background:#e6f3ee; color:#006948" x-text="outboxJobs.length"></span>
+        </div>
+        <div class="flex flex-col gap-3">
+          <template x-for="item in outboxJobs" :key="item.id">
+            <div class="alert-card card-enter p-4 flex items-start justify-between gap-4">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="material-symbols-outlined text-gray-400" style="font-size:18px">call</span>
+                  <span class="font-bold text-gray-900 text-sm" x-text="item.phone || 'غير معروف'"></span>
+                  <span class="text-xs font-bold px-2 py-0.5 rounded-lg bg-gray-50 text-gray-500" x-text="item.kind"></span>
+                  <span class="text-xs font-bold px-2 py-0.5 rounded-lg bg-red-50 text-red-500"
+                        x-text="'محاولات: ' + item.attempts + '/' + item.max_attempts"></span>
+                </div>
+                <p class="text-xs text-gray-500 leading-relaxed break-words" x-text="trim(item.last_error, 160)"></p>
+                <p class="text-xs text-gray-400 mt-1" x-text="formatDate(item.created_at)"></p>
+              </div>
+              <div class="flex flex-col items-end gap-1 shrink-0">
+                <button @click="retryOutboxJob(item)"
+                  class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white text-xs font-bold shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5"
+                  style="background:#006948">
+                  <span class="material-symbols-outlined" style="font-size:16px">refresh</span>
+                  إعادة المحاولة
+                </button>
+                <p class="text-[10px] text-gray-400 max-w-[180px] text-left leading-tight">
+                  قد يكرر هذا بعض الإجراءات إذا فشلت الرسالة الأصلية جزئياً
+                </p>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Toast -->
+    <div x-show="toast.show" x-cloak x-transition
+      class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+      <div class="bg-gray-900 text-white text-sm font-semibold shadow-2xl rounded-2xl px-6 py-3">
+        <span x-text="toast.msg"></span>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+function alertsApp() {
+  return {
+    webhookEvents: [],
+    outboxJobs: [],
+    loading: true,
+    toast: { show: false, msg: '' },
+
+    async init() {
+      await this.loadAlerts();
+      this.loading = false;
+    },
+
+    async loadAlerts() {
+      const res = await fetch('/api/alerts');
+      const data = await res.json();
+      this.webhookEvents = data.webhook_events || [];
+      this.outboxJobs = data.outbox_jobs || [];
+    },
+
+    async retryWebhookEvent(item) {
+      const res = await fetch(`/api/alerts/webhook_events/${item.id}/retry`, { method: 'POST' });
+      if (res.ok) {
+        this.webhookEvents = this.webhookEvents.filter(e => e.id !== item.id);
+        this.showToast('تم جدولة إعادة المحاولة ✅');
+      }
+    },
+
+    async retryOutboxJob(item) {
+      const res = await fetch(`/api/alerts/outbox_jobs/${item.id}/retry`, { method: 'POST' });
+      if (res.ok) {
+        this.outboxJobs = this.outboxJobs.filter(j => j.id !== item.id);
+        this.showToast('تم جدولة إعادة المحاولة ✅');
+      }
+    },
+
+    trim(str, n) {
+      if (!str) return '';
+      return str.length > n ? str.slice(0, n) + '…' : str;
+    },
+
+    formatDate(d) {
+      if (!d) return '';
+      try { return new Date(d).toLocaleString('ar-EG'); } catch (e) { return d; }
+    },
+
+    showToast(msg) {
+      this.toast.msg = msg;
+      this.toast.show = true;
+      setTimeout(() => { this.toast.show = false; }, 2500);
+    }
+  };
+}
+</script>
+</body>
+</html>

@@ -1,53 +1,53 @@
 # Constraints (synthesized intel)
 
-Technical constraints, contracts, and schema extracted from the SPEC-typed docs (`PLAN.md`, `PLAN_PROMPT_ENGINEERING.md`) plus the platform constraints section of `PRD.md`.
+Technical constraints, contracts, and schema extracted from the SPEC-typed docs (`PLAN.md`, `PLAN_PROMPT_ENGINEERING.md`) plus the platform constraints section of `PRD.md` and production readiness research.
 
 ---
 
 ## Container / runtime architecture
 - type: architecture
-- source: docs/PLAN.md (§1–2, §7)
-- Backend: FastAPI / uvicorn, single process. APScheduler runs in-process (no separate worker).
-- Stateful dependencies: Supabase (PostgreSQL, ap-southeast-1) only external state; Meta Cloud API; Anthropic Claude Haiku API.
-- Procfile: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`. All env vars set in host dashboard.
+- source: docs/PLAN.md (§1–2, §7); .planning/research/ARCHITECTURE.md
+- **Current**: Backend FastAPI / uvicorn, single process. APScheduler runs in-process.
+- **Proposed (Production)**: Operational split into **Web** (FastAPI) and **Worker** (APScheduler/Durable work) processes.
+- Stateful dependencies: Supabase (PostgreSQL, ap-southeast-1); Meta Cloud API; Anthropic Claude Haiku API.
+- Procfile: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
 
 ## Component contracts
 - type: api-contract
-- source: docs/PLAN.md (§3)
-- `database.py` public surface: `query(sql, params)` (SELECT → list[dict]), `execute(sql, params)` (write), `execute_returning(sql, params)` (INSERT…RETURNING → dict). `%s` placeholders only; substituted by `_escape()`/`_build()` before RPC. No psycopg2, no direct TCP.
-- `ai_service.py` public surface: `generate_reply(user_message, previous_messages, cart, customer_name, tool_executor)`, `ai_available()`. Tool-agnostic; coupling only via `tool_executor` callback.
-- `config.py`: single env-var import point; no other file calls `os.environ`.
-- `retriever.py`: returns only `active = true` products; in-memory cache invalidated on any `/products` create/update/toggle/delete.
+- source: docs/PLAN.md (§3); .planning/research/ARCHITECTURE.md
+- **Current**: `database.py` uses generic `run_query`/`run_exec` RPCs.
+- **Proposed (Production)**: Transition to **Typed Table Operations** and **Narrow Transactional RPCs** (e.g., `ingest_webhook_event`, `create_order`). Revoke generic SQL RPCs.
+- `ai_service.py`:Coupling only via `tool_executor` callback. Pinned model snapshots for stability.
+- `config.py`: Single env-var import point.
 
 ## HTTP API surface
 - type: api-contract
-- source: docs/PLAN.md (§4)
-- WhatsApp: `GET /whatsapp/webhook` (Meta verify: hub.mode/hub.challenge/hub.verify_token → 200+challenge or 403); `POST /whatsapp/webhook` (`{from_number, text, wa_name}`).
-- Dashboard pages (cookie auth): `/login`, `/logout`, `/orders`, `/dashboard`, `/products`, `/broadcast`.
-- JSON APIs: `GET /api/orders?status=`, `GET /api/orders/{id}/lines`, `POST /api/orders/{id}/status`, `GET /api/dashboard/stats?month=`, `GET /api/reports/months`, `GET|POST /api/products`, `POST /api/products/{id}`, `POST /api/products/{id}/toggle`, `POST /api/products/{id}/delete`, `GET /api/broadcast/audience?filter=`, `POST /api/broadcast/send`.
-- Dev: `POST /dev/test_order` (dev mode only).
-- Auth: SHA-256 of `SECRET_KEY:DASHBOARD_PASSWORD` cookie; unauthenticated → redirect `/login`.
+- source: docs/PLAN.md (§4); .planning/research/ARCHITECTURE.md
+- WhatsApp: `POST /whatsapp/webhook` requires **HMAC signature verification (X-Hub-Signature-256)** and support for batched envelopes.
+- Dashboard (cookie auth): `/login`, `/logout`, `/orders`, `/dashboard`, `/products`, `/broadcast`. 
+- **Proposed (Production)**: Replace password hash cookie with **Supabase Auth + TOTP MFA** and opaque server-side sessions. CSRF protection mandatory.
+- Dev: `POST /dev/test_order` (must be disabled in production).
 
 ## Database schema
 - type: schema
-- source: docs/PLAN.md (§6); migration in docs/PLAN_PROMPT_ENGINEERING.md (§6)
-- Project `ppwcfmuetgczclmnzvqr`, ap-southeast-1. Tables: `products`, `customers` (PK phone), `sessions` (PK phone, cart JSONB, menu_products JSONB), `orders`, `order_lines`, `chat_history`, `follow_ups`, `retry_queue`.
-- Order status flow: `to_do → ready → delivered → done`. Each transition WhatsApps the customer; `delivered` creates a `follow_ups` record; `done` generates+sends an invoice.
-- Migration (applied): `ALTER TABLE products ADD COLUMN IF NOT EXISTS aliases TEXT DEFAULT '';`
+- source: docs/PLAN.md (§6); .planning/research/ARCHITECTURE.md
+- Tables: `products`, `customers`, `sessions`, `orders`, `order_lines`, `chat_history`, `follow_ups`, `retry_queue`.
+- **Additions required**: `webhook_events` (Inbox), `outbox_jobs` (Outbox), `handoffs`, `order_status_history`, `audit_log`, `worker_heartbeats`.
+- Order status flow: `to_do → ready → delivered → done`.
+- Migration policy: Use Supabase CLI migrations; no direct dashboard edits.
 
 ## AI / prompt-engineering constraints
 - type: nfr
-- source: docs/PLAN_PROMPT_ENGINEERING.md (§5–6)
-- Backward compatibility: all changes additive or in-place; no API endpoint changes.
-- Performance: full-catalog injection ≤ ~1,500 tokens for a 30-product store; revisit past ~100 products (then semantic / category-bucketed injection).
-- Resilience: `_full_catalog_context()` returns `""` silently on catalog-query failure; bot continues without grounding.
-- Token budget: `max_tokens=600` (tools) / `400` (no tools); temperature 0.3; 6-turn history.
-- Knowledge injection cap: ≤ 20,000 chars total; trigger-based selective injection with always-on fallback.
-- Testability: 10 verification scenarios (V-1..V-10) must pass manually via `GET /dev/chat`.
+- source: docs/PLAN_PROMPT_ENGINEERING.md (§5–6); .planning/research/STACK.md
+- Model: **Claude Haiku 4.5 Pinned Snapshot** (e.g., `claude-haiku-4-5-20251001`).
+- Context: Full-catalog injection, trigger-based knowledge.
+- Safety: Deterministic **Policy Gate** for all model-proposed actions. Model never receives DB/Meta credentials.
+- Token budget: 600 (tools) / 400 (no tools) split; temperature 0.3.
 
 ## Platform constraints (external)
 - type: nfr
-- source: docs/PRD.md (§6)
-- Meta WhatsApp: 30 msgs/min per number; templates required for >24h-silent users; webhook must respond < 20s or Meta retries; number must be verified in Meta Business Portal.
-- Supabase free tier: 500 MB storage, 2 GB bandwidth/month, unlimited API requests, no direct TCP (HTTPS via supabase-py only).
-- Anthropic Claude Haiku: tier-dependent rate limits; `max_tokens=400` baseline (see token-budget variant in conflicts); 6-turn context.
+- source: docs/PRD.md (§6); .planning/research/STACK.md
+- Meta WhatsApp: 30 msgs/min; signature verification; webhook timeout < 20s. **Production requirement**: Durable persistence before response.
+- Supabase: **Pro tier required** for production (managed backups, PITR, bandwidth).
+- Anthropic Claude Haiku: Rate limits; data retention policy review (12-month requirement).
+- Recovery: RPO <= 4 hours, RTO <= 4 hours.

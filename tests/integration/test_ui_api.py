@@ -249,3 +249,12 @@ class TestPageRoutes:
     def test_logout_clears_session(self, auth_client):
         r = auth_client.get("/logout", follow_redirects=False)
         assert r.status_code == 303
+
+    def test_alerts_page_redirects_to_login_unauthenticated(self, client):
+        r = client.get("/alerts", follow_redirects=False)
+        assert r.status_code == 303
+        assert "/login" in r.headers.get("location", "")
+
+    def test_alerts_page_renders_when_authenticated(self, auth_client):
+        r = auth_client.get("/alerts")
+        assert r.status_code == 200

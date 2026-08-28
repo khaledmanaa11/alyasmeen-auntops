@@ -4,7 +4,15 @@ test_whatsapp_meta.py — Unit tests for app/services/whatsapp_meta.py
 Tests the webhook verification logic (verify_get) and the send_text/
 send_document_bytes functions with a mocked requests.post call.
 No real Meta API calls are made.
+
+All four senders (send_text, send_buttons, send_document_bytes,
+send_document) raise WhatsAppSendError on any non-2xx Meta response instead
+of returning the failed status silently — see TestSendFailureRaises — so the
+outbox poller's retry logic (app.services.processor.process_job) can catch
+the failure and mark the job 'failed' instead of mistaking it for a success.
 """
+
+import pytest
 
 
 class TestVerifyGet:
@@ -250,39 +258,184 @@ class TestSendDocumentMocked:
         assert result["status"] == 200
 
 
-class TestVerifyGetSignature:
-    def test_valid_signature(self, monkeypatch):
-        import hashlib
-        import hmac as hmac_mod
+class TestSendFailureRaises:
+    """New coverage for the raise-on-failure contract: every sender must
+    raise WhatsAppSendError (not just return the failed status dict) when
+    the Meta API responds with a non-2xx status."""
+
+    def test_send_text_raises_on_non_2xx(self, monkeypatch):
+        import requests
 
         import app.services.config as cfg
         import app.services.whatsapp_meta as meta
 
-        monkeypatch.setattr(cfg.Config, "WA_META_VERIFY_TOKEN", "tok")
+        monkeypatch.setattr(cfg.Config, "USE_MOCK_WHATSAPP", False)
+        monkeypatch.setattr(cfg.Config, "WA_META_TOKEN", "fake-token")
+        monkeypatch.setattr(cfg.Config, "WA_META_PHONE_ID", "123456")
+
+        fake_response = type("R", (), {
+            "status_code": 400,
+            "json": lambda self: {"error": {"message": "Invalid parameter"}},
+        })()
+        monkeypatch.setattr(requests, "post", lambda *a, **kw: fake_response)
+
+        with pytest.raises(meta.WhatsAppSendError):
+            meta.send_text("972591234567", "test message")
+
+    def test_send_buttons_raises_on_non_2xx(self, monkeypatch):
+        import requests
+
+        import app.services.config as cfg
+        import app.services.whatsapp_meta as meta
+
+        monkeypatch.setattr(cfg.Config, "USE_MOCK_WHATSAPP", False)
+        monkeypatch.setattr(cfg.Config, "WA_META_TOKEN", "fake-token")
+        monkeypatch.setattr(cfg.Config, "WA_META_PHONE_ID", "123456")
+
+        fake_response = type("R", (), {
+            "status_code": 500,
+            "json": lambda self: {"error": {"message": "Internal error"}},
+        })()
+        monkeypatch.setattr(requests, "post", lambda *a, **kw: fake_response)
+
+        with pytest.raises(meta.WhatsAppSendError):
+            meta.send_buttons("972591234567", "body", [{"id": "a", "title": "A"}])
+
+    def test_send_document_bytes_raises_on_non_2xx(self, monkeypatch):
+        import requests
+
+        import app.services.config as cfg
+        import app.services.whatsapp_meta as meta
+
+        monkeypatch.setattr(cfg.Config, "USE_MOCK_WHATSAPP", False)
+        monkeypatch.setattr(cfg.Config, "WA_META_TOKEN", "fake-token")
+        monkeypatch.setattr(cfg.Config, "WA_META_PHONE_ID", "123456")
+
+        upload_resp = type("R", (), {
+            "status_code": 200,
+            "raise_for_status": lambda self: None,
+            "json": lambda self: {"id": "media-999"},
+        })()
+        send_resp = type("R", (), {
+            "status_code": 400,
+            "json": lambda self: {"error": {"message": "bad request"}},
+        })()
+
+        call_count = [0]
+
+        def fake_post(*a, **kw):
+            call_count[0] += 1
+            return upload_resp if call_count[0] == 1 else send_resp
+
+        monkeypatch.setattr(requests, "post", fake_post)
+
+        with pytest.raises(meta.WhatsAppSendError):
+            meta.send_document_bytes("972591234567", b"pdf-data", "invoice.pdf")
+
+    def test_send_document_raises_on_non_2xx(self, monkeypatch):
+        import requests
+
+        import app.services.config as cfg
+        import app.services.whatsapp_meta as meta
+
+        monkeypatch.setattr(cfg.Config, "USE_MOCK_WHATSAPP", False)
+        monkeypatch.setattr(cfg.Config, "WA_META_TOKEN", "fake-token")
+        monkeypatch.setattr(cfg.Config, "WA_META_PHONE_ID", "123456")
+
+        fake_resp = type("R", (), {
+            "status_code": 403,
+            "json": lambda self: {"error": {"message": "forbidden"}},
+        })()
+        monkeypatch.setattr(requests, "post", lambda *a, **kw: fake_resp)
+
+        with pytest.raises(meta.WhatsAppSendError):
+            meta.send_document("972591234567", "https://example.com/f.pdf", "f.pdf")
+
+
+class TestGatekeeperWiring:
+    """Proves send_text's real-mode body actually routes through
+    app.shared.gatekeeper.gatekeeper.execute("whatsapp", ...) — not just
+    'still works by coincidence' because requests.post is monkeypatched."""
+
+    def test_send_text_raises_rate_limit_exceeded_without_calling_requests(self, monkeypatch):
+        import requests
+
+        import app.services.config as cfg
+        import app.services.whatsapp_meta as meta
+        from app.shared.gatekeeper import RateLimitExceeded
+
+        monkeypatch.setattr(cfg.Config, "USE_MOCK_WHATSAPP", False)
+        monkeypatch.setattr(cfg.Config, "WA_META_TOKEN", "fake-token")
+        monkeypatch.setattr(cfg.Config, "WA_META_PHONE_ID", "123456")
+
+        called = []
+        monkeypatch.setattr(requests, "post", lambda *a, **kw: called.append(1))
+
+        def raising_execute(service, api_call, *args, **kwargs):
+            raise RateLimitExceeded(f"{service} rate limit exceeded")
+
+        monkeypatch.setattr(meta.gatekeeper, "execute", raising_execute)
+
+        with pytest.raises(RateLimitExceeded):
+            meta.send_text("972591234567", "hello")
+        assert called == []
+
+    def test_send_text_calls_gatekeeper_with_whatsapp_service(self, monkeypatch):
+        import requests
+
+        import app.services.config as cfg
+        import app.services.whatsapp_meta as meta
+
+        monkeypatch.setattr(cfg.Config, "USE_MOCK_WHATSAPP", False)
+        monkeypatch.setattr(cfg.Config, "WA_META_TOKEN", "fake-token")
+        monkeypatch.setattr(cfg.Config, "WA_META_PHONE_ID", "123456")
+
+        fake_response = type("R", (), {
+            "status_code": 200,
+            "json": lambda self: {"messages": [{"id": "wamid.1"}]},
+        })()
+        monkeypatch.setattr(requests, "post", lambda *a, **kw: fake_response)
+
+        calls = []
+
+        def spy(service, api_call, *args, **kwargs):
+            calls.append(service)
+            return api_call(*args, **kwargs)
+
+        monkeypatch.setattr(meta.gatekeeper, "execute", spy)
+
+        result = meta.send_text("972591234567", "hello")
+        assert result["status"] == 200
+        assert calls == ["whatsapp"]
+
+
+class TestVerifySignature:
+    def test_valid_signature(self, monkeypatch):
+        import hashlib
+        import hmac as hmac_mod
+        import app.services.config as cfg
+        import app.services.whatsapp_meta as meta
+
         monkeypatch.setattr(cfg.Config, "WA_META_APP_SECRET", "secret")
 
         body = b'{"test": 1}'
         mac = hmac_mod.new(b"secret", body, hashlib.sha256)
         sig = "sha256=" + mac.hexdigest()
 
-        ok, code, _ = meta.verify_get(
-            {"hub.mode": "unsubscribe", "hub.verify_token": "tok"},
-            headers={"X-Hub-Signature-256": sig},
-            body_bytes=body,
-        )
-        assert code == 403  # mode != subscribe so still 403, but sig branch ran
+        assert meta.verify_signature(body, sig) is True
 
-    def test_invalid_signature_returns_403(self, monkeypatch):
+    def test_invalid_signature_returns_false(self, monkeypatch):
         import app.services.config as cfg
         import app.services.whatsapp_meta as meta
 
-        monkeypatch.setattr(cfg.Config, "WA_META_VERIFY_TOKEN", "tok")
         monkeypatch.setattr(cfg.Config, "WA_META_APP_SECRET", "secret")
 
-        ok, code, _ = meta.verify_get(
-            {"hub.mode": "unsubscribe", "hub.verify_token": "tok"},
-            headers={"X-Hub-Signature-256": "sha256=wrong"},
-            body_bytes=b"body",
-        )
-        assert ok is False
-        assert code == 403
+        assert meta.verify_signature(b"body", "sha256=wrong") is False
+
+    def test_missing_secret_returns_false(self, monkeypatch):
+        import app.services.config as cfg
+        import app.services.whatsapp_meta as meta
+
+        monkeypatch.setattr(cfg.Config, "WA_META_APP_SECRET", None)
+
+        assert meta.verify_signature(b"body", "sha256=abc") is False

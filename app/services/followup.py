@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 
 from app.db.database import execute, query
-from app.services.outbox import enqueue_outbox
+from app.services.processor import queue_text
 
 log = logging.getLogger(__name__)
 
@@ -58,15 +58,15 @@ def send_followups() -> int:
         order_id = row["order_id"]
         followup_id = row["id"]
         try:
-            enqueue_outbox(phone, {"type": "text", "body": FOLLOWUP_MESSAGE})
+            queue_text(phone, FOLLOWUP_MESSAGE)
             execute(
                 "UPDATE follow_ups SET sent = TRUE, sent_at = now() WHERE id = %s",
                 (followup_id,),
             )
             sent_count += 1
-            log.info("follow_up queued phone=%s order_id=%s", phone, order_id)
+            log.info("follow_up sent phone=%s order_id=%s", phone, order_id)
         except Exception:
-            log.exception("follow_up failed to queue phone=%s order_id=%s", phone, order_id)
+            log.exception("follow_up failed phone=%s order_id=%s", phone, order_id)
 
     log.info("follow_up: sent %d messages", sent_count)
     return sent_count

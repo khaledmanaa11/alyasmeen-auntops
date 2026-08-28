@@ -1,0 +1,13 @@
+{
+  "_meta": {
+    "updated_at": "2026-06-14T00:00:00Z",
+    "version": 1
+  },
+  "languages": ["Python"],
+  "frameworks": ["FastAPI", "Starlette", "Supabase", "Anthropic (Claude)", "Jinja2"],
+  "tools": ["Uvicorn", "Pydantic", "APScheduler", "Ruff", "Pytest", "uv"],
+  "build_system": "uv",
+  "test_framework": "Pytest",
+  "package_manager": "uv",
+  "content_formats": ["Markdown (knowledge base, docs, planning)", "SQL (Supabase RPCs, schema)", "HTML (Jinja templates)", "JSON (config)"]
+}

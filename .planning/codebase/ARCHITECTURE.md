@@ -12,8 +12,8 @@ serves three surfaces from one process:
 3. **Background scheduler** — APScheduler jobs (follow-ups, monthly report, retry queue)
 
 There is no microservice split, no message queue, and no separate worker process —
-everything runs inside the same uvicorn process. This is a deliberately simple
-single-process design — adequate today, but a known scaling seam to revisit as volume grows.
+everything runs inside the same uvicorn process. This matches the project scale
+(10–30 orders/day, single operator).
 
 ## Layers
 
@@ -129,13 +129,6 @@ retry_queue.process_retries  every 15min  → retry failed WhatsApp/PDF-invoice 
 - **Auth** — dashboard cookie = SHA-256 of `SECRET_KEY:DASHBOARD_PASSWORD`
   (`ui.py::_session_token`); checked per page/API.
 - **Config** — centralized in `Config`; `.env` loaded twice in `main.py` (CWD + project).
-
-## Database Security
-
-**Access model:** Server-side only. Browser never touches Supabase.
-- **RPC Lockdown:** All database access is funneled through two custom PostgreSQL functions: `run_query(sql text)` and `run_exec(sql text)`.
-- **Restricted Permissions:** Access to these functions is strictly limited to the `service_role` key. Permissions are explicitly revoked from `public`, `anon`, and `authenticated` roles in the migration system (`supabase/migrations/20260615230000_secure_rpc.sql`).
-- **Rationale:** Since the application is a trusted server-side process, using the `service_role` key and disabling public RPC access provides a clean security boundary without the overhead of complex Row Level Security (RLS) policies for every table. The real risk is key leakage; by using `service_role` and custom RPCs, we ensure that even if an `anon` key is leaked, it cannot execute arbitrary SQL or access any data.
 
 ---
 

@@ -1,0 +1,43 @@
+{
+  "_meta": {
+    "updated_at": "2026-06-14T00:00:00Z",
+    "version": 1
+  },
+  "entries": {
+    "app/main.py": {
+      "exports": ["app"],
+      "imports": ["fastapi", "app.routers", "app.services", "app.db"],
+      "type": "entry-point"
+    },
+    "app/db/database.py": {
+      "exports": ["get_supabase", "run_query", "run_exec"],
+      "imports": ["supabase", "app.services.config"],
+      "type": "module"
+    },
+    "app/services/ai_service.py": {
+      "exports": ["AIService", "get_ai_service"],
+      "imports": ["anthropic", "app.db.database", "app.services.config"],
+      "type": "module"
+    },
+    "app/routers/whatsapp.py": {
+      "exports": ["router"],
+      "imports": ["fastapi", "app.services.whatsapp_meta", "app.services.ai_service"],
+      "type": "module"
+    },
+    "app/services/pdf_invoice.py": {
+      "exports": ["generate_invoice_pdf"],
+      "imports": ["fpdf", "python_bidi"],
+      "type": "module"
+    },
+    "app/services/config.py": {
+      "exports": ["get_settings", "Settings"],
+      "imports": ["pydantic_settings"],
+      "type": "config"
+    },
+    "app/routers/ui.py": {
+      "exports": ["router"],
+      "imports": ["fastapi", "jinja2", "app.db.database"],
+      "type": "module"
+    }
+  }
+}
