@@ -164,6 +164,8 @@ function auditApp() {
           return 'أرسلت رسالة جماعية لـ ' + (d.sent || 0) + ' زبونة';
         case 'handoff_resolved':
           return 'رجّعت محادثة ' + (d.phone || '') + ' للبوت';
+        case 'handoff_triggered':
+          return 'حوّل البوت محادثة ' + (d.phone || '') + ' لموظف بشري (' + (d.reason || '') + ')';
         case 'login_success':
           return 'سجّلت الدخول';
         case 'login_failed':

@@ -27,7 +27,7 @@ OPERATOR_ACTIONS = (
     "password_reset_completed",
     "order_status_changed", "order_status_conflict_override",
     "product_created", "product_updated", "product_toggled", "product_deleted",
-    "broadcast_sent", "handoff_resolved",
+    "broadcast_sent", "handoff_resolved", "handoff_triggered",
     "alert_retried", "alert_retry_all",
 )
 
