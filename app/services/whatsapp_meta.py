@@ -5,6 +5,7 @@ import hmac
 import requests
 
 from app.services.config import Config
+from app.shared.gatekeeper import gatekeeper
 
 
 class WhatsAppSendError(RuntimeError):
@@ -37,21 +38,24 @@ def send_text(to: str, text: str) -> dict:
         from app.services.whatsapp_dev import send_text as dev_send
         return dev_send(to, text)
 
-    url = f"https://graph.facebook.com/v19.0/{Config.WA_META_PHONE_ID}/messages"
-    headers = {"Authorization": f"Bearer {Config.WA_META_TOKEN}", "Content-Type":"application/json"}
-    payload = {
-        "messaging_product":"whatsapp",
-        "to": to.replace(" ", ""),
-        "type":"text",
-        "text":{"body": text}
-    }
-    r = requests.post(url, headers=headers, json=payload, timeout=15)
-    try:
-        data = r.json()
-    except Exception:
-        data = {"status": r.status_code, "text": r.text}
-    _check_response(r, data)
-    return {"status": r.status_code, "resp": data}
+    def _do() -> dict:
+        url = f"https://graph.facebook.com/v19.0/{Config.WA_META_PHONE_ID}/messages"
+        headers = {"Authorization": f"Bearer {Config.WA_META_TOKEN}", "Content-Type":"application/json"}
+        payload = {
+            "messaging_product":"whatsapp",
+            "to": to.replace(" ", ""),
+            "type":"text",
+            "text":{"body": text}
+        }
+        r = requests.post(url, headers=headers, json=payload, timeout=15)
+        try:
+            data = r.json()
+        except Exception:
+            data = {"status": r.status_code, "text": r.text}
+        _check_response(r, data)
+        return {"status": r.status_code, "resp": data}
+
+    return gatekeeper.execute("whatsapp", _do)
 
 def send_buttons(to: str, body: str, buttons: list[dict]) -> dict:
     """Send an interactive button message via the Meta Cloud API.
@@ -68,30 +72,33 @@ def send_buttons(to: str, body: str, buttons: list[dict]) -> dict:
         from app.services.whatsapp_dev import send_buttons as dev_send
         return dev_send(to, body, buttons)
 
-    url = f"https://graph.facebook.com/v19.0/{Config.WA_META_PHONE_ID}/messages"
-    headers = {"Authorization": f"Bearer {Config.WA_META_TOKEN}", "Content-Type": "application/json"}
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": to.replace(" ", ""),
-        "type": "interactive",
-        "interactive": {
-            "type": "button",
-            "body": {"text": body},
-            "action": {
-                "buttons": [
-                    {"type": "reply", "reply": {"id": b["id"], "title": b["title"][:20]}}
-                    for b in buttons[:3]
-                ]
+    def _do() -> dict:
+        url = f"https://graph.facebook.com/v19.0/{Config.WA_META_PHONE_ID}/messages"
+        headers = {"Authorization": f"Bearer {Config.WA_META_TOKEN}", "Content-Type": "application/json"}
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": to.replace(" ", ""),
+            "type": "interactive",
+            "interactive": {
+                "type": "button",
+                "body": {"text": body},
+                "action": {
+                    "buttons": [
+                        {"type": "reply", "reply": {"id": b["id"], "title": b["title"][:20]}}
+                        for b in buttons[:3]
+                    ]
+                }
             }
         }
-    }
-    r = requests.post(url, headers=headers, json=payload, timeout=15)
-    try:
-        data = r.json()
-    except Exception:
-        data = {"status": r.status_code, "text": r.text}
-    _check_response(r, data)
-    return {"status": r.status_code, "resp": data}
+        r = requests.post(url, headers=headers, json=payload, timeout=15)
+        try:
+            data = r.json()
+        except Exception:
+            data = {"status": r.status_code, "text": r.text}
+        _check_response(r, data)
+        return {"status": r.status_code, "resp": data}
+
+    return gatekeeper.execute("whatsapp", _do)
 
 
 def send_document_bytes(to: str, pdf_bytes: bytes, filename: str, caption: str | None = None) -> dict:
@@ -100,38 +107,41 @@ def send_document_bytes(to: str, pdf_bytes: bytes, filename: str, caption: str |
         from app.services.whatsapp_dev import send_document_bytes as dev_send
         return dev_send(to, pdf_bytes, filename, caption)
 
-    upload_url = f"https://graph.facebook.com/v19.0/{Config.WA_META_PHONE_ID}/media"
-    upload_r = requests.post(
-        upload_url,
-        headers={"Authorization": f"Bearer {Config.WA_META_TOKEN}"},
-        data={"messaging_product": "whatsapp", "type": "application/pdf"},
-        files={"file": (filename, pdf_bytes, "application/pdf")},
-        timeout=30,
-    )
-    upload_r.raise_for_status()
-    media_id = upload_r.json()["id"]
+    def _do() -> dict:
+        upload_url = f"https://graph.facebook.com/v19.0/{Config.WA_META_PHONE_ID}/media"
+        upload_r = requests.post(
+            upload_url,
+            headers={"Authorization": f"Bearer {Config.WA_META_TOKEN}"},
+            data={"messaging_product": "whatsapp", "type": "application/pdf"},
+            files={"file": (filename, pdf_bytes, "application/pdf")},
+            timeout=30,
+        )
+        upload_r.raise_for_status()
+        media_id = upload_r.json()["id"]
 
-    msg_url = f"https://graph.facebook.com/v19.0/{Config.WA_META_PHONE_ID}/messages"
-    payload: dict = {
-        "messaging_product": "whatsapp",
-        "to": to.replace(" ", ""),
-        "type": "document",
-        "document": {"id": media_id, "filename": filename},
-    }
-    if caption:
-        payload["document"]["caption"] = caption
-    r = requests.post(
-        msg_url,
-        headers={"Authorization": f"Bearer {Config.WA_META_TOKEN}", "Content-Type": "application/json"},
-        json=payload,
-        timeout=20,
-    )
-    try:
-        data = r.json()
-    except Exception:
-        data = {"status": r.status_code, "text": r.text}
-    _check_response(r, data)
-    return {"status": r.status_code, "resp": data}
+        msg_url = f"https://graph.facebook.com/v19.0/{Config.WA_META_PHONE_ID}/messages"
+        payload: dict = {
+            "messaging_product": "whatsapp",
+            "to": to.replace(" ", ""),
+            "type": "document",
+            "document": {"id": media_id, "filename": filename},
+        }
+        if caption:
+            payload["document"]["caption"] = caption
+        r = requests.post(
+            msg_url,
+            headers={"Authorization": f"Bearer {Config.WA_META_TOKEN}", "Content-Type": "application/json"},
+            json=payload,
+            timeout=20,
+        )
+        try:
+            data = r.json()
+        except Exception:
+            data = {"status": r.status_code, "text": r.text}
+        _check_response(r, data)
+        return {"status": r.status_code, "resp": data}
+
+    return gatekeeper.execute("whatsapp", _do)
 
 
 def send_document(to: str, url: str, filename: str, caption: str | None = None) -> dict:
@@ -152,26 +162,29 @@ def send_document(to: str, url: str, filename: str, caption: str | None = None) 
         from app.services.whatsapp_dev import send_document as dev_send_document
         return dev_send_document(to, url, filename, caption)
 
-    msg_url = f"https://graph.facebook.com/v19.0/{Config.WA_META_PHONE_ID}/messages"
-    headers = {"Authorization": f"Bearer {Config.WA_META_TOKEN}"}
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": to.replace(" ", ""),
-        "type": "document",
-        "document": {
-            "link": url,
-            "filename": filename,
-        },
-    }
-    if caption:
-        payload["document"]["caption"] = caption
-    r = requests.post(msg_url, headers=headers, json=payload, timeout=20)
-    try:
-        data = r.json()
-    except Exception:
-        data = {"status": r.status_code, "text": r.text}
-    _check_response(r, data)
-    return {"status": r.status_code, "resp": data}
+    def _do() -> dict:
+        msg_url = f"https://graph.facebook.com/v19.0/{Config.WA_META_PHONE_ID}/messages"
+        headers = {"Authorization": f"Bearer {Config.WA_META_TOKEN}"}
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": to.replace(" ", ""),
+            "type": "document",
+            "document": {
+                "link": url,
+                "filename": filename,
+            },
+        }
+        if caption:
+            payload["document"]["caption"] = caption
+        r = requests.post(msg_url, headers=headers, json=payload, timeout=20)
+        try:
+            data = r.json()
+        except Exception:
+            data = {"status": r.status_code, "text": r.text}
+        _check_response(r, data)
+        return {"status": r.status_code, "resp": data}
+
+    return gatekeeper.execute("whatsapp", _do)
 
 def verify_signature(body_bytes: bytes, signature: str | None) -> bool:
     """Verify that the payload was sent by Meta using HMAC-SHA256.

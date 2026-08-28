@@ -352,6 +352,63 @@ class TestSendFailureRaises:
             meta.send_document("972591234567", "https://example.com/f.pdf", "f.pdf")
 
 
+class TestGatekeeperWiring:
+    """Proves send_text's real-mode body actually routes through
+    app.shared.gatekeeper.gatekeeper.execute("whatsapp", ...) — not just
+    'still works by coincidence' because requests.post is monkeypatched."""
+
+    def test_send_text_raises_rate_limit_exceeded_without_calling_requests(self, monkeypatch):
+        import requests
+
+        import app.services.config as cfg
+        import app.services.whatsapp_meta as meta
+        from app.shared.gatekeeper import RateLimitExceeded
+
+        monkeypatch.setattr(cfg.Config, "USE_MOCK_WHATSAPP", False)
+        monkeypatch.setattr(cfg.Config, "WA_META_TOKEN", "fake-token")
+        monkeypatch.setattr(cfg.Config, "WA_META_PHONE_ID", "123456")
+
+        called = []
+        monkeypatch.setattr(requests, "post", lambda *a, **kw: called.append(1))
+
+        def raising_execute(service, api_call, *args, **kwargs):
+            raise RateLimitExceeded(f"{service} rate limit exceeded")
+
+        monkeypatch.setattr(meta.gatekeeper, "execute", raising_execute)
+
+        with pytest.raises(RateLimitExceeded):
+            meta.send_text("972591234567", "hello")
+        assert called == []
+
+    def test_send_text_calls_gatekeeper_with_whatsapp_service(self, monkeypatch):
+        import requests
+
+        import app.services.config as cfg
+        import app.services.whatsapp_meta as meta
+
+        monkeypatch.setattr(cfg.Config, "USE_MOCK_WHATSAPP", False)
+        monkeypatch.setattr(cfg.Config, "WA_META_TOKEN", "fake-token")
+        monkeypatch.setattr(cfg.Config, "WA_META_PHONE_ID", "123456")
+
+        fake_response = type("R", (), {
+            "status_code": 200,
+            "json": lambda self: {"messages": [{"id": "wamid.1"}]},
+        })()
+        monkeypatch.setattr(requests, "post", lambda *a, **kw: fake_response)
+
+        calls = []
+
+        def spy(service, api_call, *args, **kwargs):
+            calls.append(service)
+            return api_call(*args, **kwargs)
+
+        monkeypatch.setattr(meta.gatekeeper, "execute", spy)
+
+        result = meta.send_text("972591234567", "hello")
+        assert result["status"] == 200
+        assert calls == ["whatsapp"]
+
+
 class TestVerifySignature:
     def test_valid_signature(self, monkeypatch):
         import hashlib
