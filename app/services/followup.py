@@ -10,7 +10,6 @@ from __future__ import annotations
 import logging
 
 from app.db.database import execute, query
-from app.services.config import Config
 from app.services.processor import queue_text
 
 log = logging.getLogger(__name__)
