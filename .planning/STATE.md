@@ -32,16 +32,16 @@ re-run `/gsd:plan-phase 3` (or at minimum the plan checker) against the current 
 - ~~`retry_queue.py` (enqueue never called) is dead code claiming to run~~ → **Phase 4 criterion 1 resolved** (plan 04-04): `retry_queue.py`/`retry_actions.py` deleted entirely, the 15-minute scheduler job removed from `app/worker.py`, retirement documented in `supabase/migrations/20260825000003_retire_retry_queue.sql` (COMMENT ON TABLE, not DROP — table is already RLS-locked deny-all). `gatekeeper.py` is **no longer dead code** either — rewritten synchronous (plan 04-02) and wired into every outbound Claude call (`ai_service.py`) and every real-mode WhatsApp send (`whatsapp_meta.py`).
 - Migrations not yet applied to live Supabase; anon-vs-service_role key decision open → Phase 4 criterion 2.
 - Worker job store falls back to MemoryJobStore without `DATABASE_URL` → Phase 4 criterion 3. **Mechanism now proven** (`tests/integration/test_scheduler_persistence.py`, plan 04-03); the live Railway `DATABASE_URL` step itself is still pending — operator checkpoint in plan 04-07.
-- No dashboard visibility for dead-lettered events / failed outbox jobs → Phase 4 criterion 4.
+- No dashboard visibility for dead-lettered events / failed outbox jobs → Phase 4 criterion 4. **Backend API done** (plan 04-05): `GET /api/alerts` + retry endpoints in `ui_api.py`. Dashboard UI to consume it is plan 04-06.
 - Async latency: outbox adds ≤2s to replies (poll interval) on top of the 3s inbox poll; acceptable at current volume, monitor in pilot.
 
 ## Todos & Blockers
 - [ ] **TODO**: Merge/push `fix/production-hardening` (user decision).
-- [ ] **TODO**: Continue `/gsd:execute-phase 4` — plans 04-01/04-02/04-03/04-04 done, 04-05 through 04-07 remain.
+- [ ] **TODO**: Continue `/gsd:execute-phase 4` — plans 04-01/04-02/04-03/04-04/04-05 done, 04-06 and 04-07 remain.
 - [ ] **TODO**: Re-verify Phase 3 plans against the hardening branch, then `/gsd:execute-phase 3`.
 - [ ] **TODO** (deploy): Set `DASHBOARD_PASSWORD`, `SECRET_KEY` in Railway — app now refuses to start without them. Set `CLAUDE_MODEL` or accept new default. Update `WA_META_TOKEN`. Set `DATABASE_URL` (Session Pooler, postgresql:// — see .env.example) so the worker job store survives restarts.
 - [ ] **BLOCKER**: Meta WABA registration still pending.
 
 ## Session Continuity
-- **Last Action**: Executed Phase 4 Plan 04 (retire `retry_queue.py`/`retry_actions.py`, unwire the 15-minute job from `app/worker.py`, document retirement via `COMMENT ON TABLE` migration) — 247 passed/3 skipped, commits `7b145ea`, `006f1a0`.
-- **Next Step**: `/gsd:execute-phase 4` to continue with remaining plans (04-05 through 04-07).
+- **Last Action**: Executed Phase 4 Plan 05 (alerts API — `GET /api/alerts` + `POST /api/alerts/{webhook_events,outbox_jobs}/{id}/retry` in `ui_api.py`, backing Success Criterion 4) — 254 passed/3 skipped, commits `4d9bc25`, `b37c207`.
+- **Next Step**: `/gsd:execute-phase 4` to continue with remaining plans (04-06 dashboard alerts UI, 04-07 operator checkpoints).
