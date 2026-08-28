@@ -49,10 +49,20 @@ This roadmap transitions ALYASMEEN AuntOps from a development implementation to 
   2. Risky or uncertain customer messages trigger a durable human handoff state.
   3. AI evaluation scores meet release thresholds on representative Arabic/English datasets.
   4. Automated `to_do` order changes work reliably while later statuses block agent mutation.
-**Plans**:
-- [ ] 03-01-PLAN.md — Safety Foundation
-- [ ] 03-02-PLAN.md — Integration & Triggers
-- [ ] 03-03-PLAN.md — Evaluation & Resilience
+**Context**: Re-planned 2026-08-28 against the current branch. The original three plans
+predated the 2026-08-25 hardening session (bot brain moved `whatsapp.py` -> `processor.py`),
+Phase 4's outbox rewrite, and Phase 5 — which already built `handoff.py`'s resolve/read half
+plus the whole operator UI and explicitly reserved `trigger()`, the paused gate, and the
+policy gate for this phase. See `03-RESEARCH.md` for the stale-plan reconciliation table.
+**Plans**: 8 plans in 5 waves
+- [ ] 03-01-PLAN.md — handoff.trigger(): durable handoff creation, session pause, aunt alert via outbox, audit action
+- [ ] 03-02-PLAN.md — app/services/policy.py: deterministic tool gate + Arabic/English escalation detection
+- [ ] 03-03-PLAN.md — ai_service: AIUnavailableError contract + 5th tool `request_human_handoff`
+- [ ] 03-04-PLAN.md — Paused gate, keyword handoff, unsupported-media handoff + conftest handoff patching
+- [ ] 03-05-PLAN.md — Policy-gated tool executor, handoff tool implementation, AI-failure escalation
+- [ ] 03-06-PLAN.md — Pytest eval gate over the real pipeline + measured baseline
+- [ ] 03-07-PLAN.md — Release thresholds from the baseline + docs/EVAL_GATE.md
+- [ ] 03-08-PLAN.md — Requirement verification tests + knowledge-vault and CLAUDE.md update
 
 ### Phase 4: Reliability & Operations Completion (M4)
 **Goal**: Every reliability mechanism either genuinely works in production or is deleted — no dead code that claims to run, no failure invisible to the operator.
@@ -112,7 +122,7 @@ This roadmap transitions ALYASMEEN AuntOps from a development implementation to 
 |-------|----------------|--------|-----------|
 | 1. Database Foundation | 3/3 | ✅ Completed | 2026-06-14 |
 | 2. Application Hardening | 2/2 | ✅ Completed | 2026-06-14 |
-| 3. Agent Dependability | 0/3 | 🏗️ In Progress | - |
+| 3. Agent Dependability | 0/8 | 🏗️ In Progress | - |
 | 4. Reliability & Ops Completion | 7/7 | Complete    | 2026-08-28 |
 | 5. Operator Security | 5/10 | 🏗️ In Progress | - |
 | 6. Production Go-Live | 0/1 | Not started | - |
