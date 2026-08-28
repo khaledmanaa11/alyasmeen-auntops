@@ -111,6 +111,29 @@
     <div id="toast-msg" class="bg-gray-900 text-white text-sm font-semibold shadow-2xl rounded-2xl px-6 py-3 flex items-center gap-2"></div>
   </div>
 
+  <!-- Bot-vs-aunt conflict modal -->
+  <div id="conflict-modal" class="fixed inset-0 z-50 hidden items-center justify-center px-4" style="background: rgba(0,0,0,0.4);">
+    <div class="order-card bg-white w-full max-w-sm p-6" role="dialog" aria-modal="true" aria-labelledby="conflict-title">
+      <h3 id="conflict-title" class="text-lg font-black text-gray-900 mb-2"></h3>
+      <p id="conflict-body" class="text-sm text-gray-600 leading-relaxed"></p>
+      <p id="conflict-time" class="text-xs text-gray-400 mt-2 mb-5"></p>
+      <div class="flex gap-2">
+        <button id="conflict-take-over" type="button"
+          class="flex-1 py-2.5 rounded-xl text-white text-sm font-bold shadow-sm transition-all hover:shadow-md"
+          style="background:#006948">
+          كمّلي أنتِ
+        </button>
+        <button id="conflict-leave" type="button"
+          class="flex-1 py-2.5 rounded-xl text-sm font-bold border border-gray-200 text-gray-600 transition-colors hover:bg-gray-50">
+          اتركي البوت
+        </button>
+      </div>
+      <a href="/handoffs" class="block text-center text-xs text-gray-400 mt-4 hover:text-gray-600 transition-colors">
+        بتلاقي المحادثة في تبويب محادثات، وبتقدري ترجّعيها للبوت وقت ما بدك
+      </a>
+    </div>
+  </div>
+
 <script>
   let currentFilter = 'to_do';
   let allOrders = [];
@@ -324,6 +347,13 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       });
+      if (res.status === 409) {
+        const conflict = await res.json();
+        btn.disabled  = false;
+        btn.innerHTML = original;
+        openConflictModal(orderId, newStatus, conflict);
+        return;
+      }
       if (!res.ok) throw new Error();
       showToast('✅ تم تحديث الطلب وإرسال إشعار للعميل');
       await loadAll(true);
@@ -333,6 +363,67 @@
       showToast('⚠️ حدث خطأ، حاول مجدداً');
     }
   }
+
+  // --- Bot-vs-aunt conflict modal ---------------------------------------
+  // 409 payload from POST /api/orders/{id}/status (no force, bot active):
+  // {conflict, reason, customer_name, phone, last_activity, requested_status, message}
+  let pendingConflict = null;
+
+  function formatLastActivity(iso) {
+    if (!iso) return '';
+    try {
+      return new Date(iso).toLocaleString('ar-EG', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return iso;
+    }
+  }
+
+  function openConflictModal(orderId, newStatus, conflict) {
+    pendingConflict = { orderId, newStatus };
+    const name = conflict.customer_name || conflict.phone || 'الزبونة';
+    // textContent, never innerHTML — customer_name is untrusted operator/customer input.
+    document.getElementById('conflict-title').textContent = `البوت يحكي مع ${name} هلق`;
+    document.getElementById('conflict-body').textContent =
+      'البوت رد على الزبونة قبل شوي. إذا كملتِ التغيير رح يوقف البوت عن هاي المحادثة وتصير إلك.';
+    document.getElementById('conflict-time').textContent = formatLastActivity(conflict.last_activity);
+    const modal = document.getElementById('conflict-modal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+
+  function closeConflictModal() {
+    pendingConflict = null;
+    const modal = document.getElementById('conflict-modal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+
+  async function takeOverConflict() {
+    if (!pendingConflict) return;
+    const { orderId, newStatus } = pendingConflict;
+    closeConflictModal();
+    try {
+      const res = await fetch(`/api/orders/${orderId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus, force: true }),
+      });
+      if (!res.ok) throw new Error();
+      showToast('صار الطلب إلك — البوت وقف عن هاي المحادثة');
+      await loadAll(true);
+    } catch {
+      showToast('⚠️ حدث خطأ، حاول مجدداً');
+    }
+  }
+
+  document.getElementById('conflict-take-over').addEventListener('click', takeOverConflict);
+  document.getElementById('conflict-leave').addEventListener('click', closeConflictModal);
+  document.getElementById('conflict-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'conflict-modal') closeConflictModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeConflictModal();
+  });
 
   function spinRefresh(on) {
     const icon = document.getElementById('refresh-icon');
