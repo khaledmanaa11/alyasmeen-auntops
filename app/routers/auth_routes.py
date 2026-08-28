@@ -227,6 +227,21 @@ async def login_mfa_submit(request: Request, code: str = Form(...)):
 
 
 # ---------------------------------------------------------------------------
+# Account — page (05-09)
+#
+# The `حسابي` nav link into this page is added by plan 05-07 in the next
+# wave; until then it is reachable only by direct URL, which is all this
+# plan's own verification needs.
+# ---------------------------------------------------------------------------
+
+@router.get("/account", response_class=HTMLResponse)
+async def account_page(request: Request, op: Operator = Depends(require_operator_page)):
+    return templates.TemplateResponse(
+        request, "account.html", {"email": op.email, "is_admin": op.is_admin}
+    )
+
+
+# ---------------------------------------------------------------------------
 # Account — TOTP MFA enrollment (REQ-prod-auth-mfa)
 #
 # Assisted, never forced (CONTEXT): the QR/secret are shown only during this

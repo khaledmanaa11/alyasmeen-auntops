@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ALYASMEEN — حسابي</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/js/csrf.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+  <style>
+    * { font-family: 'Cairo', sans-serif; }
+    body { background: #f0f7f4; }
+    .material-symbols-outlined {
+      font-family: 'Material Symbols Outlined';
+      font-weight: normal; font-style: normal; font-size: 24px;
+      line-height: 1; letter-spacing: normal; text-transform: none;
+      display: inline-block; white-space: nowrap; direction: ltr;
+      -webkit-font-smoothing: antialiased;
+    }
+    .nav-glass {
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(0,105,72,0.08);
+      box-shadow: 0 1px 16px rgba(0,105,72,0.06);
+    }
+    .nav-active { background: #006948; color: white; }
+    .nav-link   { color: #6b7280; transition: all 0.15s; }
+    .nav-link:hover { background: #f0f7f4; color: #006948; }
+    .acc-card {
+      background: white;
+      border-radius: 20px;
+      border: 1px solid #e8f3ee;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    }
+    .card-enter { animation: slideUp 0.22s ease forwards; }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .input-field {
+      width: 100%; border: 1px solid #e5e7eb; border-radius: 14px;
+      padding: 10px 14px; font-size: 14px; color: #374151;
+      background: #fafafa; transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .input-field:focus { outline: none; border-color: #006948; box-shadow: 0 0 0 3px rgba(0,105,72,0.1); }
+    .code-input { letter-spacing: 0.5em; text-align: center; direction: ltr; }
+    .btn-primary {
+      background: #006948;
+      transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+    }
+    .btn-primary:hover { background: #004d33; }
+    .btn-primary:active { transform: translateY(1px); }
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+<body class="min-h-screen">
+
+  {% include "_nav.html" %}
+
+  <div x-data="accountApp()" x-init="init()" class="max-w-3xl mx-auto px-5 py-6 flex flex-col gap-6">
+
+    <div>
+      <h1 class="text-2xl font-black text-gray-900">حسابي</h1>
+      <p class="text-xs text-gray-400 mt-0.5">الأمان، الأجهزة، والتحقق بخطوتين</p>
+    </div>
+
+    <!-- Card 1: حسابي -->
+    <div class="acc-card card-enter p-6">
+      <h2 class="text-lg font-black text-gray-900 mb-4">حسابي</h2>
+
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" style="background:#e6f3ee">
+          <span class="material-symbols-outlined" style="color:#006948">person</span>
+        </div>
+        <div>
+          <p class="font-bold text-gray-900 text-sm">{{ email }}</p>
+          {% if is_admin %}
+          <span class="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-lg" style="background:#e6f3ee; color:#006948">مدير</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div x-show="!mfa.loading" x-cloak
+        class="flex items-center justify-between gap-3 rounded-2xl px-4 py-3"
+        :class="mfa.enrolled ? '' : ''"
+        :style="mfa.enrolled ? 'background:#e6f3ee' : 'background:#fff7e6'">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined" style="font-size:20px"
+            :style="mfa.enrolled ? 'color:#006948' : 'color:#b45309'"
+            x-text="mfa.enrolled ? 'verified_user' : 'gpp_maybe'"></span>
+          <span class="text-sm font-bold"
+            :style="mfa.enrolled ? 'color:#006948' : 'color:#b45309'"
+            x-text="mfa.enrolled ? 'التحقق بخطوتين مفعّل ✅' : 'التحقق بخطوتين غير مفعّل'"></span>
+        </div>
+        <button x-show="!mfa.enrolled" x-cloak @click="startEnroll()"
+          class="btn-primary text-white text-xs font-bold px-3 py-2 rounded-xl shadow-sm">
+          فعّلي التحقق بخطوتين
+        </button>
+      </div>
+      <div x-show="mfa.loading" class="text-xs text-gray-400 py-2">جاري التحميل...</div>
+    </div>
+
+    <!-- Card 2: التحقق بخطوتين -->
+    <div class="acc-card card-enter p-6" x-show="enrollStep > 0" x-cloak>
+      <h2 class="text-lg font-black text-gray-900 mb-1">التحقق بخطوتين</h2>
+      <p class="text-xs text-gray-400 mb-4">خالد بيساعدك بهاي الخطوة</p>
+
+      <div x-show="enrollError" x-cloak class="flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl px-3 py-2 mb-4">
+        <span class="material-symbols-outlined text-red-500" style="font-size:18px">error</span>
+        <span class="text-xs text-red-700 font-semibold" x-text="enrollError"></span>
+      </div>
+
+      <!-- Step 1: current password -->
+      <div x-show="enrollStep === 1" x-cloak class="flex flex-col gap-4">
+        <div>
+          <label class="block text-xs font-bold text-gray-700 mb-1.5">كلمة المرور الحالية</label>
+          <input type="password" x-model="enrollPassword" autocomplete="current-password"
+            class="input-field" placeholder="أدخلي كلمة المرور للمتابعة" />
+        </div>
+        <div class="flex gap-2">
+          <button @click="submitPassword()" class="btn-primary text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow-sm">
+            متابعة
+          </button>
+          <button @click="cancelEnroll()" class="text-gray-500 text-sm font-bold px-4 py-2.5 rounded-xl hover:bg-gray-50">
+            إلغاء
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 2: QR + secret + 6-digit code -->
+      <div x-show="enrollStep === 2" x-cloak class="flex flex-col gap-4">
+        <div class="flex flex-col items-center gap-3 py-2">
+          <img :src="qrCode" alt="QR code" class="rounded-xl border border-gray-100" style="width:200px; height:200px" />
+          <p class="text-xs text-gray-500">أو أدخلي هذا الرمز يدوياً</p>
+          <code class="text-xs font-mono bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 select-all" x-text="secret"></code>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-700 mb-1.5">الرمز المكوّن من ٦ أرقام</label>
+          <input type="text" x-model="enrollCode" inputmode="numeric" maxlength="6"
+            class="input-field code-input text-lg font-bold" placeholder="000000" />
+        </div>
+        <div class="flex gap-2">
+          <button @click="submitCode()" class="btn-primary text-white text-sm font-bold px-4 py-2.5 rounded-xl shadow-sm">
+            تأكيد التفعيل
+          </button>
+          <button @click="cancelEnroll()" class="text-gray-500 text-sm font-bold px-4 py-2.5 rounded-xl hover:bg-gray-50">
+            إلغاء
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 3: الأجهزة المتصلة -->
+    <div class="acc-card card-enter p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-black text-gray-900">الأجهزة المتصلة</h2>
+        <span class="text-xs font-bold px-2 py-0.5 rounded-lg" style="background:#e6f3ee; color:#006948" x-text="sessionsList.length"></span>
+      </div>
+
+      <div x-show="sessionsLoading" class="text-xs text-gray-400 py-4 text-center">جاري التحميل...</div>
+
+      <div x-show="!sessionsLoading" x-cloak class="flex flex-col gap-3">
+        <template x-for="s in sessionsList" :key="s.id">
+          <div class="flex items-center justify-between gap-3 border border-gray-100 rounded-2xl px-4 py-3">
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 mb-0.5">
+                <span class="material-symbols-outlined text-gray-400" style="font-size:18px">devices</span>
+                <span class="font-bold text-gray-900 text-sm truncate" x-text="trim(s.user_agent || 'جهاز غير معروف', 40)"></span>
+                <span x-show="s.id === currentSessionId" x-cloak
+                  class="text-[10px] font-bold px-2 py-0.5 rounded-lg" style="background:#e6f3ee; color:#006948">هذا الجهاز</span>
+              </div>
+              <p class="text-[11px] text-gray-400" x-text="'أُنشئت: ' + formatDate(s.created_at)"></p>
+              <p class="text-[11px] text-gray-400" x-text="'آخر استخدام: ' + formatDate(s.last_seen_at)"></p>
+              <p class="text-[11px] text-gray-400" x-text="'تنتهي: ' + formatDate(s.expires_at)"></p>
+            </div>
+            <button x-show="s.id !== currentSessionId" x-cloak @click="revokeSession(s.id)"
+              class="shrink-0 text-xs font-bold px-3 py-2 rounded-xl text-red-600 hover:bg-red-50 border border-red-100">
+              إنهاء
+            </button>
+          </div>
+        </template>
+      </div>
+
+      <button @click="logoutAll()"
+        class="mt-5 w-full py-3 rounded-2xl text-sm font-bold text-red-600 border border-red-200 hover:bg-red-50 transition-colors">
+        تسجيل الخروج من كل الأجهزة
+      </button>
+    </div>
+
+    <!-- Card 4: جلسات المشغّلين (admin only — client-side gated; the API
+         itself also 403s a non-admin, so this is UX polish, not the guard) -->
+    <div class="acc-card card-enter p-6" x-show="isAdmin" x-cloak>
+      <h2 class="text-lg font-black text-gray-900 mb-1">جلسات المشغّلين</h2>
+      <p class="text-xs text-gray-400 mb-4">لو ضاع جهاز أحد المشغّلين، فيك تنهي جلساته من هون</p>
+
+      <div x-show="adminSessionsLoading" class="text-xs text-gray-400 py-4 text-center">جاري التحميل...</div>
+
+      <div x-show="!adminSessionsLoading && Object.keys(adminSessions).length === 0" x-cloak
+        class="text-xs text-gray-400 py-4 text-center">لا توجد جلسات نشطة</div>
+
+      <div x-show="!adminSessionsLoading" x-cloak class="flex flex-col gap-5">
+        <template x-for="opEmail in Object.keys(adminSessions)" :key="opEmail">
+          <div>
+            <p class="text-xs font-bold text-gray-600 mb-2" x-text="opEmail"></p>
+            <div class="flex flex-col gap-2">
+              <template x-for="s in adminSessions[opEmail]" :key="s.id">
+                <div class="flex items-center justify-between gap-3 border border-gray-100 rounded-2xl px-4 py-3">
+                  <div class="min-w-0">
+                    <p class="font-bold text-gray-900 text-sm truncate" x-text="trim(s.user_agent || 'جهاز غير معروف', 40)"></p>
+                    <p class="text-[11px] text-gray-400" x-text="'آخر استخدام: ' + formatDate(s.last_seen_at)"></p>
+                  </div>
+                  <button @click="revokeAdminSession(s.id, opEmail)"
+                    class="shrink-0 text-xs font-bold px-3 py-2 rounded-xl text-red-600 hover:bg-red-50 border border-red-100">
+                    إنهاء
+                  </button>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div x-show="toast.show" x-cloak x-transition
+      class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+      <div class="bg-gray-900 text-white text-sm font-semibold shadow-2xl rounded-2xl px-6 py-3">
+        <span x-text="toast.msg"></span>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+function accountApp() {
+  return {
+    isAdmin: {{ 'true' if is_admin else 'false' }},
+    mfa: { enrolled: false, factors: 0, loading: true },
+
+    enrollStep: 0,      // 0 = hidden, 1 = password step, 2 = QR + code step
+    enrollPassword: '',
+    enrollCode: '',
+    enrollError: '',
+    qrCode: '',
+    secret: '',
+
+    sessionsList: [],
+    currentSessionId: null,
+    sessionsLoading: true,
+
+    adminSessions: {},
+    adminSessionsLoading: true,
+
+    toast: { show: false, msg: '' },
+
+    async init() {
+      await this.loadMfaStatus();
+      await this.loadSessions();
+      if (this.isAdmin) await this.loadAdminSessions();
+    },
+
+    async loadMfaStatus() {
+      const res = await fetch('/account/mfa/status');
+      if (res.ok) {
+        const data = await res.json();
+        this.mfa.enrolled = data.enrolled;
+        this.mfa.factors = data.factors;
+      }
+      this.mfa.loading = false;
+    },
+
+    startEnroll() {
+      this.enrollStep = 1;
+      this.enrollError = '';
+      this.enrollPassword = '';
+    },
+
+    cancelEnroll() {
+      this.enrollStep = 0;
+      this.enrollError = '';
+      this.enrollPassword = '';
+      this.enrollCode = '';
+    },
+
+    async submitPassword() {
+      this.enrollError = '';
+      const body = new URLSearchParams();
+      body.set('password', this.enrollPassword);
+      const res = await fetch('/account/mfa/enroll', { method: 'POST', body });
+      const data = await res.json();
+      if (!res.ok) {
+        this.enrollError = data.detail || 'حدث خطأ، حاولي مرة أخرى';
+        return;
+      }
+      this.qrCode = data.qr_code;
+      this.secret = data.secret;
+      this.enrollStep = 2;
+    },
+
+    async submitCode() {
+      this.enrollError = '';
+      const res = await fetch('/account/mfa/enroll/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: this.enrollCode }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        this.enrollError = data.detail || 'الرمز غير صحيح';
+        return;
+      }
+      this.enrollStep = 0;
+      this.enrollPassword = '';
+      this.enrollCode = '';
+      await this.loadMfaStatus();
+      await this.loadSessions();
+      this.showToast('تم تفعيل التحقق بخطوتين ✅');
+    },
+
+    async loadSessions() {
+      this.sessionsLoading = true;
+      const res = await fetch('/api/account/sessions');
+      if (res.ok) {
+        const data = await res.json();
+        this.sessionsList = data.sessions || [];
+        this.currentSessionId = data.current;
+      }
+      this.sessionsLoading = false;
+    },
+
+    async revokeSession(id) {
+      const res = await fetch(`/api/account/sessions/${id}/revoke`, { method: 'POST' });
+      if (res.ok) {
+        this.sessionsList = this.sessionsList.filter(s => s.id !== id);
+        this.showToast('تم إنهاء الجلسة ✅');
+      }
+    },
+
+    async logoutAll() {
+      if (!confirm('متأكدة إنك بدك تسجلي الخروج من كل الأجهزة؟')) return;
+      const res = await fetch('/api/account/logout-all', { method: 'POST' });
+      if (res.ok) window.location.href = '/login';
+    },
+
+    async loadAdminSessions() {
+      this.adminSessionsLoading = true;
+      const res = await fetch('/api/admin/sessions');
+      if (res.status === 403) {
+        // Backend is the real guard; this just hides the card if the
+        // client-side isAdmin flag was ever wrong.
+        this.isAdmin = false;
+        this.adminSessionsLoading = false;
+        return;
+      }
+      if (res.ok) {
+        const data = await res.json();
+        const grouped = {};
+        (data.sessions || []).forEach(s => {
+          grouped[s.email] = grouped[s.email] || [];
+          grouped[s.email].push(s);
+        });
+        this.adminSessions = grouped;
+      }
+      this.adminSessionsLoading = false;
+    },
+
+    async revokeAdminSession(id, opEmail) {
+      const res = await fetch(`/api/admin/sessions/${id}/revoke`, { method: 'POST' });
+      if (res.ok) {
+        this.adminSessions[opEmail] = (this.adminSessions[opEmail] || []).filter(s => s.id !== id);
+        this.showToast('تم إنهاء الجلسة ✅');
+      }
+    },
+
+    trim(str, n) {
+      if (!str) return '';
+      return str.length > n ? str.slice(0, n) + '…' : str;
+    },
+
+    formatDate(d) {
+      if (!d) return '—';
+      try { return new Date(d).toLocaleString('ar-EG'); } catch (e) { return d; }
+    },
+
+    showToast(msg) {
+      this.toast.msg = msg;
+      this.toast.show = true;
+      setTimeout(() => { this.toast.show = false; }, 2500);
+    }
+  };
+}
+</script>
+</body>
+</html>
