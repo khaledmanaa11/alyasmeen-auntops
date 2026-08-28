@@ -89,10 +89,10 @@ This roadmap transitions ALYASMEEN AuntOps from a development implementation to 
 - [x] 05-03-PLAN.md — Replace the shared-password guard: auth deps, email+password+TOTP login, test seam — completed 2026-08-28
 - [x] 05-04-PLAN.md — CSRF (starlette-csrf) + security headers + shared `_nav.html` partial — completed 2026-08-28
 - [x] 05-05-PLAN.md — Handoff resolve + audit service + operator JSON API + dev handoff seed — completed 2026-08-28
-- [ ] 05-06-PLAN.md — Audited mutations, bot-vs-aunt conflict guard, alerts API rework, failure alerts
-- [ ] 05-07-PLAN.md — Handoffs tab (transcript, return-to-bot, live badge) + audit trail page
-- [ ] 05-08-PLAN.md — Alerts page reworked into Arabic action cards + conflict picker on orders
-- [x] 05-09-PLAN.md — Account page: MFA enrollment, session management, admin session view, password reset
+- [x] 05-06-PLAN.md — Audited mutations, bot-vs-aunt conflict guard, alerts API rework, failure alerts — completed 2026-08-28
+- [x] 05-07-PLAN.md — Handoffs tab (transcript, return-to-bot, live badge) + audit trail page — completed 2026-08-28
+- [x] 05-08-PLAN.md — Alerts page reworked into Arabic action cards + conflict picker on orders — completed 2026-08-28
+- [x] 05-09-PLAN.md — Account page: MFA enrollment, session management, admin session view, password reset — completed 2026-08-28
 - [ ] 05-10-PLAN.md — Live rollout + assisted TOTP enrollment + operator walkthrough (checkpoints)
 
 ### Phase 6: Production Go-Live (M6)
