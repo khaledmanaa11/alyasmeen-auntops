@@ -19,6 +19,7 @@ docstring; Pitfall 1 in `.planning/phases/03-agent-dependability-safety/03-RESEA
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
@@ -246,3 +247,90 @@ def validate(tool_name: str, args: dict | None, context: dict) -> PolicyDecision
     # 4. Per-tool argument rules.
     validator = _ARG_VALIDATORS[tool_name]
     return validator(args, context)
+
+
+# ---------------------------------------------------------------------------
+# Deterministic escalation detection (Arabic + English) — REQ-prod-handoff
+# ---------------------------------------------------------------------------
+#
+# Plan 03-04 maps any non-None result of detect_handoff_keyword() to
+# handoff.trigger(phone, "keyword_request", ...).
+#
+# Multi-word phrases are matched as substrings; single tokens are matched
+# against whitespace/punctuation-delimited words ONLY. This split matters:
+# a bare "بشر" is a substring of "بشرتي" ("my skin"), which is one of the
+# most common things a customer says to a skincare bot
+# (tests/unit/test_processor.py drives "بشرتي جافة كثير" through the
+# pipeline) — a naive substring match on a short token would escalate a
+# large fraction of normal conversations. "حنان" (the aunt's name) is the
+# same story: it is only matched inside a phrase ("مع حنان", "احكي مع"),
+# never as a bare word — "شكراً حنان" is a thank-you, not an escalation.
+#
+# Scope decision: opt_out_of_messages (dataset id 54) is deliberately OUT
+# OF SCOPE for this phase — there is no consent/suppression mechanism
+# anywhere in this codebase, and routing a do-not-contact request into the
+# aunt's manual handoff queue would mis-handle a compliance request rather
+# than honour it. Tracked as follow-up work outside Phase 3.
+
+HANDOFF_PHRASES: dict[str, tuple[str, ...]] = {
+    "explicit_human": (
+        "احكي مع", "أحكي مع", "بدي حدا", "بدي أحكي", "بدي احكي",
+        "مع حنان", "مش بوت", "مو بوت", "مش روبوت", "شخص حقيقي",
+        "talk to a human", "talk to someone", "speak to a human",
+        "real person", "customer service", "customer support",
+    ),
+    "complaint": (
+        "بدي اشتكي", "بدي أشتكي",
+    ),
+    "refund": (
+        "بدي مصاري", "رجعولي", "ردولي", "money back", "my money",
+    ),
+    "damaged": (),
+    "privacy": (
+        "من وين رقمي", "مين انتو", "مين أنتو", "how did you get my number",
+    ),
+}
+
+HANDOFF_WORDS: dict[str, tuple[str, ...]] = {
+    "explicit_human": (
+        "موظف", "موظفة", "انسان", "إنسان", "human", "agent", "operator",
+    ),
+    "complaint": (
+        "شكوى", "شكوي", "اشتكي", "complaint", "complain",
+    ),
+    "refund": (
+        "استرجاع", "إسترجاع", "ارجاع", "إرجاع", "refund", "chargeback", "فلوسي",
+    ),
+    "damaged": (
+        "مكسور", "مكسورة", "تالف", "تالفة", "broken", "damaged", "defective",
+    ),
+    "privacy": (
+        "خصوصية", "privacy",
+    ),
+}
+
+# Fixed iteration order so the return value is deterministic when a message
+# matches two groups.
+_GROUP_ORDER: tuple[str, ...] = ("explicit_human", "refund", "damaged", "complaint", "privacy")
+
+# Whitespace + common punctuation (including the Arabic comma/question mark)
+# used to build the whole-word token set for HANDOFF_WORDS matching.
+_WORD_SPLIT_RE = re.compile(r"[\s،,.!؟?:;()\"'`]+")
+
+
+def detect_handoff_keyword(text: str) -> str | None:
+    """Return a handoff reason group name, or None. Pure string matching — no AI."""
+    if not text:
+        return None
+
+    lowered = text.lower()
+    words = {w for w in _WORD_SPLIT_RE.split(lowered) if w}
+
+    for group in _GROUP_ORDER:
+        for phrase in HANDOFF_PHRASES.get(group, ()):
+            if phrase in lowered:
+                return group
+        if words & set(HANDOFF_WORDS.get(group, ())):
+            return group
+
+    return None
