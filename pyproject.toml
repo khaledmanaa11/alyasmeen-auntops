@@ -49,9 +49,13 @@ fail_under = 85
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 norecursedirs = ["scripts", ".venv", ".git", "__pycache__"]
-addopts = '-m "not integration"'
+addopts = '-m "not integration and not eval"'
 markers = [
     "integration: marks tests that hit real external services (use with caution)",
+    # Separate from `integration` on purpose: `integration` is currently registered but
+    # unused by any test in this repo, so `pytest -m integration` must not accidentally
+    # start spending real Claude API money on the agent eval too. See tests/eval/.
+    "eval: marks the real-Claude-API agent eval (tests/eval/) — costs money, requires RUN_AGENT_EVAL=1.",
 ]
 # Coverage gate available but not enabled today: `pytest --cov=app --cov-report=term-missing`
 # uses [tool.coverage.report] fail_under = 85 below once opted into via --cov.

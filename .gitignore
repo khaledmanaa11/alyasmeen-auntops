@@ -52,3 +52,6 @@ graphify-out/
 # GSD generated output
 .planning/graphs/
 backup_*.sql
+
+# Agent eval — machine-readable run output, never committed
+tests/eval/.last_run.json
