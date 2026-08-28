@@ -6,13 +6,13 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from datetime import date
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from app.db.database import execute, execute_returning, query
 from app.services.config import Config
+from app.services.processor import queue_text, queue_pdf_invoice
 
 logger = logging.getLogger(__name__)
 
@@ -108,32 +108,26 @@ async def api_update_status(order_id: int, request: Request):
     phone = order["phone"]
     fulfillment = order.get("fulfillment") or "pickup"
 
-    # Choose WhatsApp sender
-    if Config.USE_MOCK_WHATSAPP:
-        from app.services.whatsapp_dev import send_text
-    else:
-        from app.services.whatsapp_meta import send_text
-
+    # Every customer-facing send is enqueued into outbox_jobs instead of being
+    # sent inline in this request handler. queue_text/queue_pdf_invoice are
+    # just DB inserts (already covered by database.py's own retry/circuit-
+    # breaker), so a failure here is a real DB problem that should surface as
+    # a 500 to the operator, not vanish silently — the try/except swallow
+    # that used to wrap each send is deliberately not carried over.
     if new_status == "ready":
-        try:
-            msg = (
-                f"🚚 طلبك رقم {order_id} في الطريق إليك!"
-                if fulfillment == "delivery"
-                else f"✅ طلبك رقم {order_id} جاهز للاستلام!"
-            )
-            send_text(phone, msg)
-        except Exception:
-            logger.warning("send_text ready failed order_id=%s", order_id)
+        msg = (
+            f"🚚 طلبك رقم {order_id} في الطريق إليك!"
+            if fulfillment == "delivery"
+            else f"✅ طلبك رقم {order_id} جاهز للاستلام!"
+        )
+        queue_text(phone, msg)
         execute(
             "UPDATE orders SET status = 'ready', updated_at = now() WHERE id = %s",
             (order_id,),
         )
 
     elif new_status == "delivered":
-        try:
-            send_text(phone, f"📦 تم توصيل طلبك رقم {order_id}. نتمنى تكون راضي! 💚")
-        except Exception:
-            logger.warning("send_text delivered failed order_id=%s", order_id)
+        queue_text(phone, f"📦 تم توصيل طلبك رقم {order_id}. نتمنى تكون راضي! 💚")
         try:
             from app.services.followup import record_delivery
             record_delivery(phone, str(order_id))
@@ -145,36 +139,8 @@ async def api_update_status(order_id: int, request: Request):
         )
 
     elif new_status == "done":
-        try:
-            send_text(phone, f"✅ شكراً! استلمت طلبك رقم {order_id}. نتمنى تكون راضي 💚")
-        except Exception:
-            logger.warning("send_text done failed order_id=%s", order_id)
-        try:
-            lines = query(
-                "SELECT product_name, qty, unit_price FROM order_lines WHERE order_id = %s",
-                (order_id,),
-            )
-            from app.services.pdf_invoice import generate_invoice_pdf
-            if Config.USE_MOCK_WHATSAPP:
-                from app.services.whatsapp_dev import send_document_bytes
-            else:
-                from app.services.whatsapp_meta import send_document_bytes
-            total = sum(float(ln["unit_price"]) * int(ln["qty"]) for ln in lines)
-            pdf_bytes = generate_invoice_pdf(
-                order_id=order_id,
-                customer_name=order["customer_name"],
-                order_date=date.today().strftime("%d/%m/%Y"),
-                lines=lines,
-                total=total,
-            )
-            send_document_bytes(
-                phone,
-                pdf_bytes,
-                filename=f"فاتورة-{order_id}.pdf",
-                caption=f"🧾 فاتورتك لطلب رقم {order_id}",
-            )
-        except Exception:
-            logger.warning("pdf_invoice failed order_id=%s", order_id)
+        queue_text(phone, f"✅ شكراً! استلمت طلبك رقم {order_id}. نتمنى تكون راضي 💚")
+        queue_pdf_invoice(phone, order_id)
         execute(
             "UPDATE orders SET status = 'done', updated_at = now() WHERE id = %s",
             (order_id,),
