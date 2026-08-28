@@ -25,14 +25,12 @@ def start_worker():
 
     # Import jobs
     from app.services.followup import send_followups
-    from app.services.monthly_report import send_monthly_report    
-    from app.services.retry_queue import process_retries
+    from app.services.monthly_report import send_monthly_report
     from app.services.processor import process_webhook_events, process_outbox_jobs
 
     # Scheduled Jobs
     scheduler.add_job(send_followups, "interval", hours=6, id="followup", replace_existing=True)
     scheduler.add_job(send_monthly_report, "cron", day=1, hour=8, minute=0, id="monthly_report", replace_existing=True)
-    scheduler.add_job(process_retries, "interval", minutes=15, id="retry_queue", replace_existing=True)
 
     # Polling Jobs
     scheduler.add_job(process_webhook_events, "interval", seconds=3, id="webhook_processor", replace_existing=True)
@@ -40,7 +38,7 @@ def start_worker():
 
     logger.info(
         "Worker scheduler initialized",
-        jobs=["followup", "monthly_report", "retry_queue", "webhook_processor", "outbox_processor"],        
+        jobs=["followup", "monthly_report", "webhook_processor", "outbox_processor"],
         interval_webhook="3s",
         interval_outbox="2s"
     )

@@ -121,8 +121,6 @@ auntops_fixed/
 │   │   ├── followup.py          # Post-delivery follow-up (every 6 hours)
 │   │   ├── monthly_report.py    # Monthly summary sent to aunt on 1st of each month
 │   │   ├── pdf_invoice.py       # Generates the PDF invoice sent to the customer on DONE
-│   │   ├── retry_queue.py       # Failed WhatsApp/invoice calls — retries every 15 min
-│   │   ├── retry_actions.py     # Re-sends a queued WhatsApp message or PDF invoice (action dispatch)
 │   │   ├── whatsapp_meta.py     # Real WhatsApp sender (Meta Cloud API)
 │   │   └── whatsapp_dev.py      # Mock WhatsApp sender (prints to console)
 │   ├── ai/
