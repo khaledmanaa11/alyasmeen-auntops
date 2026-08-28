@@ -7,7 +7,7 @@ This roadmap transitions ALYASMEEN AuntOps from a development implementation to 
 - [x] **Phase 1: Database Foundation (M1)** - Establish a reproducible and recoverable data foundation.
 - [x] **Phase 2: Application Hardening (M2)** - Secure and durable application boundary with separate web/worker roles.
 - [ ] **Phase 3: Agent Dependability & Safety (M3)** - Safe, autonomous customer service with deterministic policy and human fallbacks.
-- [ ] **Phase 4: Reliability & Operations Completion (M4)** - Finish the reliability story: no dead code claiming to run, live-DB verification, operator-visible failures.
+- [x] **Phase 4: Reliability & Operations Completion (M4)** - Finish the reliability story: no dead code claiming to run, live-DB verification, operator-visible failures.
 - [ ] **Phase 5: Operator Security & UX (M5)** - Secure and operator-friendly dashboard with MFA and handoff management.
 - [ ] **Phase 6: Production Go-Live (M6)** - Integrated system validation, pilot operation, and final cutover.
 
@@ -65,14 +65,14 @@ This roadmap transitions ALYASMEEN AuntOps from a development implementation to 
   3. The worker's APScheduler job store is persistent in production (`DATABASE_URL` set on Railway) and survives a worker restart, verified.
   4. Dead-lettered `webhook_events` rows and `status='failed'` outbox jobs are visible on the dashboard with a one-click retry, so a stuck message is an operator decision, not a silent loss.
   5. The backup restore drill in `docs/BACKUP_DRILL.md` has been executed once for real and its Drill Log records a successful result.
-**Plans**: 7 plans in 4 waves
-- [ ] 04-01-PLAN.md — Outbox migration: followup/monthly_report/ui_api enqueue + pdf_invoice job kind
-- [ ] 04-02-PLAN.md — Gatekeeper: synchronous rewrite + wiring into Claude/Meta calls
+**Plans**: 7 plans in 4 waves — ALL COMPLETE
+- [x] 04-01-PLAN.md — Outbox migration: followup/monthly_report/ui_api enqueue + pdf_invoice job kind
+- [x] 04-02-PLAN.md — Gatekeeper: synchronous rewrite + wiring into Claude/Meta calls
 - [x] 04-03-PLAN.md — Scheduler persistence proof (SQLAlchemyJobStore) + DATABASE_URL docs
 - [x] 04-04-PLAN.md — Retire retry_queue.py/retry_actions.py + retirement migration
-- [ ] 04-05-PLAN.md — Dead-letter dashboard: /api/alerts backend
-- [ ] 04-06-PLAN.md — Dead-letter dashboard: Alerts UI tab
-- [ ] 04-07-PLAN.md — Live rollout: DATABASE_URL persistence, service_role switch, migrations, backup drill (checkpoints)
+- [x] 04-05-PLAN.md — Dead-letter dashboard: /api/alerts backend
+- [x] 04-06-PLAN.md — Dead-letter dashboard: Alerts UI tab
+- [x] 04-07-PLAN.md — Live rollout: DATABASE_URL persistence, service_role switch, migrations, backup drill (checkpoints) — completed 2026-08-28
 
 ### Phase 5: Operator Security & UX (M5)
 **Goal**: Secure and operator-friendly dashboard with MFA and handoff management.
@@ -103,6 +103,6 @@ This roadmap transitions ALYASMEEN AuntOps from a development implementation to 
 | 1. Database Foundation | 3/3 | ✅ Completed | 2026-06-14 |
 | 2. Application Hardening | 2/2 | ✅ Completed | 2026-06-14 |
 | 3. Agent Dependability | 0/3 | 🏗️ In Progress | - |
-| 4. Reliability & Ops Completion | 4/7 | 🏗️ In Progress | - |
+| 4. Reliability & Ops Completion | 7/7 | ✅ Completed | 2026-08-28 |
 | 5. Operator Security | 0/1 | Not started | - |
 | 6. Production Go-Live | 0/1 | Not started | - |
