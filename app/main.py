@@ -22,6 +22,7 @@ except Exception:
     pass
 
 from app.db.database import ping
+from app.routers.auth_routes import router as auth_router  # noqa: E402
 from app.routers.broadcast import router as broadcast_router  # noqa: E402
 from app.routers.ui import router as ui_router  # noqa: E402
 from app.routers.ui_api import router as ui_api_router  # noqa: E402
@@ -47,6 +48,7 @@ if _static_dir.is_dir():
     app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 
 app.include_router(whatsapp_router)
+app.include_router(auth_router)
 app.include_router(ui_router)
 app.include_router(ui_api_router)
 app.include_router(broadcast_router)
