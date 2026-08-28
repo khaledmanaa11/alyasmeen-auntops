@@ -25,8 +25,10 @@ To ensure we have a portable backup outside of Meta/Supabase, run the following 
 Pooler** connection string (Dashboard -> Settings -> Database -> Connection string ->
 Session pooler):
 ```bash
-# Export the entire database schema and data (plain SQL, restorable via psql)
-pg_dump "<live-session-pooler-url>" --no-owner --no-privileges -f backup_$(date +%F).sql
+# Export the app's schema and data (plain SQL, restorable via psql).
+# -n public is REQUIRED: without it the dump includes Supabase's internal
+# auth/storage schemas, which collide with the target project's own on restore.
+pg_dump "<live-session-pooler-url>" -n public --no-owner --no-privileges -f backup_$(date +%F).sql
 ```
 Store these files in a secure, encrypted cloud bucket.
 
@@ -45,8 +47,16 @@ npx supabase link --project-ref ppwcfmuetgczclmnzvqr
 # Phase 4's "all migrations applied to the live project" criterion gets satisfied
 npx supabase db push --linked
 
-# Dump schema+data with native pg_dump (Session Pooler URL of the LIVE project)
-pg_dump "<live-session-pooler-url>" --no-owner --no-privileges -f backup_$(date +%F).sql
+# Dump schema+data with native pg_dump (Session Pooler URL of the LIVE project).
+# -n public keeps Supabase's internal auth/storage schemas out of the dump.
+pg_dump "<live-session-pooler-url>" -n public --no-owner --no-privileges -f backup_$(date +%F).sql
+```
+
+### Step 2 (revised): Restore into a throwaway project
+Because the dump above is a FULL public-schema dump (schema + data), do NOT run
+`db push` on the throwaway project first — the dump recreates the schema itself:
+```bash
+psql "<new-project-session-pooler-url>" -f backup_YYYY-MM-DD.sql
 ```
 
 ### Step 2: Restore into a throwaway project and apply the backup

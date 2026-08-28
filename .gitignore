@@ -51,3 +51,4 @@ graphify-out/
 
 # GSD generated output
 .planning/graphs/
+backup_*.sql
