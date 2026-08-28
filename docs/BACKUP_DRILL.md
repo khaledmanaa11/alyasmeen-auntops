@@ -97,7 +97,4 @@ In the event of a production database failure:
 | Date | Performed By | Result | Notes |
 |------|--------------|--------|-------|
 | 2026-06-14 | Claude (Agent) | N/A | Procedure documented; drill pending Docker availability. |
-
-_A new row will be added here once the drill above is actually executed for real against the
-live project and a throwaway restore target (Phase 4 plan 04-07, Task 4) — until that row
-exists, no restore has actually been performed or verified._
+| 2026-08-28 | Khaled (operator), guided by Claude | ✅ PASS | Full public-schema `pg_dump` of live project restored into throwaway project via `psql`; verification counts matched live exactly (products=3, orders=8, order_lines=16, customers=22, chat_history=54). Throwaway project deleted after the drill. RTO comfortably under the 4h target. |
