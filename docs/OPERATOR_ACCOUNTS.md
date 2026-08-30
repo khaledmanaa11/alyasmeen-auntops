@@ -12,12 +12,23 @@ and `DASHBOARD_BASE_URL` are set in the local `.env`; `DASHBOARD_PASSWORD` is de
 changed at first sign-in. `ADMIN_PHONE` (972545356863) and `AUNT_PHONE` (972548138114) are
 set in the local `.env`.
 
+**Update (2026-08-30, deployed):** Phase 5 is LIVE on Railway
+(`web-production-2ee0f.up.railway.app`) — all five plan 05-10 live checks pass (health+DB,
+/orders 303, CSP, HSTS, /api 401) and an invalid-credentials probe returns the proper Arabic
+401, proving the Supabase Auth path works in production. Found and fixed during rollout:
+(1) a Python 3.11 SyntaxError (backslash in f-string, `ui_api._wa_link`) that crashed the
+web service — Railway builds on 3.11, dev runs 3.13; (2) `SUPABASE_ANON_KEY` missing from
+BOTH Railway services; (3) `AUNT_PHONE` missing from the worker service — the aunt's
+order/failure alerts had been silently disabled in production; all vars set via the Railway
+MCP and both services redeployed healthy. Domain note: `alyasmeen.org` is registered until
+2027-03 but on registrar `clientHold` since 2026-08-12 (Namecheap WHOIS email verification
+never completed) — verify the registrant email at Namecheap, then re-add the custom domain
+in Railway → Networking.
+
 **Still pending (human, plan 05-10):** the aunt's account (waiting on her email address),
-the three env vars (`SUPABASE_ANON_KEY`, `ADMIN_PHONE`, `DASHBOARD_BASE_URL`) on BOTH
-Railway services, the deploy (push only after the Railway vars are confirmed — the new code
-needs the anon key to serve logins), `DASHBOARD_PASSWORD` deletion on Railway (only AFTER
-the new build is live — the currently-deployed old code still authenticates with it), and
-the assisted TOTP enrollment below.
+Khaled's first real production login, `DASHBOARD_PASSWORD` deletion from both Railway
+services (safe once Khaled's login is confirmed — the new build never reads it; kept
+briefly as a rollback path), and the assisted TOTP enrollment below.
 
 ## The two-account model
 
