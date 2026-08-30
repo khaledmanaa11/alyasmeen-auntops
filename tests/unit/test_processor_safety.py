@@ -106,7 +106,13 @@ class TestPausedGate:
 # ---------------------------------------------------------------------------
 
 class TestKeywordHandoff:
-    def test_arabic_request_for_human_opens_handoff(self, sent_messages, fake_db, flush_outbox):
+    def test_arabic_request_for_human_opens_handoff(
+        self, sent_messages, fake_db, flush_outbox, monkeypatch
+    ):
+        # Pin the operator phones like test_processor.py/test_handoff_trigger.py
+        # do — the suite must not depend on what the operator's real .env holds.
+        monkeypatch.setattr(processor.Config, "AUNT_PHONE", "972590000001")
+        monkeypatch.setattr(processor.Config, "ADMIN_PHONE", "972590000002")
         phone = _phone()
         processor.handle_message(phone, "بدي احكي مع حنان مش بوت", "Test")
         flush_outbox()
@@ -116,8 +122,12 @@ class TestKeywordHandoff:
         assert row["reason"] == "keyword_request"
         assert fake_db.sessions[phone]["paused"] is True
 
-        assert [m["to"] for m in sent_messages] == [phone]
+        # Exactly two sends: the customer's single deterministic ack, and the
+        # aunt's handoff alert (queued by handoff._notify_aunt via the outbox).
+        assert sorted(m["to"] for m in sent_messages) == sorted([phone, "972590000001"])
         assert _last_text(sent_messages, phone) == processor.HANDOFF_ACK_REPLY
+        aunt_msg = _last_text(sent_messages, "972590000001")
+        assert "محادثات" in aunt_msg and phone in aunt_msg
 
     def test_english_request_for_human_opens_handoff(self, sent_messages, fake_db, flush_outbox):
         phone = _phone()
