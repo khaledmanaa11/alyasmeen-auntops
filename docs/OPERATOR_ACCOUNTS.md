@@ -7,10 +7,17 @@ and the `/account` enrollment/session page (05-09). The `operator_auth` migratio
 the live Supabase project** and verified reachable (three zero counts). `SUPABASE_ANON_KEY`
 and `DASHBOARD_BASE_URL` are set in the local `.env`; `DASHBOARD_PASSWORD` is deleted locally.
 
-**Still pending (human, plan 05-10):** the two real operator accounts (emails must come from
-Khaled), `ADMIN_PHONE` locally, the three env vars + `DASHBOARD_PASSWORD` deletion on BOTH
-Railway services, the deploy (do NOT push before the accounts exist — the new auth with zero
-accounts locks the dashboard out), and the assisted TOTP enrollment below.
+**Update (2026-08-30):** the **admin account is CREATED live** — k***3@gmail.com, role
+`admin`, zero MFA factors yet; the temporary password was delivered out of band and must be
+changed at first sign-in. `ADMIN_PHONE` (972545356863) and `AUNT_PHONE` (972548138114) are
+set in the local `.env`.
+
+**Still pending (human, plan 05-10):** the aunt's account (waiting on her email address),
+the three env vars (`SUPABASE_ANON_KEY`, `ADMIN_PHONE`, `DASHBOARD_BASE_URL`) on BOTH
+Railway services, the deploy (push only after the Railway vars are confirmed — the new code
+needs the anon key to serve logins), `DASHBOARD_PASSWORD` deletion on Railway (only AFTER
+the new build is live — the currently-deployed old code still authenticates with it), and
+the assisted TOTP enrollment below.
 
 ## The two-account model
 
