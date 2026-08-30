@@ -396,7 +396,10 @@ _CUSTOMER_FACING_ALERT_KINDS = {"whatsapp_message", "whatsapp_buttons"}
 
 
 def _wa_link(phone: str) -> str:
-    return f"https://wa.me/{re.sub(r'\\D', '', phone or '')}"
+    # Backslash must stay OUT of the f-string expression — Railway builds on
+    # Python 3.11, where that is still a SyntaxError (legal only since 3.12).
+    digits = re.sub(r"\D", "", phone or "")
+    return f"https://wa.me/{digits}"
 
 
 def _frame_alert(row: dict, source: str) -> dict:
